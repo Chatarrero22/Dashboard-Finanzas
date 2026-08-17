@@ -1,0 +1,10 @@
+node_modules
+client/node_modules
+client/dist
+data
+logs
+*.log
+*.bat
+*.vbs
+*.command
+.env

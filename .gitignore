@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+client/node_modules/
+
+# Compilado (Render lo genera en el build)
+client/dist/
+
+# ¡NUNCA subir estos!
+.env
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs y temporales
+logs/
+*.log
+server/uploads/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Copias congeladas del dashboard: tienen montos reales adentro.
+# Se generan con los scripts de herramientas/ cuando se necesitan.
+dashboard-para-rediseno.html
+escritorio-original.html
