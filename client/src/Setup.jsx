@@ -35,11 +35,10 @@ export default function Setup({ onReady }) {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
-        <div className="login-logo" aria-hidden="true">👋</div>
-        <h1>Bienvenido</h1>
+        <div className="login-logo" aria-hidden="true">🥭</div>
+        <h1>Hola, soy Manguito</h1>
         <p className="login-sub">
-          Es la primera vez que se abre esta app. Creá tu cuenta y quedás como
-          administrador.
+          Es la primera vez que se abre. Creá tu cuenta y quedás como administrador.
         </p>
 
         <label className="field">

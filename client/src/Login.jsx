@@ -29,8 +29,8 @@ export default function Login({ onLogged }) {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
-        <div className="login-logo" aria-hidden="true">💸</div>
-        <h1>Finanzas</h1>
+        <div className="login-logo" aria-hidden="true">🥭</div>
+        <h1>Manguito</h1>
         <p className="login-sub">Entrá para ver tus gastos</p>
 
         <label className="field">

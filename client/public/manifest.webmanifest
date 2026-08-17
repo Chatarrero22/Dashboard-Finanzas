@@ -1,10 +1,10 @@
 {
-  "name": "Finanzas",
-  "short_name": "Finanzas",
+  "name": "Manguito",
+  "short_name": "Manguito",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fcfcfb",
-  "theme_color": "#fcfcfb",
+  "theme_color": "#f5a623",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

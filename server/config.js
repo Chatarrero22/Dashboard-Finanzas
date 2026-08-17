@@ -11,6 +11,8 @@ function getConfig() {
   var dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 
   return {
+    // Como se llama la app y el bot. Se puede cambiar sin tocar el codigo.
+    appName: process.env.APP_NAME || 'Manguito',
     port: Number(process.env.PORT) || 3001,
     dbPath: path.join(dataDir, process.env.DB_FILE || 'finanzas.db'),
     botToken: process.env.TELEGRAM_BOT_TOKEN || '',
