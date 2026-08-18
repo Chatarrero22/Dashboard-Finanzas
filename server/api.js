@@ -11,6 +11,7 @@ var cat = require('./categorizer.js');
 var parsers = require('./parsers.js');
 var prices = require('./prices.js');
 var fijos = require('./fijos.js');
+var arbol = require('./arbol.js');
 
 var router = express.Router();
 
@@ -194,7 +195,8 @@ router.post('/transactions', async function (req, res) {
     }
 
     var ids = insertTransactions(req.user.id, categorized, req.body.platform || 'Web');
-    res.json({ success: true, count: categorized.length, ids: ids, transactions: categorized });
+    var premio = arbol.alAnotarMovimiento(req.user.id, {});
+    res.json({ success: true, count: categorized.length, ids: ids, transactions: categorized, premio: premio });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -417,6 +419,9 @@ router.post('/goals/:id/add', function (req, res) {
 
   var updated = db.prepare('SELECT * FROM goals WHERE id = ?').get(req.params.id);
   updated.justCompleted = done === 1 && goal.done === 0;
+  if ((Number(req.body.amount) || 0) > 0) {
+    updated.premio = arbol.alSumarAMeta(req.user.id, updated.justCompleted);
+  }
   res.json(updated);
 });
 
@@ -468,6 +473,7 @@ router.post('/portfolio', function (req, res) {
     req.user.id, String(b.symbol).toUpperCase(), b.name || b.symbol, b.asset_type || 'crypto',
     Number(b.quantity) || 0, Number(b.avg_price) || 0
   );
+  arbol.alAgregarInversion(req.user.id);
   res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(info.lastInsertRowid));
 });
 
@@ -532,6 +538,83 @@ router.get('/fixed/upcoming', function (req, res) {
 
 router.post('/fixed/run', function (req, res) {
   res.json({ cargadas: fijos.cargarVencidas(req.user.id) });
+});
+
+/* --------------------------------------------------------------- el arbol */
+
+router.get('/progreso', function (req, res) {
+  res.json(arbol.progreso(req.user.id));
+});
+
+/* ------------------------------------------------ presupuestos sugeridos */
+
+/**
+ * Mira lo que gastaste en los ultimos meses y propone un tope por categoria.
+ * No guarda nada: devuelve la propuesta para que la persona decida.
+ */
+router.get('/budgets/suggest', function (req, res) {
+  var uid = req.user.id;
+  var desde = new Date();
+  desde.setMonth(desde.getMonth() - 3);
+  var desdeMes = desde.toISOString().slice(0, 7);
+  var mesActualStr = mesActual();
+
+  var filas = db.prepare(
+    'SELECT category, substr(date,1,7) mes, SUM(ABS(amount)) total FROM transactions' +
+    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) >= ? AND substr(date,1,7) < ?' +
+    ' GROUP BY category, mes'
+  ).all(uid, desdeMes, mesActualStr);
+
+  if (filas.length === 0) {
+    return res.json({
+      hayHistorial: false,
+      mensaje: 'Todavia no hay meses cerrados para calcular. Cargá un mes completo y vuelvo con una propuesta.',
+      propuestas: []
+    });
+  }
+
+  var porCategoria = {};
+  filas.forEach(function (f) {
+    if (!porCategoria[f.category]) porCategoria[f.category] = [];
+    porCategoria[f.category].push(f.total);
+  });
+
+  var yaTiene = {};
+  db.prepare('SELECT category FROM budgets WHERE user_id = ?').all(uid)
+    .forEach(function (b) { yaTiene[b.category] = true; });
+
+  var propuestas = Object.keys(porCategoria).map(function (cat) {
+    var meses = porCategoria[cat];
+    var promedio = meses.reduce(function (a, b) { return a + b; }, 0) / meses.length;
+    // Redondeamos para arriba al millar: un tope con centavos no lo respeta nadie
+    var sugerido = Math.ceil((promedio * 1.05) / 1000) * 1000;
+    return {
+      category: cat,
+      promedio: Math.round(promedio),
+      meses: meses.length,
+      sugerido: sugerido,
+      yaTiene: Boolean(yaTiene[cat])
+    };
+  }).sort(function (a, b) { return b.promedio - a.promedio; });
+
+  res.json({ hayHistorial: true, propuestas: propuestas });
+});
+
+/** Guarda de una todas las propuestas que le manden. */
+router.post('/budgets/suggest/apply', function (req, res) {
+  var lista = req.body.propuestas || [];
+  var ins = db.prepare(
+    'INSERT INTO budgets (user_id, category, monthly_limit) VALUES (?, ?, ?)' +
+    ' ON CONFLICT(user_id, category) DO UPDATE SET monthly_limit = excluded.monthly_limit'
+  );
+  var run = db.transaction(function () {
+    lista.forEach(function (p) {
+      if (p && p.category && p.sugerido) ins.run(req.user.id, p.category, Number(p.sugerido));
+    });
+  });
+  run();
+  arbol.revisarLogros(req.user.id);
+  res.json({ success: true, guardados: lista.length, budgets: estadoPresupuestos(req.user.id, mesActual()) });
 });
 
 /* ------------------------------------------------- respaldo: exportar/importar */

@@ -107,6 +107,36 @@ function initDB() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Progreso de cada persona: experiencia, racha y arbol.
+    CREATE TABLE IF NOT EXISTS user_stats (
+      user_id INTEGER PRIMARY KEY,
+      xp INTEGER DEFAULT 0,
+      streak INTEGER DEFAULT 0,
+      best_streak INTEGER DEFAULT 0,
+      last_active TEXT DEFAULT '',
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Logros desbloqueados (uno por persona y codigo).
+    CREATE TABLE IF NOT EXISTS achievements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      code TEXT NOT NULL,
+      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, code),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    -- Avisos ya enviados, para no repetir el mismo aviso dos veces.
+    CREATE TABLE IF NOT EXISTS alerts_sent (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      ref TEXT NOT NULL,
+      sent_on TEXT NOT NULL,
+      UNIQUE (user_id, kind, ref, sent_on)
+    );
+
     CREATE TABLE IF NOT EXISTS portfolio_assets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL DEFAULT 1,

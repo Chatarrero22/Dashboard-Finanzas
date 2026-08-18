@@ -12,6 +12,7 @@ var auth = require('./auth.js');
 var cat = require('./categorizer.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
+var arbol = require('./arbol.js');
 
 var PLATFORM = 'Telegram';
 
@@ -39,6 +40,72 @@ function saveTransaction(userId, tx) {
     return info.lastInsertRowid;
   });
   return run(tx);
+}
+
+/**
+ * ¿Me está pidiendo que borre algo, en vez de anotando un gasto?
+ * Sin esto, "borrá las últimas 3" se guardaba como un gasto de $3 — el numerito
+ * alcanzaba para que el parser lo tomara como monto.
+ *
+ * Devuelve { cantidad } o null.
+ */
+function intencionDeBorrar(text) {
+  var t = String(text || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  var verbo = /\b(borr|elimin|saca|sace|quita|quite|deshac|cancel|anul)/.test(t);
+  if (!verbo) return null;
+
+  // Tiene que sonar a movimientos, no a "borrá la meta" u otra cosa
+  var objeto = /(ultim|transacc|movimient|gasto|cargu|anot|registr)/.test(t);
+  if (!objeto) return null;
+
+  var m = t.match(/(\d+)/);
+  var cantidad = m ? Math.min(parseInt(m[1], 10), 20) : 1;
+  if (/\b(ultimo|ultima)\b/.test(t) && !m) cantidad = 1;
+
+  return { cantidad: cantidad || 1 };
+}
+
+/**
+ * "meta nueva: 300 lucas para las vacaciones", "quiero juntar 2 palos para el auto".
+ * Devuelve { nombre, objetivo } o null.
+ */
+function intencionDeMeta(text) {
+  var original = String(text || '').trim();
+  var t = original.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  var esMeta = /\b(meta nueva|nueva meta|meta:|quiero juntar|juntar para|ahorrar para|quiero ahorrar)\b/.test(t);
+  if (!esMeta) return null;
+
+  var monto = plata.extraerMonto(original);
+  if (!monto || !monto.monto) return null;
+
+  // El nombre es lo que viene después de "para", si no lo que sobró
+  var resto = monto.resto || '';
+  // Ojo con el orden de los artículos: "la" antes que "las" partía mal
+  // "para las vacaciones" y dejaba "s vacaciones".
+  var m = resto.match(/\bpara\s+(?:\b(?:las|los|una|unos|unas|un|la|el|mis|mi)\b\s+)?(.+)$/i);
+  var nombre = (m ? m[1] : resto)
+    .replace(/^(meta nueva|nueva meta|meta|quiero juntar|juntar|ahorrar|quiero ahorrar)\s*:?\s*/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!nombre) nombre = 'Mi meta';
+  nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+
+  return { nombre: nombre.slice(0, 60), objetivo: Math.abs(monto.monto) };
+}
+
+/**
+ * ¿Es una pregunta o un pedido, y no un gasto? Para no anotar cualquier cosa
+ * que tenga un número adentro.
+ */
+function pareceUnPedido(text) {
+  var t = String(text || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (t.indexOf('?') !== -1 || t.indexOf('¿') !== -1) return true;
+  return /^(cuanto|cuantos|como|que |qué |mostra|muestra|deci|dec[ií]|listame|pasame|dame|ver )/.test(t);
 }
 
 /**
@@ -148,6 +215,22 @@ function comoVaElMes(userId) {
   ).get(userId, mes);
   if (!t.gastado) return '';
   return '\n\nVas ' + money(t.gastado) + ' este mes.';
+}
+
+/** Lo que se agrega al final del mensaje cuando pasa algo lindo. */
+function novedades(premio) {
+  if (!premio) return '';
+  var partes = [];
+  if (premio.subioDeEtapa && premio.etapa) {
+    partes.push('🌱 ¡Tu árbol creció! Ahora es ' + premio.etapa.nombre + ' ' + premio.etapa.emoji);
+  }
+  if (premio.racha && premio.racha > 1 && premio.racha % 5 === 0) {
+    partes.push('🔥 Racha de ' + premio.racha + ' días seguidos');
+  }
+  (premio.logros || []).forEach(function (l) {
+    partes.push(l.emoji + ' Logro nuevo: ' + l.nombre + ' — ' + l.dice);
+  });
+  return partes.length ? '\n\n' + partes.join('\n') : '';
 }
 
 function confirmation(userId, tx, itemCount) {
@@ -312,6 +395,34 @@ function start(config) {
     bot.sendMessage(msg.chat.id, '📅 Se viene\n\n' + lines.join('\n') + '\n\nTotal: ' + money(total));
   });
 
+  bot.onText(/^\/(arbol|árbol|progreso|nivel)/, function (msg) {
+    var user = quienEs(msg);
+    if (!user) return;
+
+    var p = arbol.progreso(user.id);
+    var llenos = Math.round(p.etapa.progreso / 10);
+    var barra = '█'.repeat(llenos) + '░'.repeat(10 - llenos);
+
+    var texto = p.etapa.emoji + '  Tu árbol: ' + p.etapa.nombre + '\n' +
+      p.etapa.dice + '\n\n' +
+      barra + '  ' + Math.round(p.etapa.progreso) + '%\n' +
+      p.xp + ' puntos' +
+      (p.etapa.siguiente
+        ? '  ·  faltan ' + (p.etapa.siguiente.desde - p.xp) + ' para ' + p.etapa.siguiente.nombre
+        : '  ·  ¡nivel máximo!');
+
+    if (p.racha > 0) {
+      texto += '\n\n🔥 Racha de ' + p.racha + (p.racha === 1 ? ' día' : ' días');
+      if (!p.rachaHoy) texto += '  (anotá algo hoy para no cortarla)';
+    }
+
+    if (p.logros.length) {
+      texto += '\n\nLogros (' + p.logros.length + '/' + p.total + '):\n' +
+        p.logros.map(function (l) { return '   ' + l.emoji + ' ' + l.nombre; }).join('\n');
+    }
+    bot.sendMessage(msg.chat.id, texto);
+  });
+
   bot.on('photo', async function (msg) {
     var user = quienEs(msg);
     if (!user) return;
@@ -331,8 +442,9 @@ function start(config) {
       var categorized = (await cat.categorizeTransactions([tx]))[0];
       categorized.items = tx.items;
       saveTransaction(user.id, categorized);
+      var premioFoto = arbol.alAnotarMovimiento(user.id, { conFoto: true });
 
-      bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, tx.items.length));
+      bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, tx.items.length) + novedades(premioFoto));
     } catch (err) {
       bot.sendMessage(msg.chat.id, '😕 No pude leer la foto (' + err.message + ').\nProbá escribiéndolo: Disco 15400');
     }
@@ -343,6 +455,54 @@ function start(config) {
 
     var user = quienEs(msg);
     if (!user) return;
+
+    // Ojo con el orden: primero vemos si me está pidiendo algo. Si no, un
+    // "borrá los últimos 3" terminaba anotado como un gasto de $3.
+    var borrar = intencionDeBorrar(msg.text);
+    if (borrar) {
+      var aBorrar = db.prepare(
+        'SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT ?'
+      ).all(user.id, borrar.cantidad);
+
+      if (aBorrar.length === 0) {
+        return bot.sendMessage(msg.chat.id, 'No tenés nada cargado para borrar 🤷');
+      }
+
+      var ids = aBorrar.map(function (r) { return r.id; });
+      db.prepare('DELETE FROM transactions WHERE user_id = ? AND id IN (' + ids.join(',') + ')').run(user.id);
+
+      var detalle = aBorrar.map(function (r) {
+        return '   • ' + r.description + ' · ' + money(r.amount);
+      }).join('\n');
+
+      return bot.sendMessage(msg.chat.id,
+        '🗑️ Borré ' + aBorrar.length + (aBorrar.length === 1 ? ' movimiento:' : ' movimientos:') + '\n' + detalle
+      );
+    }
+
+    // Preguntas y pedidos: no son gastos, no los anotamos
+    if (pareceUnPedido(msg.text)) {
+      return bot.sendMessage(msg.chat.id,
+        'Eso no lo sé responder todavía 🙈\n\n' +
+        'Probá con /resumen para ver cómo venís, o /ultimos para lo último que cargaste.'
+      );
+    }
+
+    var meta = intencionDeMeta(msg.text);
+    if (meta) {
+      db.prepare('INSERT INTO goals (user_id, name, target, saved) VALUES (?, ?, ?, 0)')
+        .run(user.id, meta.nombre, meta.objetivo);
+
+      var porMes = Math.ceil(meta.objetivo / 6 / 1000) * 1000;
+      var premio = arbol.alSumarAMeta(user.id, false);
+
+      return bot.sendMessage(msg.chat.id,
+        '🎯 Meta «' + meta.nombre + '» creada por ' + money(meta.objetivo) + '\n\n' +
+        'Si guardás ' + money(porMes) + ' por mes, en 6 meses la tenés.\n' +
+        'Para sumarle plata: desde la app, en Metas.' +
+        (premio.logros.length ? '\n\n' + premio.logros.map(function (l) { return l.emoji + ' Logro: ' + l.nombre; }).join('\n') : '')
+      );
+    }
 
     var parsed = parseTextMessage(msg.text);
     if (!parsed) {
@@ -356,7 +516,8 @@ function start(config) {
     try {
       var categorized = (await cat.categorizeTransactions([parsed]))[0];
       saveTransaction(user.id, categorized);
-      bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, 0));
+      var premio = arbol.alAnotarMovimiento(user.id, { conFoto: false });
+      bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, 0) + novedades(premio));
     } catch (err) {
       bot.sendMessage(msg.chat.id, 'Se me complicó guardarlo 😕 (' + err.message + '). Probá de nuevo en un rato.');
     }
@@ -365,6 +526,16 @@ function start(config) {
   bot.on('polling_error', function (err) {
     console.error('  Telegram: ' + err.message);
   });
+
+  // Avisos que salen solos, una vez por dia
+  try {
+    require('./alertas.js').iniciar(function (chatId, texto) {
+      bot.sendMessage(chatId, texto);
+    }, Number(process.env.HORA_AVISO || 10));
+    console.log('  Avisos diarios activos (' + (process.env.HORA_AVISO || 10) + ' hs)');
+  } catch (err) {
+    console.error('  Los avisos diarios no arrancaron: ' + err.message);
+  }
 
   console.log('  Bot de Telegram activo (multiusuario)');
   return bot;

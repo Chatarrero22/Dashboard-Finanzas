@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Login from './Login.jsx'
 import Setup from './Setup.jsx'
+import Arbol from './Arbol.jsx'
 
 /* ------------------------------------------------------------------ utils */
 
@@ -234,7 +235,7 @@ function AddForm({ categories, onSaved, onError }) {
 
     setSaving(true)
     try {
-      await api('/transactions', {
+      const r = await api('/transactions', {
         method: 'POST',
         body: JSON.stringify({
           transactions: [{
@@ -250,7 +251,10 @@ function AddForm({ categories, onSaved, onError }) {
       setDescription('')
       setCategory('')
       setDate(todayISO())
-      onSaved(kind === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado')
+      var extra = ''
+      if (r?.premio?.subioDeEtapa) extra = ` · 🌱 ¡Tu árbol creció! Ahora es ${r.premio.etapa.nombre}`
+      else if (r?.premio?.logros?.length) extra = ` · ${r.premio.logros[0].emoji} Logro: ${r.premio.logros[0].nombre}`
+      onSaved((kind === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado') + extra)
     } catch (err) {
       onError(err.message)
     } finally {
@@ -597,6 +601,76 @@ function SubsScreen({ subs, onReload, onError, onSaved }) {
             ))}
           </div>
         )}
+      </section>
+    </>
+  )
+}
+
+function ArbolScreen({ progreso, onReload }) {
+  if (!progreso) return <div className="spinner" />
+
+  const { etapa, xp, racha, mejorRacha, rachaHoy, logros, pendientes, total } = progreso
+
+  return (
+    <>
+      <section className="card arbol-card">
+        <Arbol stage={etapa.stage} />
+        <div className="arbol-etapa">{etapa.emoji} {etapa.nombre}</div>
+        <p className="arbol-dice">{etapa.dice}</p>
+
+        <div className="arbol-barra" role="img"
+             aria-label={`Vas ${Math.round(etapa.progreso)}% hacia la próxima etapa`}>
+          <div style={{ width: `${etapa.progreso}%` }} />
+        </div>
+        <div className="arbol-falta">
+          {xp} puntos
+          {etapa.siguiente
+            ? ` · faltan ${etapa.siguiente.desde - xp} para ${etapa.siguiente.nombre}`
+            : ' · llegaste al máximo'}
+        </div>
+
+        <div className={`racha ${racha === 0 ? 'apagada' : ''}`}>
+          🔥 {racha === 0
+            ? 'Sin racha — anotá algo hoy'
+            : `${racha} ${racha === 1 ? 'día' : 'días'} seguidos`}
+        </div>
+        {mejorRacha > racha && (
+          <p className="hint">Tu mejor racha fue de {mejorRacha} días</p>
+        )}
+        {racha > 0 && !rachaHoy && (
+          <p className="hint">Todavía no anotaste nada hoy. No la cortes.</p>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="card-title-row">
+          <h2>Logros</h2>
+          <span className="tag">{logros.length} de {total}</span>
+        </div>
+        <div className="logros">
+          {logros.map((l) => (
+            <div className="logro" key={l.code} title={l.dice}>
+              <div className="cara">{l.emoji}</div>
+              <div className="nom">{l.nombre}</div>
+            </div>
+          ))}
+          {pendientes.map((l) => (
+            <div className="logro bloqueado" key={l.code} title={l.dice}>
+              <div className="cara">{l.emoji}</div>
+              <div className="nom">{l.nombre}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Cómo crece</h2>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.6 }}>
+          Anotar gastos suma poco y tiene tope diario: la idea no es premiar
+          que cargues por cargar. Lo que de verdad hace crecer el árbol es
+          <strong> gastar mejor</strong> — cerrar el mes sin pasarte de los
+          presupuestos, terminar en verde, juntar para una meta e invertir.
+        </p>
       </section>
     </>
   )
@@ -1056,6 +1130,7 @@ export default function App() {
   const [budgets, setBudgets] = useState([])
   const [networth, setNetworth] = useState(null)
   const [upcoming, setUpcoming] = useState([])
+  const [progreso, setProgreso] = useState(null)
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [toast, setToast] = useState(null)
@@ -1076,6 +1151,7 @@ export default function App() {
     setUpcoming(u)
     // El patrimonio depende de cotizaciones, asi que no bloquea el resto.
     api('/networth').then(setNetworth).catch(() => {})
+    api('/progreso').then(setProgreso).catch(() => {})
   }, [])
 
   const loadMetas = useCallback(async () => {
@@ -1149,6 +1225,7 @@ export default function App() {
   useEffect(() => {
     if (!config) return
     if (tab === 'metas') loadMetas().catch(() => {})
+    if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
     if (tab === 'subs' && !config.simple) api('/subscriptions').then(setSubs).catch(() => {})
     if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
   }, [tab, config, loadMetas])
@@ -1189,6 +1266,7 @@ export default function App() {
         { id: 'home', label: 'Inicio', icon: '🏠' },
         { id: 'add', label: 'Agregar', icon: '➕' },
         { id: 'metas', label: 'Metas', icon: '🎯' },
+        { id: 'arbol', label: 'Árbol', icon: '🌳' },
         { id: 'movs', label: 'Movs', icon: '🧾' },
         { id: 'ajustes', label: 'Ajustes', icon: '⚙️' },
       ]
@@ -1196,6 +1274,7 @@ export default function App() {
         { id: 'home', label: 'Inicio', icon: '🏠' },
         { id: 'add', label: 'Agregar', icon: '➕' },
         { id: 'metas', label: 'Metas', icon: '🎯' },
+        { id: 'arbol', label: 'Árbol', icon: '🌳' },
         { id: 'movs', label: 'Movs', icon: '🧾' },
         { id: 'subs', label: 'Subs', icon: '🔁' },
         { id: 'invest', label: 'Cripto', icon: '📈' },
@@ -1251,6 +1330,9 @@ export default function App() {
             onSaved={notify}
             onError={(m) => notify(m, 'error')}
           />
+        )}
+        {tab === 'arbol' && (
+          <ArbolScreen progreso={progreso} onReload={() => api('/progreso').then(setProgreso).catch(() => {})} />
         )}
         {tab === 'ajustes' && (
           <AjustesScreen

@@ -1042,3 +1042,144 @@ button.chip[aria-pressed='true'] {
   border-bottom: 1px solid var(--border);
 }
 .user-row:last-child { border-bottom: none; }
+
+/* ------------------------------------------------------------- el árbol */
+
+:root {
+  --tronco: #8a6240;
+  --follaje: #3faa5a;
+  --fruta: #f5a623;
+  --flor: #f7c8dd;
+  --tierra: #cbb79c;
+  --tierra-clara: #ded1bd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --tronco: #6f4f34;
+    --follaje: #2f8a48;
+    --fruta: #e09415;
+    --flor: #d99cbb;
+    --tierra: #4a4237;
+    --tierra-clara: #5b5244;
+  }
+}
+
+:root[data-theme='dark'] {
+  --tronco: #6f4f34;
+  --follaje: #2f8a48;
+  --fruta: #e09415;
+  --flor: #d99cbb;
+  --tierra: #4a4237;
+  --tierra-clara: #5b5244;
+}
+
+.arbol {
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Cada parte del árbol aparece creciendo desde su base */
+.arbol .hoja {
+  transform-origin: center bottom;
+  animation: brotar 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+}
+
+@keyframes brotar {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.arbol-card { text-align: center; }
+
+.arbol-etapa {
+  font-size: 1.15rem;
+  font-weight: 640;
+  margin-top: 6px;
+  letter-spacing: -0.01em;
+}
+
+.arbol-dice {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 4px 0 16px;
+}
+
+.arbol-barra {
+  height: 10px;
+  background: var(--surface-0);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 7px;
+}
+
+.arbol-barra > div {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--follaje), var(--fruta));
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.arbol-falta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.racha {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 15px;
+  margin-top: 14px;
+  font-weight: 560;
+  font-size: 0.92rem;
+}
+
+.racha.apagada { opacity: 0.55; }
+
+.logros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 10px;
+}
+
+.logro {
+  text-align: center;
+  padding: 12px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+}
+
+.logro .cara { font-size: 1.7rem; line-height: 1.2; }
+
+.logro .nom {
+  font-size: 0.71rem;
+  margin-top: 4px;
+  font-weight: 540;
+  line-height: 1.25;
+}
+
+.logro.bloqueado {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.sugerencia {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sugerencia:last-of-type { border-bottom: none; }
+.sugerencia .cat { flex: 1; font-weight: 540; }
+.sugerencia .num { font-variant-numeric: tabular-nums; text-align: right; }
+.sugerencia .num small { display: block; color: var(--text-muted); font-size: 0.74rem; font-weight: 400; }
