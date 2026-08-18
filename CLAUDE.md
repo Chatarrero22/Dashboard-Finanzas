@@ -1,0 +1,190 @@
+# Manguito — contexto para Claude
+
+Leé esto antes de tocar nada. Es el estado real del proyecto, no la teoría.
+
+---
+
+## Qué es
+
+App de finanzas personales, en español rioplatense, para **Emanuel** (Argentina).
+Multiusuario, mobile-first, con bot de Telegram. El asistente se llama
+**Manguito** 🥭.
+
+**Está en producción y en uso.** No es un experimento: si rompés algo, se rompe
+la app que la persona usa todos los días.
+
+---
+
+## Dónde vive cada cosa
+
+| | |
+|---|---|
+| Código | `C:\Users\Usuario\Desktop\emanuel-finance` |
+| Producción | https://dashboard-finanzas-n4g4.onrender.com |
+| Repo | https://github.com/Chatarrero22/Dashboard-Finanzas (**público**) |
+| Hosting | Render, plan Hobby + servicio Starter (US$7/mes) + disco 1 GB en `/data` |
+| Bot | [@Emanuel_Finance_bot](https://t.me/Emanuel_Finance_bot), se muestra como "Manguito" |
+| Respaldos | `Escritorio\emanuel-finance-BACKUP-2026-08-01` |
+
+> ⚠️ **El repo es público.** Nunca commitees contraseñas, montos reales, `.env`
+> ni bases de datos. Ya está todo en `.gitignore`; verificá antes de agregar
+> archivos nuevos (sobre todo los `.html` congelados, que llevan montos).
+
+### Deploy
+
+Render **no despliega solo** (el repo se conectó por "Public Git Repository", sin
+webhook). Después de `git push`, hay que apretar **Manual Deploy** en Render.
+Avisale siempre a Emanuel que lo haga.
+
+---
+
+## Cómo se corre local
+
+```
+node server/index.js                 # todo junto: web + API + bot
+cd client && npm run build           # después de tocar el frontend
+```
+
+Para probar sin ensuciar los datos reales:
+
+```
+DB_FILE=demo.db PORT=3999 TELEGRAM_BOT_TOKEN= node server/index.js
+```
+
+> **Nunca corras el bot local y el de Render al mismo tiempo**: Telegram solo
+> admite un lector por token, se pelean y un gasto puede terminar en la base
+> equivocada. Ya pasó. Por eso arriba va `TELEGRAM_BOT_TOKEN=` vacío.
+
+---
+
+## Arquitectura
+
+Un solo proceso Node sirve la API, el frontend compilado y el bot.
+SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
+
+### `server/`
+
+| Archivo | Qué hace |
+|---|---|
+| `index.js` | Arranca todo: express, estáticos, bot, gastos fijos, alertas |
+| `config.js` | Config por entorno. `DATA_DIR`, `DB_FILE`, `PORT`, `APP_NAME` |
+| `db.js` | Esquema + migraciones. **Las migraciones van antes de los índices** |
+| `auth.js` | Login con scrypt, sesiones en cookie httpOnly, vínculo con Telegram |
+| `api.js` | Todos los endpoints. `router.use(auth.requerido)` divide público/privado |
+| `categorizer.js` | Categorización con Claude (`claude-opus-5`) + reglas locales de respaldo |
+| `plata.js` | Entiende "5 lucas", "un palo y medio", "15k", "2.500,50" |
+| `parsers.js` | Importar resúmenes CSV / Excel / PDF |
+| `prices.js` | Cripto (CoinMarketCap) y dólar (dolarapi, sin clave) |
+| `fijos.js` | Carga sola las suscripciones el día que se cobran |
+| `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
+| `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
+| `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
+
+### `client/src/`
+
+`App.jsx` es grande (pantallas Home, Agregar, Movimientos, Metas, Subs, Cripto,
+Ajustes, Árbol, Menú). `Pnl.jsx` y `Presupuestos.jsx` son pantallas aparte;
+`comunes.jsx` tiene los helpers compartidos (`money`, `monthLabel`, `Empty`,
+`BudgetList`). `Arbol.jsx` dibuja el árbol en SVG.
+
+Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú).
+
+### Tablas
+
+`users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
+`budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
+`alerts_sent`.
+
+---
+
+## Diseño
+
+El sistema visual sale del proyecto de Claude Design **Manguito.dc.html**
+(id `27b3894e-ad36-4773-b796-6b8450c0453f`, se lee con la herramienta
+DesignSync). Los tokens de los dos temas están copiados tal cual en `index.css`.
+
+- Claro: crema cálido `#FFF7EB`, texto `#2A1C0C`, acento `#EE8A17`
+- Oscuro: **no es el claro invertido**, es su propia paleta: `#0C0A07`, texto
+  `#FBF3E6`, acento `#F5A524`
+- Fuentes: **Archivo** para números y títulos, **Instrument Sans** para el resto
+- Los tres bloques de tokens (`:root`, media dark, `[data-theme=dark]`) tienen
+  que quedar siempre completos
+
+`DISENO.md` tiene el inventario de clases y las restricciones (16px en inputs,
+44px de alto tocable, nada de scroll horizontal a 320px).
+
+---
+
+## Lo que falta (por orden de conveniencia)
+
+El diseño tiene 14 pantallas. Hechas: Resumen, Agregar, Movimientos,
+Presupuestos, Gastos fijos, P&L, Metas, Inversiones, Árbol, Ajustes.
+
+1. **Patrimonio** — hoy es una tarjeta en Resumen; el diseño la quiere pantalla
+   propia. Los datos ya están en `/api/networth`.
+2. **Alertas** — pantalla que muestre lo que hoy solo manda el bot. Los datos
+   salen de `alertas.js`.
+3. **Gastos** — vista de gastos por categoría con más detalle.
+4. **Barra lateral completa** — falta el logo arriba, el botón "+ Nuevo
+   movimiento" y la tarjeta de "Ahorro del mes".
+5. **Tarjetas** y **Ahorro** — necesitan tablas nuevas (tarjetas de crédito,
+   plazos fijos) y pantallas de carga. Es trabajo de verdad, no maquetado.
+6. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
+
+Otros pendientes:
+- **WhatsApp**: ahora es viable (hay dirección pública). Necesita webhook, número
+  aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
+- El usuario de **Sofía** (`simple_ui`) puede estar sin crear en producción.
+
+---
+
+## Cosas que ya nos mordieron
+
+No las repitas.
+
+**Heredocs de bash con JSX.** Los backticks de los template literals rompen el
+heredoc y el archivo queda con saltos de línea literales dentro de strings.
+Para JSX usá la herramienta Write o archivos aparte, no `cat <<'EOF'`.
+
+**Reemplazos con Python que fallan callados.** `s.replace(viejo, nuevo)` no
+avisa si no encontró nada e imprime "listo" igual. Poné `assert viejo in s` o
+verificá después con grep.
+
+**`transform` de CSS vs atributo `transform` de SVG.** Si el elemento tiene
+`transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
+gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
+hijo.
+
+**Dos apps en el puerto 3001.** Windows deja convivir una en IPv4 y otra en
+IPv6, y no sabés cuál te contesta. Si algo devuelve datos que no cierran,
+revisá `Get-NetTCPConnection -State Listen -LocalPort 3001` antes que el código.
+
+**Deduplicar contando, no preguntando.** El importador usaba "¿existe uno
+igual?" y perdía movimientos legítimamente repetidos (dos cafés iguales el mismo
+día). Hay que contar cuántos hay y cuántos trae el archivo.
+
+**Tickers de cripto repetidos.** CoinMarketCap devuelve un array cuando el
+símbolo está repetido (hay decenas de monedas "W", "RWA", "PIXEL") y el orden no
+es estable. Hay que elegir por `cmc_rank` / capitalización, si no el patrimonio
+varía 4x entre cargas.
+
+**Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
+saldo en rojo se lee igual que uno a favor.
+
+**El disco de Render.** Si no está montado en `/data`, los datos se borran en
+cada deploy. Se verifica creando algo, redesplegando y viendo si sobrevive.
+
+---
+
+## Cómo trabajar acá
+
+- **Verificá con capturas reales**, no con "debería andar". Playwright está
+  instalado: sacá screenshots a tamaño iPhone 13 y 1440px, en claro y oscuro,
+  y miralas. Varios bugs (hojas voladoras, barra desbordada, signo perdido)
+  aparecieron solo mirando.
+- Chequeá siempre: sin scroll horizontal a 320px, sin errores de consola, modo
+  oscuro completo.
+- Español rioplatense en todo lo que ve el usuario. Comentarios del código
+  también en español.
+- Emanuel prefiere que le expliques el porqué, no solo el qué. Y que le avises
+  cuando algo es decisión suya (plata, borrar cosas, publicar).
