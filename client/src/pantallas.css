@@ -1,0 +1,272 @@
+/* =========================================================================
+   Piezas nuevas tomadas del diseño: KPIs, gráfico de P&L, tablas,
+   sugerencias y la navegación agrupada.
+   ========================================================================= */
+
+/* --------------------------------------------------------------- KPIs */
+
+.kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.kpi {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.kpi-label {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.kpi-valor {
+  font-family: var(--fuente-titulo);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 5px 0 4px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.kpi-valor.positivo { color: var(--good); }
+.kpi-valor.negativo { color: var(--critical); }
+
+.kpi-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.variacion {
+  font-size: 0.78rem;
+  font-weight: 540;
+  font-variant-numeric: tabular-nums;
+}
+
+.variacion.ok { color: var(--good); }
+.variacion.mal { color: var(--critical); }
+
+/* ------------------------------------------------------- gráfico de P&L */
+
+.leyenda {
+  display: flex;
+  gap: 14px;
+  font-size: 0.76rem;
+  color: var(--text-tertiary);
+}
+
+.leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+
+.leyenda .pt,
+.pnl-barra {
+  border-radius: 3px;
+}
+
+.leyenda .pt {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+}
+
+.leyenda .pt.ing, .pnl-barra.ing { background: var(--good); }
+.leyenda .pt.egr, .pnl-barra.egr { background: var(--critical); }
+
+.pnl-graf {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 168px;
+  padding-top: 8px;
+}
+
+.pnl-mes {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Las dos barras del mes, pegadas: entra vs sale se comparan de un vistazo */
+.pnl-par {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  flex: 1;
+}
+
+.pnl-barra {
+  width: 44%;
+  max-width: 17px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  transform-origin: bottom;
+  animation: subir 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.pnl-mes:nth-child(1) .pnl-barra { animation-delay: 0.04s; }
+.pnl-mes:nth-child(2) .pnl-barra { animation-delay: 0.09s; }
+.pnl-mes:nth-child(3) .pnl-barra { animation-delay: 0.14s; }
+.pnl-mes:nth-child(4) .pnl-barra { animation-delay: 0.19s; }
+.pnl-mes:nth-child(5) .pnl-barra { animation-delay: 0.24s; }
+.pnl-mes:nth-child(n + 6) .pnl-barra { animation-delay: 0.29s; }
+
+@keyframes subir {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+.pnl-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- tablas */
+
+.tabla { font-size: 0.88rem; }
+
+.tabla-cab,
+.tabla-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.15fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.tabla-cab {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabla-cab span:not(:first-child),
+.tabla-fila .num { text-align: right; }
+
+.tabla-fila {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabla-fila:last-child { border-bottom: none; }
+
+.tabla-fila .mes {
+  font-weight: 540;
+  text-transform: capitalize;
+}
+
+.tabla-fila .num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--fuente-titulo);
+}
+
+.tabla-fila .num.positivo { color: var(--good); }
+.tabla-fila .num.negativo { color: var(--critical); }
+
+.tabla-fila .num small {
+  display: block;
+  font-family: var(--fuente);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* En pantallas chicas la tabla se aprieta: achicamos la letra antes de
+   romper el layout. */
+@media (max-width: 400px) {
+  .tabla { font-size: 0.8rem; }
+  .tabla-cab { font-size: 0.66rem; }
+}
+
+/* -------------------------------------------------- navegación agrupada */
+
+.nav-grupo {
+  display: contents;   /* en celular los grupos no existen: barra plana */
+}
+
+.nav-titulo { display: none; }
+
+@media (min-width: 1000px) {
+  .nav-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+  }
+
+  .nav-grupo + .nav-grupo { margin-top: 16px; }
+
+  .nav-titulo {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 11px 7px;
+  }
+}
+
+/* ------------------------------------------- navegación: celular vs PC */
+
+/* En el celular se ve la barra de 5; en escritorio, la lateral agrupada. */
+.nav-pc { display: none; }
+
+@media (min-width: 1000px) {
+  .nav-cel { display: none; }
+  .nav-pc { display: flex; }
+}
+
+/* ---------------------------------------------------- pantalla "Más" */
+
+.menu-lista { display: flex; flex-direction: column; }
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 520;
+  text-align: left;
+}
+
+.menu-item:last-child { border-bottom: none; }
+.menu-item.activo { color: var(--accent); font-weight: 600; }
+
+.menu-ico {
+  width: 26px;
+  text-align: center;
+  font-size: 1.05rem;
+  opacity: 0.9;
+  flex: none;
+}
+
+.menu-txt { flex: 1; }
+
+.menu-flecha {
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+}

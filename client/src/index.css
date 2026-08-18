@@ -1,79 +1,148 @@
 /* =========================================================================
-   Finanzas — estilos mobile-first.
-   Todo esta pensado primero para celular: tipografia grande, botones de
-   al menos 44px, navegacion abajo (al alcance del pulgar) y respeto por
-   las zonas seguras del iPhone.
+   Manguito — sistema visual
+   Tokens tomados del diseño de Claude Design (Manguito.dc.html), tal cual.
+   Dos temas completos: claro (crema cálido) y oscuro (casi negro cálido).
    ========================================================================= */
 
 :root {
   color-scheme: light;
 
-  --surface-0: #f2f2f0;
-  --surface-1: #fcfcfb;
-  --surface-2: #ffffff;
-  --border: #e2e2dd;
-  --border-strong: #cfcfc8;
+  /* superficies */
+  --bg: #FFF7EB;
+  --sd: #FCEFDC;
+  --surface-0: #FFF7EB;
+  --surface-1: #FFFFFF;
+  --surface-2: #FFFBF4;
+  --surface-3: #FCF0E0;
+  --g1: #FFE6C0;
+  --g2: #FFFAF2;
+  --bg-blur: rgba(255, 247, 235, 0.85);
 
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #78776f;
+  /* texto */
+  --text-primary: #2A1C0C;
+  --text-secondary: #4C3A1F;
+  --text-tertiary: #6B5634;
+  --text-muted: #87714D;
 
-  --accent: #2a78d6;
-  --accent-soft: #cde2fb;
-  --good: #0ca30c;
-  --critical: #d03b3b;
+  /* bordes */
+  --border: rgba(42, 28, 12, 0.10);
+  --border-strong: rgba(42, 28, 12, 0.24);
+  --hover: rgba(42, 28, 12, 0.035);
 
-  --radius: 14px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  /* marca */
+  --accent: #EE8A17;
+  --accent-2: #FFC24A;
+  --accent-text: #A85C05;
+  --accent-soft: rgba(238, 138, 23, 0.13);
+  --on-accent: #2A1704;
+  --hoja: #3E9A54;
+
+  /* estados */
+  --good: #0E8A51;
+  --good-soft: rgba(14, 138, 81, 0.12);
+  --critical: #C1372F;
+  --critical-2: #A82F29;
+  --critical-soft: rgba(193, 55, 47, 0.1);
+  --blue: #3B5AA8;
+  --yellow: #9A7410;
+  --overlay: rgba(42, 28, 12, 0.4);
+
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-xs: 11px;
+  --shadow: 0 1px 2px rgba(42, 28, 12, 0.05), 0 8px 24px -16px rgba(42, 28, 12, 0.28);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --nav-height: 62px;
+
+  --fuente: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fuente-titulo: 'Archivo', var(--fuente);
 }
 
+/* El oscuro no es el claro invertido: es su propia paleta, cálida y profunda. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --surface-0: #121211;
-    --surface-1: #1a1a19;
-    --surface-2: #232322;
-    --border: #33332f;
-    --border-strong: #46463f;
+    --bg: #0C0A07;
+    --sd: #110E0A;
+    --surface-0: #0C0A07;
+    --surface-1: #16120C;
+    --surface-2: #191410;
+    --surface-3: #211A12;
+    --g1: #241A0B;
+    --g2: #13100A;
+    --bg-blur: rgba(12, 10, 7, 0.86);
 
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #94938a;
+    --text-primary: #FBF3E6;
+    --text-secondary: #D6C7AF;
+    --text-tertiary: #9C8B70;
+    --text-muted: #7A6A52;
 
-    --accent: #3987e5;
-    --accent-soft: #17325a;
-    --good: #0ca30c;
-    --critical: #e15a5a;
+    --border: rgba(255, 255, 255, 0.075);
+    --border-strong: rgba(255, 255, 255, 0.22);
+    --hover: rgba(255, 255, 255, 0.03);
 
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+    --accent: #F5A524;
+    --accent-2: #FFD37A;
+    --accent-text: #FFC65C;
+    --accent-soft: rgba(245, 165, 36, 0.14);
+    --on-accent: #2A1704;
+    --hoja: #5FB56B;
+
+    --good: #4BD98A;
+    --good-soft: rgba(75, 217, 138, 0.13);
+    --critical: #FF7060;
+    --critical-2: #FF8878;
+    --critical-soft: rgba(255, 112, 96, 0.12);
+    --blue: #7FA0FF;
+    --yellow: #FFD166;
+    --overlay: rgba(8, 6, 4, 0.7);
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --surface-0: #121211;
-  --surface-1: #1a1a19;
-  --surface-2: #232322;
-  --border: #33332f;
-  --border-strong: #46463f;
+  --bg: #0C0A07;
+  --sd: #110E0A;
+  --surface-0: #0C0A07;
+  --surface-1: #16120C;
+  --surface-2: #191410;
+  --surface-3: #211A12;
+  --g1: #241A0B;
+  --g2: #13100A;
+  --bg-blur: rgba(12, 10, 7, 0.86);
 
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #94938a;
+  --text-primary: #FBF3E6;
+  --text-secondary: #D6C7AF;
+  --text-tertiary: #9C8B70;
+  --text-muted: #7A6A52;
 
-  --accent: #3987e5;
-  --accent-soft: #17325a;
-  --good: #0ca30c;
-  --critical: #e15a5a;
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --hover: rgba(255, 255, 255, 0.03);
 
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --accent: #F5A524;
+  --accent-2: #FFD37A;
+  --accent-text: #FFC65C;
+  --accent-soft: rgba(245, 165, 36, 0.14);
+  --on-accent: #2A1704;
+  --hoja: #5FB56B;
+
+  --good: #4BD98A;
+  --good-soft: rgba(75, 217, 138, 0.13);
+  --critical: #FF7060;
+  --critical-2: #FF8878;
+  --critical-soft: rgba(255, 112, 96, 0.12);
+  --blue: #7FA0FF;
+  --yellow: #FFD166;
+  --overlay: rgba(8, 6, 4, 0.7);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
 }
 
 * { box-sizing: border-box; }
@@ -86,7 +155,7 @@ html, body, #root {
 body {
   background: var(--surface-0);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: var(--fuente);
   font-size: 16px;               /* 16px evita el zoom automatico de iOS */
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -116,6 +185,7 @@ body {
 }
 
 .topbar h1 {
+  font-family: var(--fuente-titulo);
   margin: 0;
   font-size: 1.25rem;
   font-weight: 650;
@@ -148,6 +218,7 @@ body {
 }
 
 .card h2 {
+  font-family: var(--fuente-titulo);
   margin: 0 0 14px;
   font-size: 1rem;
   font-weight: 620;
@@ -182,7 +253,8 @@ body {
 }
 
 .hero .value {
-  font-size: 2.4rem;
+  font-family: var(--fuente-titulo);
+  font-size: 2.6rem;
   font-weight: 680;
   letter-spacing: -0.03em;
   margin: 6px 0 2px;
@@ -233,7 +305,8 @@ body {
 .stat .dot.out { background: var(--critical); }
 
 .stat .value {
-  font-size: 1.32rem;
+  font-family: var(--fuente-titulo);
+  font-size: 1.38rem;
   font-weight: 640;
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
@@ -353,7 +426,8 @@ body {
 }
 
 .item-amount {
-  font-weight: 620;
+  font-family: var(--fuente-titulo);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   letter-spacing: -0.01em;
@@ -995,6 +1069,7 @@ button.chip[aria-pressed='true'] {
 .login-logo { font-size: 2.6rem; text-align: center; }
 
 .login-card h1 {
+  font-family: var(--fuente-titulo);
   margin: 8px 0 2px;
   text-align: center;
   font-size: 1.5rem;
@@ -1096,6 +1171,7 @@ button.chip[aria-pressed='true'] {
 .arbol-card { text-align: center; }
 
 .arbol-etapa {
+  font-family: var(--fuente-titulo);
   font-size: 1.15rem;
   font-weight: 640;
   margin-top: 6px;

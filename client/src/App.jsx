@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Login from './Login.jsx'
 import Setup from './Setup.jsx'
 import Arbol from './Arbol.jsx'
+import PnlScreen from './Pnl.jsx'
+import PresupuestosScreen from './Presupuestos.jsx'
 
 /* ------------------------------------------------------------------ utils */
 
@@ -676,6 +678,31 @@ function ArbolScreen({ progreso, onReload }) {
   )
 }
 
+function MenuScreen({ grupos, actual, onGo }) {
+  return (
+    <>
+      {grupos.map((g, i) => (
+        <section className="card" key={g.titulo || `g${i}`}>
+          {g.titulo && <h2>{g.titulo}</h2>}
+          <div className="menu-lista">
+            {g.items.map((t) => (
+              <button
+                key={t.id}
+                className={`menu-item ${actual === t.id ? 'activo' : ''}`}
+                onClick={() => onGo(t.id)}
+              >
+                <span className="menu-ico">{t.icon}</span>
+                <span className="menu-txt">{t.label}</span>
+                <span className="menu-flecha">›</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
+  )
+}
+
 function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved }) {
   const [goalForm, setGoalForm] = useState({ name: '', target: '' })
   const [budgetForm, setBudgetForm] = useState({ category: '', monthly_limit: '' })
@@ -1131,6 +1158,7 @@ export default function App() {
   const [networth, setNetworth] = useState(null)
   const [upcoming, setUpcoming] = useState([])
   const [progreso, setProgreso] = useState(null)
+  const [pnl, setPnl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [toast, setToast] = useState(null)
@@ -1226,6 +1254,8 @@ export default function App() {
     if (!config) return
     if (tab === 'metas') loadMetas().catch(() => {})
     if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
+    if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
+    if (tab === 'presu') loadMetas().catch(() => {})
     if (tab === 'subs' && !config.simple) api('/subscriptions').then(setSubs).catch(() => {})
     if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
   }, [tab, config, loadMetas])
@@ -1261,25 +1291,54 @@ export default function App() {
   if (!config) return <Login onLogged={handleLogged} />
 
 
-  const tabs = config.simple
+  // Los grupos son los del diseño: lo de todos los días primero, lo de crecer
+  // después. En el celular se muestran planos; en escritorio, con títulos.
+  const grupos = config.simple
     ? [
-        { id: 'home', label: 'Inicio', icon: '🏠' },
-        { id: 'add', label: 'Agregar', icon: '➕' },
-        { id: 'metas', label: 'Metas', icon: '🎯' },
-        { id: 'arbol', label: 'Árbol', icon: '🌳' },
-        { id: 'movs', label: 'Movs', icon: '🧾' },
-        { id: 'ajustes', label: 'Ajustes', icon: '⚙️' },
+        { titulo: null, items: [
+          { id: 'home', label: 'Resumen', icon: '◉' },
+          { id: 'add', label: 'Agregar', icon: '＋' },
+        ] },
+        { titulo: 'Día a día', items: [
+          { id: 'movs', label: 'Movimientos', icon: '⇄' },
+          { id: 'presu', label: 'Presupuestos', icon: '◑' },
+        ] },
+        { titulo: 'Crecer', items: [
+          { id: 'metas', label: 'Metas', icon: '◎' },
+          { id: 'arbol', label: 'Árbol', icon: '🌳' },
+        ] },
+        { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
       ]
     : [
-        { id: 'home', label: 'Inicio', icon: '🏠' },
-        { id: 'add', label: 'Agregar', icon: '➕' },
-        { id: 'metas', label: 'Metas', icon: '🎯' },
-        { id: 'arbol', label: 'Árbol', icon: '🌳' },
-        { id: 'movs', label: 'Movs', icon: '🧾' },
-        { id: 'subs', label: 'Subs', icon: '🔁' },
-        { id: 'invest', label: 'Cripto', icon: '📈' },
-        { id: 'ajustes', label: 'Ajustes', icon: '⚙️' },
+        { titulo: null, items: [
+          { id: 'home', label: 'Resumen', icon: '◉' },
+          { id: 'add', label: 'Agregar', icon: '＋' },
+        ] },
+        { titulo: 'Día a día', items: [
+          { id: 'movs', label: 'Movimientos', icon: '⇄' },
+          { id: 'presu', label: 'Presupuestos', icon: '◑' },
+          { id: 'subs', label: 'Gastos fijos', icon: '⟲' },
+          { id: 'pnl', label: 'P&L', icon: '⌁' },
+        ] },
+        { titulo: 'Crecer', items: [
+          { id: 'metas', label: 'Metas', icon: '◎' },
+          { id: 'invest', label: 'Inversiones', icon: '↗' },
+          { id: 'arbol', label: 'Árbol', icon: '🌳' },
+        ] },
+        { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
       ]
+
+  const tabs = grupos.flatMap((g) => g.items)
+
+  // En el celular no entran 10 pestañas abajo: mostramos las 4 de siempre y
+  // el resto vive en "Más". En escritorio se ve la barra lateral completa.
+  const principales = [
+    { id: 'home', label: 'Resumen', icon: '◉' },
+    { id: 'add', label: 'Agregar', icon: '＋' },
+    { id: 'movs', label: 'Movimientos', icon: '⇄' },
+    { id: 'arbol', label: 'Árbol', icon: '🌳' },
+    { id: 'mas', label: 'Más', icon: '☰' },
+  ]
 
   return (
     <div className="app">
@@ -1331,6 +1390,17 @@ export default function App() {
             onError={(m) => notify(m, 'error')}
           />
         )}
+        {tab === 'mas' && <MenuScreen grupos={grupos} actual={tab} onGo={setTab} />}
+        {tab === 'pnl' && <PnlScreen pnl={pnl} />}
+        {tab === 'presu' && (
+          <PresupuestosScreen
+            budgets={budgets}
+            categories={config.categories}
+            onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
+            onSaved={notify}
+            onError={(m) => notify(m, 'error')}
+          />
+        )}
         {tab === 'arbol' && (
           <ArbolScreen progreso={progreso} onReload={() => api('/progreso').then(setProgreso).catch(() => {})} />
         )}
@@ -1351,16 +1421,34 @@ export default function App() {
         )}
       </main>
 
-      <nav className="nav">
-        {tabs.map((t) => (
+      <nav className="nav nav-cel">
+        {principales.map((t) => (
           <button
             key={t.id}
-            aria-current={tab === t.id ? 'page' : undefined}
+            aria-current={tab === t.id || (t.id === 'mas' && !principales.some((x) => x.id === tab)) ? 'page' : undefined}
             onClick={() => setTab(t.id)}
           >
             <span className="icon">{t.icon}</span>
             {t.label}
           </button>
+        ))}
+      </nav>
+
+      <nav className="nav nav-pc">
+        {grupos.map((g, i) => (
+          <div className="nav-grupo" key={g.titulo || `g${i}`}>
+            {g.titulo && <div className="nav-titulo">{g.titulo}</div>}
+            {g.items.map((t) => (
+              <button
+                key={t.id}
+                aria-current={tab === t.id ? 'page' : undefined}
+                onClick={() => setTab(t.id)}
+              >
+                <span className="icon">{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
 

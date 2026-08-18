@@ -25,3 +25,6 @@ Thumbs.db
 # Se generan con los scripts de herramientas/ cuando se necesitan.
 dashboard-para-rediseno.html
 escritorio-original.html
+
+# El proyecto de Claude Design bajado (referencia, pesado)
+diseno-claude/

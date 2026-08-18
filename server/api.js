@@ -540,6 +540,62 @@ router.post('/fixed/run', function (req, res) {
   res.json({ cargadas: fijos.cargarVencidas(req.user.id) });
 });
 
+/* ------------------------------------------------------------------- P&L */
+
+/**
+ * Ingresos, egresos y ahorro mes por mes, con la tasa de ahorro.
+ * La "tasa de ahorro" es cuanto de lo que entro te quedo: (entro-salio)/entro.
+ */
+router.get('/pnl', function (req, res) {
+  var uid = req.user.id;
+  var limite = Math.min(Number(req.query.meses) || 12, 24);
+
+  var filas = db.prepare(
+    'SELECT substr(date,1,7) mes,' +
+    ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) ingresos,' +
+    ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) egresos,' +
+    ' COUNT(*) n FROM transactions WHERE user_id = ?' +
+    ' GROUP BY mes ORDER BY mes DESC LIMIT ?'
+  ).all(uid, limite).reverse();
+
+  var meses = filas.map(function (f) {
+    var ahorro = f.ingresos - f.egresos;
+    return {
+      mes: f.mes,
+      ingresos: f.ingresos,
+      egresos: f.egresos,
+      ahorro: ahorro,
+      // Sin ingresos la tasa no significa nada: la dejamos en null y el
+      // frontend muestra un guion en vez de un 0% enganoso.
+      tasa: f.ingresos > 0 ? (ahorro / f.ingresos) * 100 : null,
+      movimientos: f.n
+    };
+  });
+
+  var ultimo = meses[meses.length - 1] || null;
+  var anterior = meses[meses.length - 2] || null;
+
+  function variacion(hoy, antes) {
+    if (antes == null || antes === 0) return null;
+    return ((hoy - antes) / antes) * 100;
+  }
+
+  res.json({
+    meses: meses,
+    actual: ultimo,
+    anterior: anterior,
+    variacion: ultimo && anterior ? {
+      ingresos: variacion(ultimo.ingresos, anterior.ingresos),
+      egresos: variacion(ultimo.egresos, anterior.egresos),
+      ahorro: variacion(ultimo.ahorro, anterior.ahorro)
+    } : null,
+    // Acumulado de todo el periodo mostrado
+    total: meses.reduce(function (a, m) {
+      a.ingresos += m.ingresos; a.egresos += m.egresos; a.ahorro += m.ahorro; return a;
+    }, { ingresos: 0, egresos: 0, ahorro: 0 })
+  });
+});
+
 /* --------------------------------------------------------------- el arbol */
 
 router.get('/progreso', function (req, res) {
