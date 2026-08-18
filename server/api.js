@@ -12,6 +12,7 @@ var parsers = require('./parsers.js');
 var prices = require('./prices.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
+var alertasPantalla = require('./alertas-pantalla.js');
 
 var router = express.Router();
 
@@ -69,6 +70,7 @@ router.get('/me', auth.opcional, function (req, res) {
     authenticated: true,
     user: req.user,
     categories: cat.CATEGORIES,
+    appName: process.env.APP_NAME || 'Manguito',
     ai: Boolean(process.env.ANTHROPIC_API_KEY),
     prices: Boolean(process.env.CMC_API_KEY),
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN)
@@ -522,6 +524,14 @@ router.get('/networth', async function (req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* ------------------------------------------------------------------ alertas */
+
+/* Lo mismo que avisa el bot, para verlo en pantalla. Es de solo lectura: no
+   marca nada como enviado, así no apaga los avisos de Telegram del día. */
+router.get('/alertas', function (req, res) {
+  res.json({ alertas: alertasPantalla.paraPantalla(req.user.id) });
 });
 
 /* ------------------------------------------------------------------ precios */

@@ -1,0 +1,561 @@
+/* =========================================================================
+   El armazón del diseño: barra lateral, barra de arriba y encabezado de
+   pantalla. En el celular la lateral desaparece y queda la barra de abajo.
+   ========================================================================= */
+
+@keyframes mIn   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(6%, 4%, 0) scale(1.12); }
+  100% { transform: translate3d(-4%, -3%, 0) scale(1.04); }
+}
+@keyframes flotar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ------------------------------------------------------- la barra lateral */
+
+/* Hasta 1000px no existe: manda la barra de abajo. */
+.lateral { display: none; }
+
+.marca-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 11px;
+  background: linear-gradient(150deg, var(--accent-2), var(--accent));
+  position: relative;
+  box-shadow: 0 6px 18px -6px var(--accent);
+  animation: flotar 5s ease-in-out infinite;
+  flex: none;
+}
+
+/* La hojita del mango */
+.marca-logo::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: 5px;
+  width: 9px;
+  height: 6px;
+  border-radius: 0 8px 0 8px;
+  background: var(--hoja);
+  transform: rotate(-18deg);
+}
+
+@media (min-width: 1000px) {
+  .lateral {
+    display: flex;
+    flex-direction: column;
+    width: 244px;
+    min-width: 244px;
+    padding: 22px 14px 16px;
+    background: var(--sd);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 22px;
+  }
+
+  .marca-nombre {
+    font-family: var(--fuente-titulo);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .marca-bajada {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+    color: var(--text-muted);
+  }
+
+  .btn-nuevo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 44px;
+    width: 100%;
+    border: none;
+    border-radius: 13px;
+    background: linear-gradient(160deg, var(--accent-2), var(--accent));
+    color: var(--on-accent);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 10px 24px -14px var(--accent);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  .btn-nuevo:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px -12px var(--accent);
+  }
+
+  .btn-nuevo .mas { font-size: 17px; line-height: 1; margin-top: -2px; }
+
+  /* Tarjetita de ahorro del mes */
+  .ahorro-mini {
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 13px;
+    background: var(--surface-2);
+  }
+
+  .ahorro-mini-fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 9px;
+  }
+
+  .ahorro-mini-label { font-size: 11px; color: var(--text-tertiary); }
+
+  .ahorro-mini-pct {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ahorro-mini-monto {
+    font-family: var(--fuente-titulo);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ahorro-mini-barra {
+    margin-top: 10px;
+    height: 5px;
+    border-radius: 99px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .ahorro-mini-barra > div {
+    height: 100%;
+    border-radius: 99px;
+    transform-origin: left;
+    animation: mGrow 0.8s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  }
+
+  .ahorro-mini.bien  .ahorro-mini-pct { color: var(--good); }
+  .ahorro-mini.bien  .ahorro-mini-barra > div { background: linear-gradient(90deg, var(--good), var(--accent-2)); }
+  .ahorro-mini.rojo  .ahorro-mini-pct { color: var(--critical); }
+  .ahorro-mini.rojo  .ahorro-mini-barra > div { background: linear-gradient(90deg, var(--critical), var(--critical-2)); }
+
+  /* La pila de grupos de navegación */
+  .lateral-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 22px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* Pie: quién está usando la app */
+  .lateral-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 10px 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+  }
+
+  .lateral-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--surface-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-text);
+    flex: none;
+  }
+
+  .lateral-user-nombre { font-size: 12.5px; font-weight: 600; }
+
+  .lateral-user-sub {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ------------------------------------------------------ la barra de arriba */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-top: calc(12px + var(--safe-top));
+  background: var(--bg-blur);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-espacio { flex: 1; }
+
+/* Grupo de botones tipo "pastilla" (ARS/US$, ‹ mes ›) */
+.grupo-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  flex: none;
+}
+
+.grupo-pill button {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.grupo-pill button.on {
+  background: var(--text-primary);
+  color: var(--bg);
+}
+
+.grupo-pill button.flecha {
+  width: 30px;
+  padding: 0;
+  font-size: 15px;
+}
+
+.grupo-pill button.flecha:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.grupo-pill button.flecha:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+
+.grupo-pill .mes-actual {
+  min-width: 104px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Chip del dólar y botones sueltos de la derecha */
+.chip-info,
+.btn-topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+}
+
+.btn-topbar {
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.btn-topbar:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.chip-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.punto-vivo {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  animation: mPulse 2.4s ease-in-out infinite;
+  flex: none;
+}
+
+/* En pantallas chicas el dólar ocupa lugar y no es urgente: se esconde. */
+@media (max-width: 560px) {
+  .chip-info.dolar { display: none; }
+  .grupo-pill .mes-actual { min-width: 88px; }
+}
+
+@media (min-width: 1000px) {
+  .topbar { padding: 16px 32px; gap: 14px; }
+}
+
+/* -------------------------------------------- encabezado de cada pantalla */
+
+.pagina-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.pagina-head h1 {
+  font-family: var(--fuente-titulo);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  margin: 0 0 5px;
+}
+
+.pagina-head .bajada {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.pagina-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.pagina-acciones button {
+  height: 36px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.pagina-acciones button:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+@media (min-width: 1000px) {
+  .pagina-head h1 { font-size: 27px; }
+}
+
+/* ------------------------------------------------------------ el esqueleto */
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.columna {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* La animación por pantalla: cambia el key y vuelve a entrar */
+.contenido {
+  padding: 18px 16px calc(var(--nav-height) + 24px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: mFade 0.3s ease both;
+}
+
+@media (min-width: 1000px) {
+  .contenido { padding: 26px 32px 56px; gap: 22px; }
+}
+
+/* Con barra lateral, la de abajo sobra */
+@media (min-width: 1000px) {
+  .nav-cel { display: none; }
+}
+
+/* --------------------------------------------------- montos escondidos */
+
+/* El botón "Ocultar" de la barra: tapa los números para mirar la app
+   sin que se vean los montos. Es visual, no cambia los datos. */
+.oculto .monto-sensible {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ------------------------------------------- corregir la nav vieja adentro */
+
+/* .nav de index.css es la barra fija de abajo. Adentro de la lateral eso no
+   va: se queda pegada al piso de la ventana y tapa media pantalla. Acá la
+   devolvemos al flujo normal y le damos forma de lista vertical.
+   (Este era el motivo real de que la barra lateral no se pareciera al
+   diseño: nav-pc nunca tuvo estilos propios y heredaba position: fixed.) */
+.lateral .nav,
+.lateral .nav-pc {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  background: transparent;
+  backdrop-filter: none;
+  border-top: none;
+  padding-bottom: 0;
+}
+
+.lateral .nav button {
+  flex: none;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 11px;
+  border-radius: 11px;
+  color: var(--text-tertiary);
+  font-size: 13.5px;
+  font-weight: 400;
+  text-align: left;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.lateral .nav button:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+.lateral .nav button[aria-current='page'] {
+  background: var(--border);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.lateral .nav button .icon {
+  font-size: 14px;
+  width: 17px;
+  text-align: center;
+  opacity: 0.9;
+  flex: none;
+}
+
+/* La topbar del diseño reemplaza a la vieja de index.css: aquella centraba
+   con space-between y acá el espacio lo reparte .topbar-espacio. */
+.topbar { justify-content: flex-start; z-index: 20; }
+
+/* ------------------------------------------------- que la lateral entre */
+
+/* Con 12 secciones y una pantalla de 900px, los últimos dos ítems quedaban
+   escondidos abajo. Achicamos alto y separación para que entren todos sin
+   tener que scrollear la barra. */
+@media (min-width: 1000px) {
+  .lateral-nav { gap: 13px; margin-top: 18px; }
+
+  .lateral .nav button {
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .lateral .nav-titulo { padding-bottom: 5px; }
+}
+
+/* --------------------------------------- barra de arriba en pantalla chica */
+
+/* A 320px los controles ocupaban tres renglones y comían media pantalla. */
+@media (max-width: 560px) {
+  .topbar { gap: 8px; row-gap: 8px; padding: 10px 12px; }
+
+  .grupo-pill button { padding: 0 10px; font-size: 12px; }
+  .grupo-pill .mes-actual { min-width: 84px; font-size: 12px; }
+
+  .btn-topbar {
+    height: 30px;
+    padding: 0 11px;
+    font-size: 12px;
+  }
+}
+
+/* El bloque del usuario ahora es el botón de Ajustes */
+@media (min-width: 1000px) {
+  .lateral-user {
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    transition: color 0.18s ease;
+  }
+
+  .lateral-user:hover { color: var(--accent-text); }
+  .lateral-user:hover .lateral-user-ico { color: var(--accent); }
+
+  .lateral-user-txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .lateral-user-nombre,
+  .lateral-user-sub { display: block; }
+
+  .lateral-user-ico {
+    color: var(--text-muted);
+    font-size: 14px;
+    flex: none;
+  }
+}

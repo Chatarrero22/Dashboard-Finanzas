@@ -3,6 +3,8 @@
  * componentes chicos que se repiten.
  */
 
+import { formatear } from './moneda.js'
+
 export const API = '/api'
 
 export async function api(path, options) {
@@ -20,16 +22,9 @@ export async function api(path, options) {
   return data
 }
 
-export function money(n, { sign = false } = {}) {
-  const value = Number(n) || 0
-  const formatted = Math.abs(value).toLocaleString('es-AR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })
-  // Los negativos SIEMPRE muestran el menos: sin eso, un saldo en rojo se
-  // lee igual que uno a favor.
-  if (value < 0) return `-$${formatted}`
-  return `${sign && value > 0 ? '+' : ''}$${formatted}`
+// El formato vive en moneda.js porque depende del botón ARS/US$.
+export function money(n, opciones) {
+  return formatear(n, opciones)
 }
 
 export function todayISO() {

@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Login from './Login.jsx'
 import Setup from './Setup.jsx'
 import Arbol from './Arbol.jsx'
 import PnlScreen from './Pnl.jsx'
 import PresupuestosScreen from './Presupuestos.jsx'
+import PatrimonioScreen from './Patrimonio.jsx'
+import AlertasScreen from './Alertas.jsx'
+import GastosScreen from './Gastos.jsx'
+import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
+import { configurar as configurarMoneda } from './moneda.js'
+import { formatear } from './moneda.js'
 
 /* ------------------------------------------------------------------ utils */
 
@@ -25,16 +31,10 @@ async function api(path, options) {
   return data
 }
 
-function money(n, { sign = false } = {}) {
-  const value = Number(n) || 0
-  const formatted = Math.abs(value).toLocaleString('es-AR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })
-  // Los negativos SIEMPRE muestran el menos: sin eso, un saldo en rojo se
-  // lee igual que uno a favor. Con sign:true los positivos suman el "+".
-  if (value < 0) return `-$${formatted}`
-  return `${sign && value > 0 ? '+' : ''}$${formatted}`
+// Una sola implementación para toda la app: la de moneda.js, que sabe si
+// hay que mostrar pesos o dólares.
+function money(n, opciones) {
+  return formatear(n, opciones)
 }
 
 function todayISO() {
@@ -1162,15 +1162,41 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [toast, setToast] = useState(null)
+  const [alertas, setAlertas] = useState(null)
+
+  // Controles de la barra de arriba, como en el diseño.
+  const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
+  const [moneda, setMoneda] = useState('ars')
+  const [oculto, setOculto] = useState(false)
+  // El tema arranca siguiendo al sistema; si lo tocás, queda guardado.
+  const [tema, setTema] = useState(() => {
+    const guardado = localStorage.getItem('tema')
+    if (guardado) return guardado
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+
+  // No se puede navegar al futuro: el mes de hoy es el tope.
+  const mesTope = new Date().toISOString().slice(0, 7)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tema)
+    localStorage.setItem('tema', tema)
+  }, [tema])
 
   const notify = useCallback((message, type = 'ok') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 2600)
   }, [])
 
+  // El mes vive en una referencia además del estado: así loadCore no cambia
+  // de identidad al cambiar de mes y no se vuelve a pedir /me al pedo.
+  const mesRef = useRef(mes)
+  useEffect(() => { mesRef.current = mes }, [mes])
+
+  // El mes elegido en la barra de arriba manda: el dashboard se pide por mes.
   const loadCore = useCallback(async () => {
     const [d, t, u] = await Promise.all([
-      api('/dashboard'),
+      api(`/dashboard?month=${mesRef.current}`),
       api('/transactions'),
       api('/fixed/upcoming').catch(() => []),
     ])
@@ -1196,6 +1222,7 @@ export default function App() {
       isAdmin: me.user.isAdmin,
       simple: me.user.simpleUi,
       categories: me.categories,
+      appName: me.appName,
       ai: me.ai,
       prices: me.prices,
       telegram: me.telegram,
@@ -1258,7 +1285,14 @@ export default function App() {
     if (tab === 'presu') loadMetas().catch(() => {})
     if (tab === 'subs' && !config.simple) api('/subscriptions').then(setSubs).catch(() => {})
     if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
+    if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
   }, [tab, config, loadMetas])
+
+  // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
+  useEffect(() => {
+    if (!config) return
+    loadCore().catch(() => {})
+  }, [mes, config, loadCore])
 
   const reloadSubs = useCallback(() => { api('/subscriptions').then(setSubs).catch(() => {}) }, [])
   const reloadPortfolio = useCallback(() => { api('/portfolio').then(setPortfolio).catch(() => {}) }, [])
@@ -1291,16 +1325,17 @@ export default function App() {
   if (!config) return <Login onLogged={handleLogged} />
 
 
-  // Los grupos son los del diseño: lo de todos los días primero, lo de crecer
-  // después. En el celular se muestran planos; en escritorio, con títulos.
+  // Los grupos y el orden son los del diseño: primero el panorama, después
+  // el día a día, y al final lo de crecer.
   const grupos = config.simple
     ? [
         { titulo: null, items: [
           { id: 'home', label: 'Resumen', icon: '◉' },
-          { id: 'add', label: 'Agregar', icon: '＋' },
+          { id: 'alertas', label: 'Alertas', icon: '◊' },
         ] },
         { titulo: 'Día a día', items: [
           { id: 'movs', label: 'Movimientos', icon: '⇄' },
+          { id: 'gastos', label: 'Gastos', icon: '◔' },
           { id: 'presu', label: 'Presupuestos', icon: '◑' },
         ] },
         { titulo: 'Crecer', items: [
@@ -1312,12 +1347,14 @@ export default function App() {
     : [
         { titulo: null, items: [
           { id: 'home', label: 'Resumen', icon: '◉' },
-          { id: 'add', label: 'Agregar', icon: '＋' },
+          { id: 'patrimonio', label: 'Patrimonio', icon: '▦' },
+          { id: 'alertas', label: 'Alertas', icon: '◊' },
         ] },
         { titulo: 'Día a día', items: [
           { id: 'movs', label: 'Movimientos', icon: '⇄' },
-          { id: 'presu', label: 'Presupuestos', icon: '◑' },
+          { id: 'gastos', label: 'Gastos', icon: '◔' },
           { id: 'subs', label: 'Gastos fijos', icon: '⟲' },
+          { id: 'presu', label: 'Presupuestos', icon: '◑' },
           { id: 'pnl', label: 'P&L', icon: '⌁' },
         ] },
         { titulo: 'Crecer', items: [
@@ -1328,10 +1365,8 @@ export default function App() {
         { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
       ]
 
-  const tabs = grupos.flatMap((g) => g.items)
-
-  // En el celular no entran 10 pestañas abajo: mostramos las 4 de siempre y
-  // el resto vive en "Más". En escritorio se ve la barra lateral completa.
+  // En el celular no entran todas las secciones abajo: van las cinco de
+  // siempre y el resto vive en "Más".
   const principales = [
     { id: 'home', label: 'Resumen', icon: '◉' },
     { id: 'add', label: 'Agregar', icon: '＋' },
@@ -1340,86 +1375,138 @@ export default function App() {
     { id: 'mas', label: 'Más', icon: '☰' },
   ]
 
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div>
-          <h1>{config.displayName}</h1>
-          <p className="sub">
-            {tab === 'home' ? new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : ' '}
-          </p>
-        </div>
-      </header>
+  // Antes de dibujar nada, dejamos configurado en qué moneda se muestran los
+  // montos. Va acá y no en un efecto: si esperáramos al efecto, el primer
+  // dibujo saldría en la moneda anterior y se vería el salto.
+  configurarMoneda(moneda, networth ? networth.dolar : 0)
 
-      <main className="screen">
-        {tab === 'home' && (
-          <HomeScreen
-            dashboard={dashboard}
-            config={config}
-            onGo={setTab}
-            networth={networth}
-            upcoming={upcoming}
-          />
-        )}
-        {tab === 'metas' && (
-          <MetasScreen
-            goals={goals}
-            budgets={budgets}
-            categories={config.categories}
-            onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
-            onSaved={notify}
-            onError={(m) => notify(m, 'error')}
-          />
-        )}
-        {tab === 'add' && (
-          <AddScreen
-            config={config}
-            categories={config.categories}
-            onSaved={handleSaved}
-            onError={(m) => notify(m, 'error')}
-          />
-        )}
-        {tab === 'movs' && (
-          <MovementsScreen transactions={transactions} onDelete={handleDelete} loading={false} />
-        )}
-        {tab === 'subs' && (
-          <SubsScreen
-            subs={subs}
-            onReload={reloadSubs}
-            onSaved={notify}
-            onError={(m) => notify(m, 'error')}
-          />
-        )}
-        {tab === 'mas' && <MenuScreen grupos={grupos} actual={tab} onGo={setTab} />}
-        {tab === 'pnl' && <PnlScreen pnl={pnl} />}
-        {tab === 'presu' && (
-          <PresupuestosScreen
-            budgets={budgets}
-            categories={config.categories}
-            onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
-            onSaved={notify}
-            onError={(m) => notify(m, 'error')}
-          />
-        )}
-        {tab === 'arbol' && (
-          <ArbolScreen progreso={progreso} onReload={() => api('/progreso').then(setProgreso).catch(() => {})} />
-        )}
-        {tab === 'ajustes' && (
-          <AjustesScreen
-            config={config}
-            onSaved={notify}
-            onError={(m) => notify(m, 'error')}
-            onLogout={handleLogout}
-          />
-        )}
-        {tab === 'invest' && (
-          <InvestScreen
-            portfolio={portfolio}
-            onReload={reloadPortfolio}
-            onError={(m) => notify(m, 'error')}
-          />
-        )}
-      </main>
+  const exportar = () => { window.location.href = '/api/export' }
+
+  // Título, bajada y botones de cada pantalla, igual que en el diseño.
+  const META = {
+    home: ['Resumen', 'Cómo venís este mes, de un vistazo', [{ txt: 'Exportar', go: exportar }]],
+    patrimonio: ['Patrimonio', 'Pesos e inversiones, todo junto', []],
+    alertas: ['Alertas', 'Lo que conviene que mires ahora', []],
+    movs: ['Movimientos', `${transactions.length} anotados en total`, [{ txt: 'Exportar', go: exportar }]],
+    gastos: ['Gastos', 'En qué se te va la plata', []],
+    subs: ['Gastos fijos', 'Lo que se repite todos los meses', []],
+    presu: ['Presupuestos', 'Un tope por categoría y cuánto llevás', []],
+    pnl: ['P&L', 'Ingresos, egresos y ahorro mes por mes', [{ txt: 'Exportar', go: exportar }]],
+    metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', []],
+    invest: ['Inversiones', 'Tu portfolio a precio de mercado', []],
+    arbol: ['Tu árbol', 'Crece cuando anotás y cumplís tus metas', []],
+    ajustes: ['Ajustes', 'Tu cuenta, Telegram y respaldo', []],
+    add: ['Nuevo movimiento', 'Anotá un gasto o un ingreso', []],
+    mas: ['Más', 'Todas las secciones', []],
+  }
+  const meta = META[tab] || ['', '', []]
+
+  // Lo que muestra la tarjeta de ahorro de la barra lateral.
+  const ahorro = dashboard
+    ? { monto: dashboard.income - dashboard.expense, ingresos: dashboard.income }
+    : null
+
+  return (
+    <div className={`layout ${oculto ? 'oculto' : ''}`}>
+      <Lateral
+        marca={config.appName || 'Manguito'}
+        grupos={grupos}
+        tab={tab}
+        onGo={setTab}
+        onNuevo={() => setTab('add')}
+        ahorro={ahorro}
+        usuario={{ nombre: config.displayName, sub: `@${config.username}` }}
+      />
+
+      <div className="columna">
+        <Topbar
+          moneda={moneda}
+          onMoneda={setMoneda}
+          mes={mes}
+          onMes={setMes}
+          mesTope={mesTope}
+          dolar={networth ? networth.dolar : 0}
+          tema={tema}
+          onTema={() => setTema(tema === 'dark' ? 'light' : 'dark')}
+          oculto={oculto}
+          onOculto={() => setOculto(!oculto)}
+        />
+
+        <main className="contenido" key={tab}>
+          <PaginaHead titulo={meta[0]} bajada={meta[1]} acciones={meta[2]} />
+
+          {tab === 'home' && (
+            <HomeScreen
+              dashboard={dashboard}
+              config={config}
+              onGo={setTab}
+              networth={networth}
+              upcoming={upcoming}
+            />
+          )}
+          {tab === 'patrimonio' && <PatrimonioScreen networth={networth} />}
+          {tab === 'alertas' && <AlertasScreen alertas={alertas} />}
+          {tab === 'gastos' && <GastosScreen dashboard={dashboard} />}
+          {tab === 'metas' && (
+            <MetasScreen
+              goals={goals}
+              budgets={budgets}
+              categories={config.categories}
+              onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
+          {tab === 'add' && (
+            <AddScreen
+              config={config}
+              categories={config.categories}
+              onSaved={handleSaved}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
+          {tab === 'movs' && (
+            <MovementsScreen transactions={transactions} onDelete={handleDelete} loading={false} />
+          )}
+          {tab === 'subs' && (
+            <SubsScreen
+              subs={subs}
+              onReload={reloadSubs}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
+          {tab === 'mas' && <MenuScreen grupos={grupos} actual={tab} onGo={setTab} />}
+          {tab === 'pnl' && <PnlScreen pnl={pnl} />}
+          {tab === 'presu' && (
+            <PresupuestosScreen
+              budgets={budgets}
+              categories={config.categories}
+              onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
+          {tab === 'arbol' && (
+            <ArbolScreen progreso={progreso} onReload={() => api('/progreso').then(setProgreso).catch(() => {})} />
+          )}
+          {tab === 'ajustes' && (
+            <AjustesScreen
+              config={config}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+              onLogout={handleLogout}
+            />
+          )}
+          {tab === 'invest' && (
+            <InvestScreen
+              portfolio={portfolio}
+              onReload={reloadPortfolio}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
+        </main>
+      </div>
 
       <nav className="nav nav-cel">
         {principales.map((t) => (
@@ -1431,24 +1518,6 @@ export default function App() {
             <span className="icon">{t.icon}</span>
             {t.label}
           </button>
-        ))}
-      </nav>
-
-      <nav className="nav nav-pc">
-        {grupos.map((g, i) => (
-          <div className="nav-grupo" key={g.titulo || `g${i}`}>
-            {g.titulo && <div className="nav-titulo">{g.titulo}</div>}
-            {g.items.map((t) => (
-              <button
-                key={t.id}
-                aria-current={tab === t.id ? 'page' : undefined}
-                onClick={() => setTab(t.id)}
-              >
-                <span className="icon">{t.icon}</span>
-                {t.label}
-              </button>
-            ))}
-          </div>
         ))}
       </nav>
 
