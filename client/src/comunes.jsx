@@ -37,6 +37,13 @@ export function monthLabel(ym) {
   return `${names[Number(m) - 1] || ''} ${String(y).slice(2)}`
 }
 
+/** "2026-08" -> "agosto" (para frases: "Resultado de agosto") */
+export function mesNombre(ym) {
+  const largos = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+    'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+  return largos[Number(String(ym).split('-')[1]) - 1] || ''
+}
+
 export function dayLabel(iso) {
   const d = String(iso).split('-')
   return `${d[2]}/${d[1]}`

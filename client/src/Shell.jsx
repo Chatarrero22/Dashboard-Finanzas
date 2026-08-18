@@ -84,7 +84,8 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
 /** "2026-08" → "agosto 2026" */
 export function mesLargo(ym) {
   const [y, m] = String(ym).split('-')
-  return `${MESES[Number(m) - 1] || ''} ${y}`
+  const nombre = MESES[Number(m) - 1] || ''
+  return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${y}`
 }
 
 /** Corre un mes "2026-08" hacia adelante o atrás sin líos de zona horaria. */
@@ -95,7 +96,7 @@ export function correrMes(ym, delta) {
 }
 
 export function Topbar({
-  moneda, onMoneda, mes, onMes, mesTope, dolar,
+  moneda, onMoneda, mes, onMes, mesTope, dolar, dolarNombre,
   tema, onTema, oculto, onOculto,
 }) {
   return (
@@ -126,15 +127,15 @@ export function Topbar({
       {dolar > 0 && (
         <div className="chip-info dolar">
           <span className="punto-vivo" />
-          Dólar blue <strong className="monto-sensible">{money(dolar)}</strong>
+          Dólar {dolarNombre || 'MEP'} <strong className="monto-sensible">{money(dolar)}</strong>
         </div>
       )}
 
       <button className="btn-topbar" onClick={onTema}>
-        {tema === 'dark' ? '☀ Claro' : '☾ Oscuro'}
+        {tema === 'dark' ? 'Modo día' : 'Modo noche'}
       </button>
       <button className="btn-topbar" onClick={onOculto}>
-        {oculto ? 'Mostrar montos' : 'Ocultar montos'}
+        {oculto ? 'Mostrar saldos' : 'Ocultar saldos'}
       </button>
     </header>
   )

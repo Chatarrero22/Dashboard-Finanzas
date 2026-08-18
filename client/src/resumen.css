@@ -1,0 +1,526 @@
+/* =========================================================================
+   Pantalla de Resumen, con la grilla del diseño.
+   En el celular todo se apila; las grillas de dos columnas arrancan a 900px.
+   ========================================================================= */
+
+/* -------------------------------------------------- rótulos y utilidades */
+
+.card-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-bottom: 16px;
+}
+
+.card-rotulo-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.card-rotulo-fila .card-rotulo { margin-bottom: 0; }
+
+.card-nota { font-size: 11px; color: var(--text-muted); }
+
+.link {
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  min-height: auto;
+}
+
+.link:hover { color: var(--accent); }
+
+/* ------------------------------------------------------------- las filas */
+
+.fila-titular,
+.fila-dos {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .fila-titular { grid-template-columns: 1.25fr 1fr; gap: 18px; }
+  .fila-dos { grid-template-columns: 1fr 1.35fr; gap: 18px; }
+  /* La segunda fila de dos va mitad y mitad */
+  .fila-dos.pareja { grid-template-columns: 1fr 1fr; }
+}
+
+/* ------------------------------------------------------- el número grande */
+
+.titular {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 22px;
+  background: linear-gradient(150deg, var(--g1), var(--g2) 60%);
+  animation: mIn 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* El resplandor que se mueve despacio atrás del número */
+.titular-brillo {
+  position: absolute;
+  inset: -40% 40% 40% -10%;
+  background: radial-gradient(circle at 30% 30%, var(--accent), transparent 65%);
+  opacity: 0.13;
+  pointer-events: none;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+
+.titular-txt { position: relative; }
+
+.titular-label {
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: var(--text-tertiary);
+}
+
+.titular-num {
+  font-family: var(--fuente-titulo);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -2px;
+  line-height: 1.08;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.titular-num.negativo { color: var(--critical); }
+.titular-num.positivo { color: var(--good); }
+
+.titular-pie {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.titular-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.titular-chip.mal { background: var(--critical-soft); color: var(--critical); }
+.titular-chip.ok { background: var(--good-soft); color: var(--good); }
+
+.titular-movs { font-size: 11.5px; color: var(--text-muted); }
+
+@media (min-width: 900px) {
+  .titular { padding: 24px; }
+  .titular-num { font-size: 52px; letter-spacing: -2.4px; }
+}
+
+/* --------------------------------------------------------- los cuatro KPI */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kpi-chico {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 15px 16px;
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: mIn 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  transition: border-color 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.kpi-chico:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+
+.kpi-chico-top { display: flex; align-items: center; gap: 7px; }
+
+.kpi-punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.kpi-chico-label { font-size: 11.5px; color: var(--text-tertiary); }
+
+.kpi-chico-valor {
+  font-family: var(--fuente-titulo);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.9px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.kpi-chico-pie { font-size: 11px; color: var(--text-muted); }
+
+@media (min-width: 900px) {
+  .kpi-chico-valor { font-size: 22px; }
+}
+
+/* ---------------------------------------------------------- la proyección */
+
+.proyeccion {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  padding: 16px 20px;
+  background: var(--surface-1);
+}
+
+.proyeccion-txt { flex: 1; min-width: 0; }
+
+.proyeccion-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--accent-text);
+  margin-bottom: 3px;
+}
+
+.proyeccion-frase { font-size: 14px; color: var(--text-secondary); }
+
+.proyeccion-num {
+  text-align: right;
+  font-family: var(--fuente-titulo);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.proyeccion-num .negativo { color: var(--critical); }
+.proyeccion-num .positivo { color: var(--good); }
+
+.proyeccion-dias {
+  font-family: var(--fuente);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------- a dónde va la plata */
+
+.adonde {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.donut {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  flex: none;
+  margin: 0 auto;
+}
+
+.donut-centro {
+  position: absolute;
+  inset: 17px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.donut-label {
+  font-size: 9.5px;
+  letter-spacing: 1.1px;
+  color: var(--text-muted);
+}
+
+.donut-total {
+  font-family: var(--fuente-titulo);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding: 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.adonde-lista {
+  flex: 1;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.adonde-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.adonde-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.adonde-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.adonde-monto {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.adonde-track {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.adonde-fill {
+  height: 100%;
+  border-radius: 99px;
+  transform-origin: left;
+  animation: mGrow 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* -------------------------------------------------------------- tendencia */
+
+.tendencia {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 160px;
+}
+
+.tendencia-mes {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+
+.tendencia-par {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+}
+
+.tendencia-barra {
+  width: 13px;
+  max-width: 40%;
+  min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  transform-origin: bottom;
+  animation: mUp 0.8s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.tendencia-barra.ing { background: var(--good); }
+.tendencia-barra.egr { background: linear-gradient(180deg, var(--accent-2), var(--accent)); }
+
+.tendencia-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.tendencia-label.actual { color: var(--text-primary); font-weight: 600; }
+
+@keyframes mUp { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+.leyenda .pt.ing { background: var(--good); }
+.leyenda .pt.egr { background: var(--accent); }
+
+/* --------------------------------------------------- ranking y movimientos */
+
+.rank {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rank:last-child { border-bottom: none; }
+
+.rank-n {
+  width: 15px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.rank-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex: none;
+}
+
+.rank-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rank-nombre {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-meta { font-size: 11px; color: var(--text-muted); }
+
+.rank-tag {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  white-space: nowrap;
+  flex: none;
+}
+
+.rank-monto {
+  min-width: 84px;
+  text-align: right;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--critical);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.rank-monto.positivo { color: var(--good); }
+
+/* La etiqueta de plataforma no entra en pantallas chicas */
+@media (max-width: 520px) {
+  .rank-tag { display: none; }
+  .rank-monto { min-width: 72px; font-size: 13px; }
+}
+
+/* ------------------------------------------------------- gasto por día */
+
+.dias-graf {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 122px;
+  margin-bottom: 10px;
+}
+
+.dia-barra {
+  flex: 1;
+  min-height: 3px;
+  border-radius: 3px;
+  transform-origin: bottom;
+  animation: mUp 0.7s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  transition: background 0.18s ease;
+}
+
+.dia-barra.fuerte { background: var(--accent); }
+.dia-barra.flojo { background: var(--border-strong); }
+.dia-barra.vacio { background: var(--border); }
+.dia-barra:hover { background: var(--accent-2); }
+
+.dias-escala {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nota-fija {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.nota-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex: none;
+}
+
+.nota-fija strong { color: var(--text-primary); font-weight: 600; }
+
+/* En el celular el texto de la proyección y el número se peleaban por el
+   ancho y la frase quedaba cortada: los apilamos. */
+@media (max-width: 620px) {
+  .proyeccion {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .proyeccion-num { text-align: left; }
+}

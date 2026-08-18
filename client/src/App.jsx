@@ -7,6 +7,7 @@ import PresupuestosScreen from './Presupuestos.jsx'
 import PatrimonioScreen from './Patrimonio.jsx'
 import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
+import ResumenScreen from './Resumen.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
@@ -322,112 +323,6 @@ function AddForm({ categories, onSaved, onError }) {
 }
 
 /* -------------------------------------------------------------- pantallas */
-
-function HomeScreen({ dashboard, config, onGo, networth, upcoming }) {
-  if (!dashboard) return <div className="spinner" />
-
-  const hasData = dashboard.count > 0
-  const topCategories = dashboard.byCategory.slice(0, 6)
-
-  return (
-    <>
-      <Hero
-        label="Este mes"
-        value={dashboard.balance}
-        caption={
-          !hasData
-            ? 'Sin movimientos todavía'
-            : dashboard.balance >= 0
-              ? 'Vas bien'
-              : 'Gastaste más de lo que entró'
-        }
-      />
-      <StatPair income={dashboard.income} expense={dashboard.expense} />
-
-      {!hasData && (
-        <div className="card">
-          <Empty icon="👋" text="Todavía no hay movimientos este mes. Tocá “Agregar” para cargar el primero." />
-        </div>
-      )}
-
-      {topCategories.length > 0 && (
-        <section className="card">
-          <div className="card-title-row">
-            <h2>En qué se fue</h2>
-            <span className="tag">{dashboard.count} movimientos</span>
-          </div>
-          <CategoryBars data={topCategories} />
-        </section>
-      )}
-
-      {dashboard.byMonth.length > 1 && (
-        <section className="card">
-          <h2>Gastos por mes</h2>
-          <MonthBars data={dashboard.byMonth} />
-        </section>
-      )}
-
-      {dashboard.budgets?.length > 0 && (
-        <section className="card">
-          <div className="card-title-row">
-            <h2>Presupuestos</h2>
-            <button className="chip" onClick={() => onGo('metas')}>Editar</button>
-          </div>
-          <BudgetList budgets={dashboard.budgets} />
-        </section>
-      )}
-
-      {dashboard.goals?.length > 0 && (
-        <section className="card">
-          <div className="card-title-row">
-            <h2>Metas</h2>
-            <button className="chip" onClick={() => onGo('metas')}>Ver</button>
-          </div>
-          <GoalList
-            goals={dashboard.goals.map((g) => ({ ...g, remaining: Math.max(g.target - g.saved, 0) }))}
-          />
-        </section>
-      )}
-
-      {upcoming?.length > 0 && (
-        <section className="card">
-          <h2>Se viene</h2>
-          <Upcoming items={upcoming} />
-        </section>
-      )}
-
-      {!config.simple && networth && (
-        <section className="hero">
-          <div className="label">Patrimonio</div>
-          <div className="value">{money(networth.total)}</div>
-          <div className="networth-parts">
-            <div className="networth-part">
-              <div className="label">En pesos</div>
-              <div className="amount">{money(networth.cash)}</div>
-            </div>
-            <div className="networth-part">
-              <div className="label">En cripto</div>
-              <div className="amount">{money(networth.cryptoArs)}</div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {!config.simple && dashboard.subscriptionsMonthly > 0 && (
-        <section className="card">
-          <div className="card-title-row">
-            <h2>Suscripciones</h2>
-            <button className="chip" onClick={() => onGo('subs')}>Ver</button>
-          </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 640 }}>
-            {money(dashboard.subscriptionsMonthly)}
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 400 }}> por mes</span>
-          </div>
-        </section>
-      )}
-    </>
-  )
-}
 
 function AddScreen({ config, categories, onSaved, onError }) {
   return (
@@ -1382,9 +1277,21 @@ export default function App() {
 
   const exportar = () => { window.location.href = '/api/export' }
 
+  // Compartir usa el menú nativo del celular; en escritorio no existe, así que
+  // copiamos un resumen al portapapeles y avisamos.
+  const compartir = async () => {
+    if (!dashboard) return
+    const texto = `Mi ${mesLargo(mes)}: entró ${money(dashboard.income)}, ` +
+      `salió ${money(dashboard.expense)}, quedan ${money(dashboard.income - dashboard.expense)}.`
+    try {
+      if (navigator.share) await navigator.share({ text: texto })
+      else { await navigator.clipboard.writeText(texto); notify('Copiado al portapapeles') }
+    } catch { /* si lo cancela, no pasa nada */ }
+  }
+
   // Título, bajada y botones de cada pantalla, igual que en el diseño.
   const META = {
-    home: ['Resumen', 'Cómo venís este mes, de un vistazo', [{ txt: 'Exportar', go: exportar }]],
+    home: ['Resumen', 'Cómo venís este mes, de un vistazo', [{ txt: 'Exportar', go: exportar }, { txt: 'Compartir', go: compartir }]],
     patrimonio: ['Patrimonio', 'Pesos e inversiones, todo junto', []],
     alertas: ['Alertas', 'Lo que conviene que mires ahora', []],
     movs: ['Movimientos', `${transactions.length} anotados en total`, [{ txt: 'Exportar', go: exportar }]],
@@ -1426,6 +1333,7 @@ export default function App() {
           onMes={setMes}
           mesTope={mesTope}
           dolar={networth ? networth.dolar : 0}
+          dolarNombre={networth ? networth.dolarNombre : ''}
           tema={tema}
           onTema={() => setTema(tema === 'dark' ? 'light' : 'dark')}
           oculto={oculto}
@@ -1436,12 +1344,12 @@ export default function App() {
           <PaginaHead titulo={meta[0]} bajada={meta[1]} acciones={meta[2]} />
 
           {tab === 'home' && (
-            <HomeScreen
+            <ResumenScreen
               dashboard={dashboard}
-              config={config}
+              transactions={transactions}
+              mes={mes}
               onGo={setTab}
-              networth={networth}
-              upcoming={upcoming}
+              config={config}
             />
           )}
           {tab === 'patrimonio' && <PatrimonioScreen networth={networth} />}

@@ -287,8 +287,41 @@ router.get('/dashboard', function (req, res) {
   ).all(uid);
 
   var subs = db.prepare(
-    'SELECT COALESCE(SUM(amount),0) total FROM subscriptions WHERE user_id = ? AND active = 1'
+    'SELECT COALESCE(SUM(amount),0) total, COUNT(*) n FROM subscriptions WHERE user_id = ? AND active = 1'
   ).get(uid);
+
+  // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
+  var topExpenses = db.prepare(
+    'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
+    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) = ?' +
+    ' ORDER BY total DESC LIMIT 5'
+  ).all(uid, month);
+
+  // Cuanto se gasto cada dia del mes. Devolvemos los 31 dias siempre (con 0
+  // donde no hubo nada) para que el grafico no se deforme segun el mes.
+  var porDia = db.prepare(
+    'SELECT CAST(substr(date,9,2) AS INTEGER) dia, SUM(ABS(amount)) total FROM transactions' +
+    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) = ? GROUP BY dia'
+  ).all(uid, month);
+  var diasDelMes = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
+  var byDay = [];
+  for (var d = 1; d <= diasDelMes; d++) byDay.push({ dia: d, total: 0 });
+  porDia.forEach(function (r) { if (byDay[r.dia - 1]) byDay[r.dia - 1].total = r.total; });
+
+  // Proyeccion: al ritmo de lo que va del mes, como cierra.
+  // Solo tiene sentido en el mes en curso; en meses cerrados no proyectamos.
+  var proyeccion = null;
+  if (month === mesActual()) {
+    var hoyDia = new Date().getDate();
+    var diarioPromedio = hoyDia > 0 ? monthTotals.expense / hoyDia : 0;
+    var quedan = Math.max(diasDelMes - hoyDia, 0);
+    proyeccion = {
+      diasQueQuedan: quedan,
+      gastoProyectado: monthTotals.expense + diarioPromedio * quedan,
+      netoProyectado: monthTotals.income - (monthTotals.expense + diarioPromedio * quedan),
+      promedioDiario: diarioPromedio
+    };
+  }
 
   var goals = db.prepare('SELECT * FROM goals WHERE user_id = ? AND done = 0 ORDER BY id DESC LIMIT 3').all(uid);
   goals.forEach(function (g) {
@@ -311,6 +344,11 @@ router.get('/dashboard', function (req, res) {
     },
     byCategory: byCategory,
     byMonth: byMonth.reverse(),
+    topExpenses: topExpenses,
+    byDay: byDay,
+    diasDelMes: diasDelMes,
+    proyeccion: proyeccion,
+    subscriptionsCount: subs.n,
     subscriptionsMonthly: subs.total
   });
 });
@@ -505,7 +543,13 @@ router.get('/networth', async function (req, res) {
     var assets = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ?').all(req.user.id);
     var quotes = await prices.getPrices(assets.map(function (a) { return a.symbol; }));
     var dolar = await prices.getDolar();
-    var venta = (dolar.blue && dolar.blue.venta) || (dolar.oficial && dolar.oficial.venta) || 0;
+    // El MEP ("bolsa") es la referencia que usa el diseño y la que tiene
+    // sentido para valuar. Si no viene, caemos al blue y despues al oficial.
+    var venta = (dolar.bolsa && dolar.bolsa.venta)
+      || (dolar.blue && dolar.blue.venta)
+      || (dolar.oficial && dolar.oficial.venta) || 0;
+    var cual = (dolar.bolsa && dolar.bolsa.venta) ? 'MEP'
+      : (dolar.blue && dolar.blue.venta) ? 'blue' : 'oficial';
 
     var cryptoUsd = 0;
     assets.forEach(function (a) {
@@ -518,6 +562,7 @@ router.get('/networth', async function (req, res) {
       cryptoUsd: cryptoUsd,
       cryptoArs: cryptoUsd * venta,
       dolar: venta,
+      dolarNombre: cual,
       total: cash + cryptoUsd * venta,
       pricesAvailable: Object.keys(quotes).length > 0
     });
