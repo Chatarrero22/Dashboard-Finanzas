@@ -525,3 +525,154 @@
 @media (min-width: 760px) {
   .kpis-3 { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ==================================================== presupuestos */
+
+/* La banda que explica sobre qué se miden los porcentajes */
+.banda {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 18px;
+  background: var(--surface-1);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.banda-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.banda-monto {
+  font-family: var(--fuente-titulo);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.banda-nota { color: var(--text-muted); }
+
+/* Las tarjetas, de a dos cuando hay lugar */
+.presu-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 860px) {
+  .presu-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.presu {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 20px;
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  animation: mIn 0.45s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  transition: border-color 0.2s ease;
+}
+
+.presu:hover { border-color: var(--border-strong); }
+
+.presu-head { display: flex; align-items: center; gap: 12px; }
+
+.presu-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex: none;
+}
+
+.presu-nombre {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.presu-pct {
+  font-family: var(--fuente-titulo);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* La ✕ aparece al pasar por encima; en tocables está siempre */
+.presu-borrar {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 6px;
+  min-height: auto;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s ease, color 0.18s ease;
+}
+
+.presu:hover .presu-borrar,
+.presu-borrar:focus-visible { opacity: 1; }
+.presu-borrar:hover { color: var(--critical); }
+
+@media (hover: none) {
+  .presu-borrar { opacity: 0.6; }
+}
+
+.presu-track {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.presu-fill {
+  height: 100%;
+  border-radius: 99px;
+  transform-origin: left;
+  animation: mGrow 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.presu-pie {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+.presu-cuanto { font-size: 12.5px; color: var(--text-tertiary); }
+.presu-estado { font-size: 12.5px; font-weight: 600; }
+
+/* El tono lo manda el estado: verde, amarillo o rojo */
+.presu.bien .presu-pct,
+.presu.bien .presu-estado { color: var(--good); }
+.presu.bien .presu-fill { background: var(--good); }
+
+.presu.ojo .presu-pct,
+.presu.ojo .presu-estado { color: var(--yellow); }
+.presu.ojo .presu-fill { background: var(--yellow); }
+
+.presu.mal .presu-pct,
+.presu.mal .presu-estado { color: var(--critical); }
+.presu.mal .presu-fill { background: var(--critical); }

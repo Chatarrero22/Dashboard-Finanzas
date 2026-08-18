@@ -600,3 +600,18 @@
 
 /* Las barras y los números que ya tienen su propia animación no se pisan:
    mIn mueve el contenedor, ellas se dibujan adentro. */
+
+/* El botón principal del encabezado va en naranja Manguito: es la acción
+   que uno busca cuando entra a la pantalla. */
+.pagina-acciones button.acento {
+  border: none;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  color: var(--on-accent);
+  box-shadow: 0 8px 20px -12px var(--accent);
+}
+
+.pagina-acciones button.acento:hover {
+  color: var(--on-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px -12px var(--accent);
+}

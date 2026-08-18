@@ -153,7 +153,7 @@ export function PaginaHead({ titulo, bajada, acciones }) {
       {acciones && acciones.length > 0 && (
         <div className="pagina-acciones">
           {acciones.map((a) => (
-            <button key={a.txt} onClick={a.go}>{a.txt}</button>
+            <button key={a.txt} className={a.tono || ''} onClick={a.go}>{a.txt}</button>
           ))}
         </div>
       )}

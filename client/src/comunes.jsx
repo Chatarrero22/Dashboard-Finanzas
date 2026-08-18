@@ -49,6 +49,19 @@ export function dayLabel(iso) {
   return `${d[2]}/${d[1]}`
 }
 
+/* Un icono por categoria, para que las listas no sean todas grises.
+   Vive aca porque lo usan Resumen, Presupuestos y Gastos. */
+export const ICONOS = {
+  Supermercado: '🛒', Comida: '🍔', Transporte: '🚗', Servicios: '⚡',
+  Salud: '💊', Ocio: '🎬', Ropa: '👕', Educación: '📚', Hogar: '🏠',
+  Impuestos: '🏛', Mascotas: '🐾', Regalos: '🎁', Viajes: '✈',
+  Tecnología: '💻', Sueldo: '💰', Otros: '◈',
+}
+
+export function icono(cat) {
+  return ICONOS[cat] || '◈'
+}
+
 export function Empty({ icon, text }) {
   return (
     <div className="empty">

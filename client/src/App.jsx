@@ -1058,6 +1058,10 @@ export default function App() {
   const [needsSetup, setNeedsSetup] = useState(false)
   const [toast, setToast] = useState(null)
   const [alertas, setAlertas] = useState(null)
+  // Los botones del encabezado de Presupuestos viven acá (el encabezado es de
+  // App), pero el formulario vive en la pantalla. Este objeto cambia de
+  // identidad en cada click para que la pantalla lo note.
+  const [presuAccion, setPresuAccion] = useState(null)
 
   // Controles de la barra de arriba, como en el diseño.
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
@@ -1297,7 +1301,10 @@ export default function App() {
     movs: ['Movimientos', `${transactions.length} anotados en total`, [{ txt: 'Exportar', go: exportar }]],
     gastos: ['Gastos', 'En qué se te va la plata', []],
     subs: ['Gastos fijos', 'Lo que se repite todos los meses', []],
-    presu: ['Presupuestos', 'Un tope por categoría y cuánto llevás', []],
+    presu: ['Presupuestos', 'Un tope por categoría y cuánto llevás', [
+      { txt: 'Sugerir topes', go: () => setPresuAccion({ tipo: 'sugerir', n: Date.now() }) },
+      { txt: '+ Nuevo presupuesto', tono: 'acento', go: () => setPresuAccion({ tipo: 'nuevo', n: Date.now() }) },
+    ]],
     pnl: ['P&L', 'Ingresos, egresos y ahorro mes por mes', [{ txt: 'Exportar', go: exportar }]],
     metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', []],
     invest: ['Inversiones', 'Tu portfolio a precio de mercado', []],
@@ -1390,6 +1397,9 @@ export default function App() {
             <PresupuestosScreen
               budgets={budgets}
               categories={config.categories}
+              ingresoDelMes={dashboard ? dashboard.income : 0}
+              mes={mes}
+              accion={presuAccion}
               onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}

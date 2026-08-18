@@ -5,16 +5,7 @@
  * grande del mes con los cuatro KPI al costado, después la proyección, después
  * a dónde va la plata y la tendencia, y abajo el detalle.
  */
-import { money, monthLabel, mesNombre, dayLabel, Empty } from './comunes.jsx'
-
-/* Un ícono por categoría, para que la lista no sea toda gris. */
-const ICONOS = {
-  Supermercado: '🛒', Comida: '🍽', Transporte: '🚗', Servicios: '⚡',
-  Salud: '💊', Ocio: '🎬', Ropa: '👕', Educación: '📚', Hogar: '🏠',
-  Impuestos: '🏛', Mascotas: '🐾', Regalos: '🎁', Viajes: '✈',
-  Tecnología: '💻', Sueldo: '💰', Otros: '◈',
-}
-const icono = (cat) => ICONOS[cat] || '◈'
+import { money, monthLabel, mesNombre, dayLabel, icono, Empty } from './comunes.jsx'
 
 const COLORES = [
   'var(--accent)', 'var(--blue)', 'var(--good)',
