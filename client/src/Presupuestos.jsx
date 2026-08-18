@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { api, money, mesNombre, icono, Empty } from './comunes.jsx'
+import { useDialogos } from './Dialogos.jsx'
 
 /** Una tarjeta de presupuesto. */
 function Tarjeta({ b, onBorrar }) {
@@ -52,6 +53,7 @@ function Tarjeta({ b, onBorrar }) {
 export default function PresupuestosScreen({
   budgets, categories, ingresoDelMes, mes, accion, onReload, onError, onSaved,
 }) {
+  const { confirmar } = useDialogos()
   const [form, setForm] = useState({ category: '', monthly_limit: '' })
   const [abierto, setAbierto] = useState(false)
   const [sug, setSug] = useState(null)
@@ -110,7 +112,12 @@ export default function PresupuestosScreen({
   }
 
   async function borrar(b) {
-    if (!confirm(`¿Sacar el presupuesto de ${b.category}?`)) return
+    const ok = await confirmar({
+      titulo: `¿Sacar el tope de ${b.category}?`,
+      detalle: 'El presupuesto desaparece, pero los gastos quedan.',
+      aceptar: 'Sacarlo', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/budgets/${b.id}`, { method: 'DELETE' })
       onReload()

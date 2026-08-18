@@ -9,6 +9,7 @@ import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
+import { useDialogos } from './Dialogos.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
 
@@ -399,6 +400,7 @@ function MovementsScreen({ transactions, onDelete, loading }) {
 }
 
 function SubsScreen({ subs, onReload, onError, onSaved }) {
+  const { confirmar } = useDialogos()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', amount: '', billing_day: '1' })
 
@@ -426,7 +428,12 @@ function SubsScreen({ subs, onReload, onError, onSaved }) {
   }
 
   async function remove(sub) {
-    if (!confirm(`¿Borrar ${sub.name}?`)) return
+    const ok = await confirmar({
+      titulo: `¿Borrar ${sub.name}?`,
+      detalle: 'Deja de cargarse sola todos los meses. Lo ya cargado queda.',
+      aceptar: 'Borrar', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/subscriptions/${sub.id}`, { method: 'DELETE' })
       onReload()
@@ -599,6 +606,7 @@ function MenuScreen({ grupos, actual, onGo }) {
 }
 
 function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved }) {
+  const { confirmar, pedirTexto } = useDialogos()
   const [goalForm, setGoalForm] = useState({ name: '', target: '' })
   const [budgetForm, setBudgetForm] = useState({ category: '', monthly_limit: '' })
   const [celebrating, setCelebrating] = useState(null)
@@ -620,7 +628,12 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
   }
 
   async function addToGoal(goal, signo) {
-    const texto = prompt(`¿Cuánto querés ${signo > 0 ? 'sumar a' : 'sacar de'} "${goal.name}"?`)
+    const texto = await pedirTexto({
+      titulo: `${signo > 0 ? 'Sumar a' : 'Sacar de'} "${goal.name}"`,
+      detalle: signo > 0 ? '¿Cuánto le ponés?' : '¿Cuánto le sacás?',
+      placeholder: '0', inputMode: 'decimal', soloNumeros: true,
+      aceptar: signo > 0 ? 'Sumar' : 'Sacar',
+    })
     if (!texto) return
     const monto = Number(String(texto).replace(/[^\d.]/g, ''))
     if (!monto) return
@@ -641,7 +654,12 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
   }
 
   async function removeGoal(goal) {
-    if (!confirm(`¿Borrar la meta "${goal.name}"?`)) return
+    const ok = await confirmar({
+      titulo: `¿Borrar la meta "${goal.name}"?`,
+      detalle: 'Se pierde lo que llevabas juntado en esta meta.',
+      aceptar: 'Borrar', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/goals/${goal.id}`, { method: 'DELETE' })
       onReload()
@@ -670,7 +688,12 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
   }
 
   async function removeBudget(b) {
-    if (!confirm(`¿Sacar el presupuesto de ${b.category}?`)) return
+    const ok = await confirmar({
+      titulo: `¿Sacar el tope de ${b.category}?`,
+      detalle: 'El presupuesto desaparece, pero los gastos quedan.',
+      aceptar: 'Sacarlo', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/budgets/${b.id}`, { method: 'DELETE' })
       onReload()
@@ -762,6 +785,7 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
 }
 
 function AjustesScreen({ config, onError, onSaved, onLogout }) {
+  const { confirmar } = useDialogos()
   const [code, setCode] = useState(null)
   const [pass, setPass] = useState('')
   const [users, setUsers] = useState(null)
@@ -846,7 +870,12 @@ function AjustesScreen({ config, onError, onSaved, onLogout }) {
   }
 
   async function borrarUsuario(u) {
-    if (!confirm(`¿Borrar a ${u.display_name} y todos sus datos?`)) return
+    const ok = await confirmar({
+      titulo: `¿Borrar a ${u.display_name}?`,
+      detalle: 'Se van también todos sus movimientos, metas y presupuestos. No se puede deshacer.',
+      aceptar: 'Borrar todo', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/users/${u.id}`, { method: 'DELETE' })
       cargarUsuarios()
@@ -987,12 +1016,18 @@ function AjustesScreen({ config, onError, onSaved, onLogout }) {
 }
 
 function InvestScreen({ portfolio, onError, onReload }) {
+  const { confirmar } = useDialogos()
   if (!portfolio) return <div className="spinner" />
 
   const { assets, totalValue, totalPnl, totalPnlPct, pricesAvailable } = portfolio
 
   async function remove(asset) {
-    if (!confirm(`¿Sacar ${asset.symbol} del portfolio?`)) return
+    const ok = await confirmar({
+      titulo: `¿Sacar ${asset.symbol} del portfolio?`,
+      detalle: 'Deja de contar en tu patrimonio.',
+      aceptar: 'Sacarlo', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/portfolio/${asset.id}`, { method: 'DELETE' })
       onReload()
@@ -1057,6 +1092,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [toast, setToast] = useState(null)
+  const { confirmar } = useDialogos()
   const [alertas, setAlertas] = useState(null)
   // Los botones del encabezado de Presupuestos viven acá (el encabezado es de
   // App), pero el formulario vive en la pantalla. Este objeto cambia de
@@ -1193,6 +1229,37 @@ export default function App() {
     loadCore().catch(() => {})
   }, [mes, config, loadCore])
 
+  /*
+   * Refrescar cuando volvés a la pestaña.
+   *
+   * Los datos también cambian por fuera del navegador: si le pedís a Manguito
+   * por Telegram que borre las últimas transacciones, se borran de la base al
+   * instante, pero esta pantalla ya cargada no se entera y las sigue
+   * mostrando. Parecía que el bot no había hecho nada.
+   *
+   * Cada vez que la pestaña vuelve a estar visible volvemos a pedir los datos.
+   */
+  useEffect(() => {
+    if (!config) return
+
+    function alVolver() {
+      if (document.visibilityState !== 'visible') return
+      loadCore().catch(() => {})
+      // Lo que se carga por pantalla también puede haber cambiado.
+      if (tab === 'metas' || tab === 'presu') loadMetas().catch(() => {})
+      if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
+      if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
+      if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
+    }
+
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
+    }
+  }, [config, tab, loadCore, loadMetas])
+
   const reloadSubs = useCallback(() => { api('/subscriptions').then(setSubs).catch(() => {}) }, [])
   const reloadPortfolio = useCallback(() => { api('/portfolio').then(setPortfolio).catch(() => {}) }, [])
 
@@ -1203,7 +1270,12 @@ export default function App() {
   }
 
   async function handleDelete(tx) {
-    if (!confirm(`¿Borrar "${tx.description}"?`)) return
+    const ok = await confirmar({
+      titulo: '¿Borrar este movimiento?',
+      detalle: `${tx.description} · ${money(tx.amount)}`,
+      aceptar: 'Borrar', peligro: true,
+    })
+    if (!ok) return
     try {
       await api(`/transactions/${tx.id}`, { method: 'DELETE' })
       notify('Borrado')

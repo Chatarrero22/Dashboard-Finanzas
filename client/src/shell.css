@@ -615,3 +615,132 @@
   transform: translateY(-1px);
   box-shadow: 0 12px 26px -12px var(--accent);
 }
+
+/* ====================================================== diálogos propios */
+
+/* Reemplazan a confirm() y prompt(): aquellos abren una ventana gris del
+   sistema con el dominio arriba, que no se puede estilar. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--overlay);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: mFade 0.2s ease both;
+}
+
+.dialogo {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  background: var(--surface-2);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.55);
+  animation: mIn 0.28s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.dialogo:focus { outline: none; }
+
+.dialogo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialogo-titulo {
+  font-family: var(--fuente-titulo);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  /* Los nombres largos de un movimiento no pueden desbordar la caja */
+  overflow-wrap: anywhere;
+}
+
+.dialogo-detalle {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+.dialogo-x {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+
+.dialogo-x:hover { color: var(--text-primary); }
+
+.dialogo-input {
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--fuente-titulo);
+  /* 16px o más: con menos, iOS hace zoom al enfocar el campo */
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.dialogo-input:focus { border-color: var(--accent); }
+
+.dialogo-botones {
+  display: flex;
+  gap: 10px;
+}
+
+.dialogo-btn {
+  flex: 1;
+  height: 46px;
+  min-height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.dialogo-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
+.dialogo-btn.principal {
+  border: none;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  color: var(--on-accent);
+}
+
+/* Borrar es distinto de guardar: el botón lo dice con el color. */
+.dialogo-btn.principal.peligro {
+  background: var(--critical);
+  color: #fff;
+}
+
+.dialogo-btn.principal:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
