@@ -78,6 +78,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `fijos.js` | Carga sola las suscripciones el día que se cobran |
 | `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
+| `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -117,24 +118,25 @@ DesignSync). Los tokens de los dos temas están copiados tal cual en `index.css`
 
 ## Lo que falta (por orden de conveniencia)
 
-El diseño tiene 14 pantallas. Hechas: Resumen, Agregar, Movimientos,
-Presupuestos, Gastos fijos, P&L, Metas, Inversiones, Árbol, Ajustes.
+El diseño tiene 14 pantallas. Hechas: Resumen, Patrimonio, Alertas, Movimientos,
+Gastos, Gastos fijos, Presupuestos, P&L, Metas, Inversiones, Árbol, Ajustes,
+Agregar.
 
-1. **Patrimonio** — hoy es una tarjeta en Resumen; el diseño la quiere pantalla
-   propia. Los datos ya están en `/api/networth`.
-2. **Alertas** — pantalla que muestre lo que hoy solo manda el bot. Los datos
-   salen de `alertas.js`.
-3. **Gastos** — vista de gastos por categoría con más detalle.
-4. **Barra lateral completa** — falta el logo arriba, el botón "+ Nuevo
-   movimiento" y la tarjeta de "Ahorro del mes".
-5. **Tarjetas** y **Ahorro** — necesitan tablas nuevas (tarjetas de crédito,
+El armazón del diseño ya está: barra lateral (logo, "+ Nuevo movimiento",
+tarjeta de ahorro del mes, los tres grupos, el usuario abajo que lleva a
+Ajustes) y barra de arriba (ARS/US$, navegador de meses, dólar en vivo, tema,
+"Ocultar montos"). Vive en `Shell.jsx` + `shell.css`.
+
+1. **Tarjetas** y **Ahorro** — necesitan tablas nuevas (tarjetas de crédito,
    plazos fijos) y pantallas de carga. Es trabajo de verdad, no maquetado.
-6. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
+2. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
 
 Otros pendientes:
 - **WhatsApp**: ahora es viable (hay dirección pública). Necesita webhook, número
   aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
 - El usuario de **Sofía** (`simple_ui`) puede estar sin crear en producción.
+- La conversión a US$ usa el blue de `/api/networth`. Si algún día se quiere el
+  MEP (que es lo que dice el diseño), hay que sumarlo en `prices.js`.
 
 ---
 
@@ -167,6 +169,17 @@ día). Hay que contar cuántos hay y cuántos trae el archivo.
 símbolo está repetido (hay decenas de monedas "W", "RWA", "PIXEL") y el orden no
 es estable. Hay que elegir por `cmc_rank` / capitalización, si no el patrimonio
 varía 4x entre cargas.
+
+**Los avisos se consumen al calcularlos.** Las funciones de `alertas.js`
+llaman a `esNuevo()`, que marca el aviso como enviado en `alerts_sent`. Si una
+pantalla las usa, abrir esa pantalla apaga el aviso de Telegram del día. Por eso
+existe `alertas-pantalla.js`, que calcula lo mismo sin escribir nada.
+
+**`.nav-pc` heredaba `position: fixed`.** La barra lateral de escritorio no se
+parecía en nada al diseño y el motivo no estaba en el layout: `.nav-pc` no tenía
+estilos propios y se comía el `position: fixed; bottom: 0` de `.nav`, la barra
+del celular. Era la barra de abajo con títulos encima. Si algo "no se parece al
+diseño", fijate qué está heredando antes de reescribir el componente.
 
 **Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
 saldo en rojo se lee igual que uno a favor.
