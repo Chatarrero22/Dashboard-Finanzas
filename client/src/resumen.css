@@ -239,9 +239,15 @@
   position: relative;
   width: 132px;
   height: 132px;
-  border-radius: 50%;
   flex: none;
   margin: 0 auto;
+}
+
+.donut-aro {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: ruedaEntra 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
 
 .donut-centro {

@@ -135,7 +135,10 @@ function ADondeVa({ cats }) {
 
   return (
     <div className="adonde">
-      <div className="donut" style={{ background: `conic-gradient(${tramos.join(', ')})` }}>
+      <div className="donut">
+        {/* Igual que en Patrimonio: el aro gira solo, el centro queda quieto
+            para que nunca se vea como un disco lleno. */}
+        <div className="donut-aro" style={{ background: `conic-gradient(${tramos.join(', ')})` }} />
         <div className="donut-centro">
           <span className="donut-label">TOTAL</span>
           <span className="donut-total monto-sensible">{money(total)}</span>

@@ -557,8 +557,17 @@ router.get('/networth', async function (req, res) {
       if (q) cryptoUsd += q.price * a.quantity;
     });
 
+    // Cuanto se movio el patrimonio en los ultimos 30 dias. Solo podemos
+    // medir la parte en pesos: de la cripto no guardamos precios viejos, asi
+    // que decir "vario X" incluyendo cripto seria inventar.
+    var hace30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    var cambio30 = db.prepare(
+      'SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ? AND date >= ?'
+    ).get(req.user.id, hace30).t;
+
     res.json({
       cash: cash,
+      cambio30: cambio30,
       cryptoUsd: cryptoUsd,
       cryptoArs: cryptoUsd * venta,
       dolar: venta,

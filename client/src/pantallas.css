@@ -11,6 +11,12 @@
   gap: 12px;
 }
 
+/* Los KPI van en fila cuando hay lugar, como en el diseño. Apilados a lo
+   ancho de 1440px quedaban tres bloques enormes casi vacios. */
+@media (min-width: 760px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); }
+}
+
 .kpi {
   background: var(--surface-1);
   border: 1px solid var(--border);
@@ -290,8 +296,25 @@
   position: relative;
   width: 190px;
   height: 190px;
-  border-radius: 50%;
 }
+
+/* El conic-gradient no se puede interpolar, asi que la entrada se hace
+   rotando el aro: se ve como si las porciones barrieran hasta su lugar. */
+.rueda-aro {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: ruedaEntra 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+@keyframes ruedaEntra {
+  from { transform: rotate(-135deg) scale(0.86); opacity: 0; }
+  to { transform: rotate(0) scale(1); opacity: 1; }
+}
+
+/* El centro va aparte y SIN animacion de opacidad: es lo que convierte el
+   disco en anillo. Si se desvaneciera, durante la animacion se veria un
+   circulo lleno. */
 
 .rueda-centro {
   position: absolute;
@@ -328,6 +351,7 @@
   gap: 12px;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+  animation: mIn 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
 
 .parte:last-child { border-bottom: none; }
@@ -359,6 +383,47 @@
 }
 
 .parte-monto.negativo { color: var(--critical); }
+
+/* --------------------------------- titular de Patrimonio y su variacion */
+
+.patrimonio-cabeza {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.patrimonio-num {
+  font-family: var(--fuente-titulo);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -1.6px;
+  line-height: 1.1;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.variacion-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 13px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.variacion-pill.ok { background: var(--good-soft); color: var(--good); }
+.variacion-pill.mal { background: var(--critical-soft); color: var(--critical); }
+
+@media (min-width: 900px) {
+  .patrimonio-num { font-size: 46px; letter-spacing: -2px; }
+}
 
 @media (min-width: 1000px) {
   .patrimonio-grid { grid-template-columns: 1fr 1.35fr; }

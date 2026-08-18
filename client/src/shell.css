@@ -559,3 +559,44 @@
     flex: none;
   }
 }
+
+/* ===================================================== entradas animadas */
+
+/* En el diseño las tarjetas no aparecen de golpe: suben un poco mientras
+   aparecen, y las de más abajo llegan un toque después. El `key={tab}` del
+   contenido hace que esto se repita en cada cambio de pantalla. */
+.contenido > .card,
+.contenido > .titular,
+.contenido > .proyeccion,
+.contenido > .hero,
+.contenido > .fila-titular > *,
+.contenido > .fila-dos > *,
+.contenido > .patrimonio-grid > *,
+.contenido > .kpis > *,
+.contenido > .alertas > * {
+  animation: mIn 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* El escalonado. A partir del octavo van todos juntos: si no, lo último
+   de una pantalla larga tardaría casi un segundo en aparecer. */
+.contenido > *:nth-child(1),
+.contenido > * > *:nth-child(1) { animation-delay: 0.02s; }
+.contenido > *:nth-child(2),
+.contenido > * > *:nth-child(2) { animation-delay: 0.07s; }
+.contenido > *:nth-child(3),
+.contenido > * > *:nth-child(3) { animation-delay: 0.12s; }
+.contenido > *:nth-child(4),
+.contenido > * > *:nth-child(4) { animation-delay: 0.17s; }
+.contenido > *:nth-child(5),
+.contenido > * > *:nth-child(5) { animation-delay: 0.22s; }
+.contenido > *:nth-child(6),
+.contenido > * > *:nth-child(6) { animation-delay: 0.27s; }
+.contenido > *:nth-child(n + 7),
+.contenido > * > *:nth-child(n + 7) { animation-delay: 0.3s; }
+
+/* El encabezado de la pantalla no participa del escalonado: tiene que estar
+   desde el primer cuadro para que no "salte" el título. */
+.contenido > .pagina-head { animation: none; }
+
+/* Las barras y los números que ya tienen su propia animación no se pisan:
+   mIn mueve el contenedor, ellas se dibujan adentro. */
