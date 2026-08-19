@@ -926,7 +926,7 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   const [code, setCode] = useState(null)
   const [pass, setPass] = useState('')
   const [users, setUsers] = useState(null)
-  const [nuevo, setNuevo] = useState({ username: '', display_name: '', password: '', simple_ui: true })
+  const [nuevo, setNuevo] = useState({ username: '', display_name: '', password: '' })
 
   const cargarUsuarios = useCallback(() => {
     if (!config.isAdmin) return
@@ -1000,34 +1000,10 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
     }
     try {
       await api('/users', { method: 'POST', body: JSON.stringify(nuevo) })
-      setNuevo({ username: '', display_name: '', password: '', simple_ui: true })
+      setNuevo({ username: '', display_name: '', password: '' })
       onSaved('Usuario creado')
       cargarUsuarios()
     } catch (err) { onError(err.message) }
-  }
-
-  /* El modo simple muestra menos secciones. Se puede cambiar cuando quieras:
-     antes había que borrar a la persona y perder sus datos. */
-  async function cambiarModo(u) {
-    const aSimple = !u.simple_ui
-    const ok = await confirmar({
-      titulo: aSimple ? `¿Pasar a ${u.display_name} a modo simple?` : `¿Que ${u.display_name} vea todo?`,
-      detalle: aSimple
-        ? 'Va a ver solo Resumen, Alertas, Movimientos, Gastos, Presupuestos, Metas y el Árbol.'
-        : 'Suma Patrimonio, Gastos fijos, Tarjetas, P&L e Inversiones. Sus datos no se tocan.',
-      aceptar: 'Cambiar',
-    })
-    if (!ok) return
-    try {
-      await api(`/users/${u.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ simple_ui: aSimple }),
-      })
-      onSaved(aSimple ? `${u.display_name} pasa a modo simple` : `${u.display_name} ahora ve todo`)
-      cargarUsuarios()
-    } catch (err) {
-      onError(err.message)
-    }
   }
 
   async function borrarUsuario(u) {
@@ -1215,16 +1191,6 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
                         {u.is_admin ? <span className="tag">admin</span> : null}
                         {u.telegram_linked ? <span className="tag">Telegram</span> : null}
                       </div>
-                      {/* El modo decide cuántas secciones ve esa persona.
-                          Antes solo se elegía al crearla y no había forma
-                          de cambiarlo sin borrarla. */}
-                      <button
-                        className="tag tag-editable"
-                        style={{ marginTop: 6 }}
-                        onClick={() => cambiarModo(u)}
-                      >
-                        {u.simple_ui ? '◔ Modo simple' : '◉ Ve todo'} ▾
-                      </button>
                     </div>
                     {u.id !== 1 && (
                       <button className="danger" aria-label={`Borrar ${u.display_name}`} onClick={() => borrarUsuario(u)}>✕</button>
@@ -1261,16 +1227,10 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
                 onChange={(e) => setNuevo({ ...nuevo, password: e.target.value })}
               />
             </label>
-            <label className="field">
-              <span className="field-label">¿Versión simple?</span>
-              <select
-                value={nuevo.simple_ui ? 'si' : 'no'}
-                onChange={(e) => setNuevo({ ...nuevo, simple_ui: e.target.value === 'si' })}
-              >
-                <option value="si">Sí — pantallas justas (recomendado)</option>
-                <option value="no">No — todo, con cripto y suscripciones</option>
-              </select>
-            </label>
+            <p className="hint">
+              Cada persona ve la app completa y sus propios datos. Nadie ve los
+              movimientos de otro.
+            </p>
             <button className="primary" type="submit">Crear</button>
           </form>
         </>
@@ -1513,7 +1473,6 @@ export default function App() {
       displayName: me.user.displayName,
       username: me.user.username,
       isAdmin: me.user.isAdmin,
-      simple: me.user.simpleUi,
       categories: me.categories,
       appName: me.appName,
       ai: me.ai,
@@ -1576,8 +1535,8 @@ export default function App() {
     if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
     if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
     if (tab === 'presu') loadMetas().catch(() => {})
-    if (tab === 'subs' && !config.simple) api('/subscriptions').then(setSubs).catch(() => {})
-    if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
+    if (tab === 'subs') api('/subscriptions').then(setSubs).catch(() => {})
+    if (tab === 'invest') api('/portfolio').then(setPortfolio).catch(() => {})
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
     if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
     if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
@@ -1698,44 +1657,31 @@ export default function App() {
 
   // Los grupos y el orden son los del diseño: primero el panorama, después
   // el día a día, y al final lo de crecer.
-  const grupos = config.simple
-    ? [
-        { titulo: null, items: [
-          { id: 'home', label: 'Resumen', icon: '◉' },
-          { id: 'alertas', label: 'Alertas', icon: '◊' },
-        ] },
-        { titulo: 'Día a día', items: [
-          { id: 'movs', label: 'Movimientos', icon: '⇄' },
-          { id: 'gastos', label: 'Gastos', icon: '◔' },
-          { id: 'presu', label: 'Presupuestos', icon: '◑' },
-        ] },
-        { titulo: 'Crecer', items: [
-          { id: 'metas', label: 'Metas', icon: '◎' },
-          { id: 'arbol', label: 'Árbol', icon: '🌳' },
-        ] },
-        { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
-      ]
-    : [
-        { titulo: null, items: [
-          { id: 'home', label: 'Resumen', icon: '◉' },
-          { id: 'patrimonio', label: 'Patrimonio', icon: '▦' },
-          { id: 'alertas', label: 'Alertas', icon: '◊' },
-        ] },
-        { titulo: 'Día a día', items: [
-          { id: 'movs', label: 'Movimientos', icon: '⇄' },
-          { id: 'gastos', label: 'Gastos', icon: '◔' },
-          { id: 'subs', label: 'Gastos fijos', icon: '⟲' },
-          { id: 'tarjetas', label: 'Tarjetas', icon: '▭' },
-          { id: 'presu', label: 'Presupuestos', icon: '◑' },
-          { id: 'pnl', label: 'P&L', icon: '⌁' },
-        ] },
-        { titulo: 'Crecer', items: [
-          { id: 'metas', label: 'Metas', icon: '◎' },
-          { id: 'invest', label: 'Inversiones', icon: '↗' },
-          { id: 'arbol', label: 'Árbol', icon: '🌳' },
-        ] },
-        { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
-      ]
+  //
+  // Antes había un "modo simple" con menos secciones. Se saco: terminaba
+  // escondiendo cosas que la persona necesitaba (Tarjetas, sin ir mas lejos)
+  // y no habia forma de darse cuenta de por que no aparecian. Todos ven todo.
+  const grupos = [
+    { titulo: null, items: [
+      { id: 'home', label: 'Resumen', icon: '◉' },
+      { id: 'patrimonio', label: 'Patrimonio', icon: '▦' },
+      { id: 'alertas', label: 'Alertas', icon: '◊' },
+    ] },
+    { titulo: 'Día a día', items: [
+      { id: 'movs', label: 'Movimientos', icon: '⇄' },
+      { id: 'gastos', label: 'Gastos', icon: '◔' },
+      { id: 'subs', label: 'Gastos fijos', icon: '⟲' },
+      { id: 'tarjetas', label: 'Tarjetas', icon: '▭' },
+      { id: 'presu', label: 'Presupuestos', icon: '◑' },
+      { id: 'pnl', label: 'P&L', icon: '⌁' },
+    ] },
+    { titulo: 'Crecer', items: [
+      { id: 'metas', label: 'Metas', icon: '◎' },
+      { id: 'invest', label: 'Inversiones', icon: '↗' },
+      { id: 'arbol', label: 'Árbol', icon: '🌳' },
+    ] },
+    { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
+  ]
 
   // En el celular no entran todas las secciones abajo: van las cinco de
   // siempre y el resto vive en "Más".

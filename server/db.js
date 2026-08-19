@@ -206,6 +206,14 @@ function initDB() {
     db.exec('ALTER TABLE transactions ADD COLUMN card_id INTEGER');
   }
 
+  // El "modo simple" se saco: escondia secciones que la persona necesitaba
+  // (Tarjetas, sin ir mas lejos) y no habia forma de darse cuenta de por que
+  // no aparecian. La columna queda porque borrarla en SQLite es un lio, pero
+  // no se lee mas y se pone en 0 para que nadie quede a medias.
+  if (tieneColumna('users', 'simple_ui')) {
+    db.exec('UPDATE users SET simple_ui = 0 WHERE simple_ui = 1');
+  }
+
   // La tarjeta con la que pagás casi todo: los movimientos nuevos van ahí
   // solos y vos marcás las excepciones (efectivo, débito, transferencia).
   if (!tieneColumna('cards', 'es_default')) {

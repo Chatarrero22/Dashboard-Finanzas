@@ -51,7 +51,8 @@ function crearUsuario(opciones) {
     opciones.displayName || opciones.username,
     hashPassword(opciones.password),
     opciones.isAdmin ? 1 : 0,
-    opciones.simpleUi ? 1 : 0
+    // El modo simple se saco: todos ven la app completa.
+    0
   );
 
   return db.prepare('SELECT id, username, display_name, is_admin, simple_ui FROM users WHERE id = ?')

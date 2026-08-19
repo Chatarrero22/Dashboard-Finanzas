@@ -105,35 +105,11 @@ router.post('/users', auth.requerido, auth.soloAdmin, function (req, res) {
       username: req.body.username,
       displayName: req.body.display_name || req.body.username,
       password: req.body.password,
-      simpleUi: req.body.simple_ui,
       isAdmin: req.body.is_admin
     }));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
-});
-
-/**
- * Cambiar el modo de una persona.
- *
- * El modo simple decide cuántas secciones ve: sin él, la app muestra todo
- * (Patrimonio, Gastos fijos, Tarjetas, P&L, Inversiones). Antes solo se podía
- * elegir al crear la cuenta, y para cambiarlo había que borrar a la persona
- * y perder todos sus datos.
- */
-router.patch('/users/:id', auth.requerido, auth.soloAdmin, function (req, res) {
-  var u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
-  if (!u) return res.status(404).json({ error: 'No existe esa persona' });
-
-  if (req.body.simple_ui != null) {
-    db.prepare('UPDATE users SET simple_ui = ? WHERE id = ?')
-      .run(req.body.simple_ui ? 1 : 0, req.params.id);
-  }
-
-  res.json(db.prepare(
-    'SELECT id, username, display_name, is_admin, simple_ui,' +
-    ' (telegram_chat_id IS NOT NULL) as telegram_linked FROM users WHERE id = ?'
-  ).get(req.params.id));
 });
 
 router.delete('/users/:id', auth.requerido, auth.soloAdmin, function (req, res) {
