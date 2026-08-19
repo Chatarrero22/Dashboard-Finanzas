@@ -6,6 +6,8 @@
  */
 var db_module = require('./db.js');
 var db = db_module.db;
+var prices = require('./prices.js');
+var dolares = require('./dolares.js');
 
 function hoy() {
   return new Date();
@@ -19,10 +21,27 @@ function ym(fecha) {
  * Carga las suscripciones vencidas del mes en curso.
  * Devuelve la lista de las que efectivamente cargo.
  */
-function cargarVencidas(userId, fecha) {
+async function cargarVencidas(userId, fecha, cotizacionForzada) {
   var ahora = fecha || hoy();
   var mes = ym(ahora);
   var diaHoy = ahora.getDate();
+
+  // La cotización se pide UNA vez para todas: si hay cinco suscripciones en
+  // dólares, no tiene sentido preguntar cinco veces.
+  var cotizacion = cotizacionForzada || 0;
+  if (!cotizacion) {
+    var hayEnDolares = (userId
+      ? db.prepare("SELECT COUNT(*) c FROM subscriptions WHERE active = 1 AND moneda = 'usd' AND user_id = ?").get(userId)
+      : db.prepare("SELECT COUNT(*) c FROM subscriptions WHERE active = 1 AND moneda = 'usd'").get()).c;
+    if (hayEnDolares) {
+      try {
+        var d = await prices.getDolar();
+        cotizacion = (d.bolsa && d.bolsa.venta) || (d.blue && d.blue.venta) || 0;
+      } catch (err) {
+        cotizacion = 0;
+      }
+    }
+  }
 
   var activas = userId
     ? db.prepare('SELECT * FROM subscriptions WHERE active = 1 AND user_id = ?').all(userId)
@@ -35,8 +54,8 @@ function cargarVencidas(userId, fecha) {
     'SELECT id FROM transactions WHERE user_id = ? AND description = ? AND substr(date,1,7) = ? AND amount < 0'
   );
   var insertar = db.prepare(
-    "INSERT INTO transactions (user_id, date, description, amount, category, platform, ai_categorized)" +
-    " VALUES (?, ?, ?, ?, ?, 'Fijo', 0)"
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
+    " ai_categorized, amount_usd, usd_rate) VALUES (?, ?, ?, ?, ?, 'Fijo', 0, ?, ?)"
   );
 
   var cargadas = [];
@@ -53,9 +72,25 @@ function cargarVencidas(userId, fecha) {
         if (!isNaN(finPromo) && finPromo < ahora) monto = s.normal_price;
       }
 
+      // Si la suscripción es en dólares, se pasa a pesos al cambio de HOY.
+      // Por eso el importe se guarda en dólares y no en pesos: cada mes te
+      // sale distinto y el gasto fijo tiene que decir lo que pagás ahora.
+      var enPesos = Math.abs(monto);
+      var usd = null;
+      var cambio = null;
+      if (s.moneda === 'usd') {
+        if (!cotizacion) return;  // sin cotización no inventamos: se carga mañana
+        usd = Math.abs(monto);
+        cambio = cotizacion;
+        enPesos = Math.round(usd * cambio);
+      }
+
       var dia = String(Math.min(s.billing_day, 28)).padStart(2, '0');
-      insertar.run(s.user_id, mes + '-' + dia, s.name, -Math.abs(monto), s.category || 'Servicios');
-      cargadas.push({ name: s.name, amount: monto, user_id: s.user_id });
+      insertar.run(
+        s.user_id, mes + '-' + dia, s.name, -enPesos, s.category || 'Servicios',
+        usd === null ? null : -usd, cambio
+      );
+      cargadas.push({ name: s.name, amount: enPesos, usd: usd, user_id: s.user_id });
     });
   });
 
@@ -74,16 +109,30 @@ function proximas(userId, dias) {
   }).sort(function (a, b) { return a.billing_day - b.billing_day; });
 }
 
-/** Arranca el chequeo diario. */
+/**
+ * Arranca el chequeo diario.
+ * Es asincrono porque las suscripciones en dolares necesitan la cotizacion.
+ */
 function iniciar() {
-  var cargadas = cargarVencidas();   // sin userId = todos
-  if (cargadas.length) {
-    console.log('  Gastos fijos cargados: ' + cargadas.map(function (c) { return c.name; }).join(', '));
+  function correr() {
+    return cargarVencidas()   // sin userId = todos
+      .then(function (cargadas) {
+        if (cargadas.length) {
+          console.log('  Gastos fijos cargados: ' + cargadas.map(function (c) { return c.name; }).join(', '));
+        }
+        return cargadas;
+      })
+      .catch(function (err) {
+        console.error('  Los gastos fijos no se pudieron cargar: ' + err.message);
+        return [];
+      });
   }
+
+  var promesa = correr();
   // Una vez por dia alcanza.
-  var timer = setInterval(function () { cargarVencidas(); }, 24 * 60 * 60 * 1000);
+  var timer = setInterval(correr, 24 * 60 * 60 * 1000);
   if (timer.unref) timer.unref();
-  return cargadas;
+  return promesa;
 }
 
 module.exports = { iniciar: iniciar, cargarVencidas: cargarVencidas, proximas: proximas };

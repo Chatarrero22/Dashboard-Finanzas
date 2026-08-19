@@ -6,6 +6,7 @@ var MODEL = 'claude-opus-5';
 var CATEGORIES = [
   'Supermercado',
   'Delivery',
+  'Gustitos',
   'Transporte',
   'Servicios',
   'Entretenimiento',
@@ -29,6 +30,16 @@ var CATEGORIES = [
 var RULES = [
   { cat: 'Supermercado', words: ['disco', 'coto', 'carrefour', 'jumbo', 'dia %', 'vea', 'chango', 'super', 'almacen', 'verduleria', 'carniceria'] },
   { cat: 'Delivery', words: ['rappi', 'pedidos ya', 'pedidosya', 'uber eats', 'mcdonald', 'burger', 'pizza', 'sushi', 'delivery'] },
+  { cat: 'Gustitos', words: [
+      // Salir a comer, tomar algo, darse un gusto. No es el super ni el
+      // delivery: es lo que gastas cuando salis.
+      'cafe', 'starbucks', 'havanna', 'bar ', ' bar', 'resto', 'restaurante',
+      'cena', 'cenamos', 'almorzamos', 'brunch', 'merienda', 'desayuno',
+      'salida', 'salimos', 'birra', 'cerveza', 'vino', 'trago', 'fernet',
+      'helado', 'heladeria', 'postre', 'pasteleria', 'confiteria',
+      'parrilla', 'pizzeria', 'sushi bar', 'cafeteria', 'bodegon',
+      'mostaza', 'kansas', 'kentucky', 'grido', 'freddo', 'rapanui'
+    ] },
   { cat: 'Transporte', words: ['uber', 'cabify', 'didi', 'sube', 'taxi', 'ypf', 'shell', 'axion', 'nafta', 'peaje', 'estacionamiento'] },
   { cat: 'Servicios', words: [
       'netflix', 'spotify', 'hbo', 'disney', 'crunchyrol', 'claude', 'openai',

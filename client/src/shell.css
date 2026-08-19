@@ -982,3 +982,12 @@
 }
 
 .monto-moneda button:disabled { opacity: 0.35; cursor: default; }
+
+/* El equivalente en pesos de una suscripción en dólares */
+.item-sub {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

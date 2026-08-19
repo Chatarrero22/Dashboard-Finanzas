@@ -406,9 +406,19 @@ router.get('/dashboard', function (req, res) {
     ' FROM transactions WHERE user_id = ? GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid);
 
-  var subs = db.prepare(
-    'SELECT COALESCE(SUM(amount),0) total, COUNT(*) n FROM subscriptions WHERE user_id = ? AND active = 1'
-  ).get(uid);
+  // Las suscripciones en dolares se convierten para poder sumarlas con las
+  // de pesos. Se usa el ultimo cambio que tenemos cacheado, sin ir a la red:
+  // este endpoint lo llama toda la app y no puede depender de una API externa.
+  var subsFilas = db.prepare(
+    'SELECT amount, moneda FROM subscriptions WHERE user_id = ? AND active = 1'
+  ).all(uid);
+  var cambioCache = prices.ultimoDolar();
+  var subs = {
+    n: subsFilas.length,
+    total: subsFilas.reduce(function (a, s) {
+      return a + (s.moneda === 'usd' ? Math.abs(s.amount) * cambioCache : Math.abs(s.amount));
+    }, 0)
+  };
 
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
@@ -491,12 +501,14 @@ router.post('/subscriptions', function (req, res) {
   var b = req.body;
   if (!b.name || b.amount == null) return res.status(400).json({ error: 'Faltan nombre y monto' });
   var info = db.prepare(
-    'INSERT INTO subscriptions (user_id, name, plan, amount, category, billing_day, active, promo_price, promo_end, normal_price)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO subscriptions (user_id, name, plan, amount, category, billing_day, active,' +
+    ' promo_price, promo_end, normal_price, moneda)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     req.user.id, b.name, b.plan || 'Estandar', Number(b.amount), b.category || 'Servicios',
     Number(b.billing_day) || 1, b.active === false ? 0 : 1,
-    Number(b.promo_price) || Number(b.amount), b.promo_end || '', Number(b.normal_price) || 0
+    Number(b.promo_price) || Number(b.amount), b.promo_end || '', Number(b.normal_price) || 0,
+    b.moneda === 'usd' ? 'usd' : 'ars'
   );
   res.json(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(info.lastInsertRowid));
 });
@@ -506,16 +518,18 @@ router.patch('/subscriptions/:id', function (req, res) {
     .get(req.params.id, req.user.id);
   if (!current) return res.status(404).json({ error: 'No existe la suscripción' });
 
-  var fields = ['name', 'plan', 'amount', 'category', 'billing_day', 'active', 'promo_price', 'promo_end', 'normal_price'];
+  var fields = ['name', 'plan', 'amount', 'category', 'billing_day', 'active',
+    'promo_price', 'promo_end', 'normal_price', 'moneda'];
   var next = {};
   fields.forEach(function (f) { next[f] = req.body[f] != null ? req.body[f] : current[f]; });
 
   db.prepare(
     'UPDATE subscriptions SET name=?, plan=?, amount=?, category=?, billing_day=?, active=?,' +
-    ' promo_price=?, promo_end=?, normal_price=? WHERE id=? AND user_id=?'
+    ' promo_price=?, promo_end=?, normal_price=?, moneda=? WHERE id=? AND user_id=?'
   ).run(
     next.name, next.plan, Number(next.amount), next.category, Number(next.billing_day),
     next.active ? 1 : 0, Number(next.promo_price), next.promo_end, Number(next.normal_price),
+    next.moneda === 'usd' ? 'usd' : 'ars',
     req.params.id, req.user.id
   );
 
@@ -966,8 +980,8 @@ router.get('/fixed/upcoming', function (req, res) {
   res.json(fijos.proximas(req.user.id, Number(req.query.days) || 5));
 });
 
-router.post('/fixed/run', function (req, res) {
-  res.json({ cargadas: fijos.cargarVencidas(req.user.id) });
+router.post('/fixed/run', async function (req, res) {
+  res.json({ cargadas: await fijos.cargarVencidas(req.user.id) });
 });
 
 /* ------------------------------------------------------------------- P&L */

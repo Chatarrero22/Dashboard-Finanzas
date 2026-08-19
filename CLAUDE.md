@@ -174,6 +174,12 @@ la vista y no hay forma de llegar. En el celular pasó con el alta de un
 movimiento. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
 `overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
 
+**Un gasto suelto y una suscripción en dólares se guardan al revés.** Un gasto
+suelto va **en pesos**, congelado al cambio del día (pasó una vez y ya está).
+Una suscripción va **en dólares**, y `fijos.js` la convierte cada mes al cambio
+de ese día: US$15 no te sale lo mismo en marzo que en agosto, y congelarla haría
+que el gasto fijo dijera un número que ya no pagás. No los unifiques.
+
 **Los gastos en dólares se guardan en PESOS.** `amount` siempre está en pesos,
 convertido al cambio del día en que se cargó, y queda congelado: que el dólar
 suba después no cambia lo que te salió ese día. `amount_usd` y `usd_rate`

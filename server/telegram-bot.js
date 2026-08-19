@@ -247,7 +247,7 @@ function aplicarCorreccion(bot, chatId, userId, txId, montoNuevo) {
 
 /* Un emoji por categoría, los mismos que muestra la app. */
 var EMOJIS = {
-  Supermercado: '🛒', Delivery: '🍔', Transporte: '🚗', Servicios: '⚡',
+  Supermercado: '🛒', Delivery: '🛵', Gustitos: '🍻', Transporte: '🚗', Servicios: '⚡',
   Entretenimiento: '🎬', Salud: '💊', Ropa: '👕', Educacion: '📚',
   Sueldo: '💰', Transferencia: '🔁', Otros: '📌'
 };

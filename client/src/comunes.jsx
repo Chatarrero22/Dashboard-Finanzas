@@ -57,7 +57,8 @@ export function dayLabel(iso) {
    "Educación" no coincidía y salía con el ícono genérico. */
 export const ICONOS = {
   Supermercado: '🛒',
-  Delivery: '🍔',
+  Delivery: '🛵',
+  Gustitos: '🍻',
   Transporte: '🚗',
   Servicios: '⚡',
   Entretenimiento: '🎬',

@@ -90,4 +90,17 @@ async function getDolar() {
   }
 }
 
-module.exports = { getPrices: getPrices, getDolar: getDolar };
+/**
+ * El último dólar que trajimos, sin ir a la red.
+ *
+ * Sirve para los lugares que se llaman todo el tiempo (el dashboard) y no
+ * pueden quedarse esperando a una API de afuera. Si todavía no trajimos
+ * ninguno devuelve 0, y quien lo use tiene que bancarse eso.
+ */
+function ultimoDolar() {
+  var d = dolarCache.data;
+  if (!d) return 0;
+  return (d.bolsa && d.bolsa.venta) || (d.blue && d.blue.venta) || 0;
+}
+
+module.exports = { getPrices: getPrices, getDolar: getDolar, ultimoDolar: ultimoDolar };

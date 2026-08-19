@@ -214,6 +214,16 @@ function initDB() {
     db.exec('UPDATE users SET simple_ui = 0 WHERE simple_ui = 1');
   }
 
+  // Suscripciones en dólares (Netflix, hosting, ChatGPT...).
+  //
+  // Acá va distinto que en un gasto suelto: el importe se guarda EN DÓLARES y
+  // se convierte cada mes al cambio de ese día. Es lo correcto: una
+  // suscripción de US$15 no te sale lo mismo en marzo que en agosto, y
+  // congelarla haría que el gasto fijo dijera un número que ya no pagás.
+  if (!tieneColumna('subscriptions', 'moneda')) {
+    db.exec("ALTER TABLE subscriptions ADD COLUMN moneda TEXT DEFAULT 'ars'");
+  }
+
   // Gastos en dólares.
   //
   // El monto SIEMPRE se guarda en pesos, convertido al cambio del día en que

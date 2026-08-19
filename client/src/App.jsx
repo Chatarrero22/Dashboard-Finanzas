@@ -535,10 +535,10 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
   )
 }
 
-function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
+function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', amount: '', billing_day: '1' })
+  const [form, setForm] = useState({ name: '', amount: '', billing_day: '1', moneda: 'ars' })
 
   // El boton "+ Nuevo gasto fijo" vive en el encabezado, que es de App.
   useEffect(() => { if (accion) setShowForm(true) }, [accion])
@@ -555,9 +555,10 @@ function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
           name: form.name.trim(),
           amount: Number(form.amount),
           billing_day: Number(form.billing_day) || 1,
+          moneda: form.moneda,
         }),
       })
-      setForm({ name: '', amount: '', billing_day: '1' })
+      setForm({ name: '', amount: '', billing_day: '1', moneda: 'ars' })
       setShowForm(false)
       onSaved('Suscripción agregada')
       onReload()
@@ -603,12 +604,28 @@ function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
             <div className="row-2">
               <label className="field">
                 <span className="field-label">Monto</span>
-                <input
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })}
-                />
+                <div className="monto-fila">
+                  <input
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })}
+                  />
+                  <div className="grupo-pill monto-moneda">
+                    <button
+                      type="button"
+                      className={form.moneda === 'ars' ? 'on' : ''}
+                      onClick={() => setForm({ ...form, moneda: 'ars' })}
+                    >$</button>
+                    <button
+                      type="button"
+                      className={form.moneda === 'usd' ? 'on' : ''}
+                      onClick={() => setForm({ ...form, moneda: 'usd' })}
+                      disabled={!dolar}
+                      title={dolar ? 'La suscripción es en dólares' : 'No tengo la cotización ahora'}
+                    >US$</button>
+                  </div>
+                </div>
               </label>
               <label className="field">
                 <span className="field-label">Día de cobro</span>
@@ -619,6 +636,13 @@ function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
                 />
               </label>
             </div>
+            {form.moneda === 'usd' && dolar > 0 && (
+              <p className="hint">
+                Se guarda en dólares y cada mes se pasa a pesos al cambio de ese
+                día. Hoy serían {money((Number(form.amount) || 0) * dolar)} por mes.
+              </p>
+            )}
+
             <div className="dialogo-botones">
               <button type="button" className="dialogo-btn" onClick={() => setShowForm(false)}>Cancelar</button>
               <button
@@ -647,7 +671,14 @@ function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
                     )}
                   </div>
                 </div>
-                <div className="item-amount">{money(s.amount)}</div>
+                <div className="item-amount">
+                  {s.moneda === 'usd'
+                    ? `US$${Math.abs(s.amount).toLocaleString('es-AR')}`
+                    : money(s.amount)}
+                  {s.moneda === 'usd' && dolar > 0 && (
+                    <small className="item-sub monto-sensible">≈ {money(Math.abs(s.amount) * dolar)}</small>
+                  )}
+                </div>
                 <button className="danger" aria-label={`Borrar ${s.name}`} onClick={() => remove(s)}>✕</button>
               </div>
             ))}
@@ -1863,6 +1894,7 @@ export default function App() {
             <SubsScreen
               subs={subs}
               accion={accionDe('subs')}
+              dolar={networth ? networth.dolar : 0}
               onReload={reloadSubs}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
