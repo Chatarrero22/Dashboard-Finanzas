@@ -10,6 +10,7 @@ import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
+import { icono } from './comunes.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
 
@@ -312,8 +313,10 @@ function AddScreen({ config, categories, onSaved, onError }) {
   )
 }
 
-function MovementsScreen({ transactions, onDelete, loading }) {
+function MovementsScreen({ transactions, categories, onDelete, onRecategorizar, loading }) {
   const [query, setQuery] = useState('')
+  // El movimiento al que le estamos cambiando la categoría, si hay alguno.
+  const [editando, setEditando] = useState(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -346,7 +349,15 @@ function MovementsScreen({ transactions, onDelete, loading }) {
                   <div className="item-desc">{t.description}</div>
                   <div className="item-meta">
                     <span>{dayLabel(t.date)}</span>
-                    <span className="tag">{t.category}</span>
+                    {/* La categoría es un botón: si Manguito se equivocó,
+                        se toca y se corrige ahí mismo. */}
+                    <button
+                      className="tag tag-editable"
+                      onClick={() => setEditando(t)}
+                      title="Cambiar la categoría"
+                    >
+                      {icono(t.category)} {t.category} ▾
+                    </button>
                     {t.items?.length > 0 && <span>{t.items.length} productos</span>}
                   </div>
                 </div>
@@ -365,6 +376,31 @@ function MovementsScreen({ transactions, onDelete, loading }) {
           </div>
         )}
       </section>
+
+      {editando && (
+        <Modal
+          titulo="Cambiar la categoría"
+          detalle={`${editando.description} · ${money(editando.amount)}`}
+          onCerrar={() => setEditando(null)}
+        >
+          <div className="cats-grid">
+            {categories.map((c) => (
+              <button
+                key={c}
+                className={`cat-opcion ${c === editando.category ? 'elegida' : ''}`}
+                onClick={async () => {
+                  const tx = editando
+                  setEditando(null)
+                  if (c !== tx.category) await onRecategorizar(tx, c)
+                }}
+              >
+                <span className="cat-opcion-ico">{icono(c)}</span>
+                {c}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
     </>
   )
 }
@@ -708,8 +744,40 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
   )
 }
 
-function AjustesScreen({ config, onError, onSaved, onLogout }) {
+function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados }) {
   const { confirmar } = useDialogos()
+  const [orden, setOrden] = useState(null)
+  const [ordenando, setOrdenando] = useState(false)
+
+  // Primero mira, despues aplica: nunca tocamos datos viejos sin permiso.
+  async function revisarOrden() {
+    setOrdenando(true)
+    try {
+      setOrden(await api('/mantenimiento/ordenar', { method: 'POST', body: JSON.stringify({}) }))
+    } catch (err) {
+      onError(err.message)
+    } finally {
+      setOrdenando(false)
+    }
+  }
+
+  async function aplicarOrden() {
+    const ok = await confirmar({
+      titulo: `¿Ordenar ${orden.cambios.length} movimientos?`,
+      detalle: 'Se cambian los textos y las categorías que quedaron en Otros. Los montos y las fechas no se tocan.',
+      aceptar: 'Ordenar',
+    })
+    if (!ok) return
+    try {
+      const r = await api('/mantenimiento/ordenar', { method: 'POST', body: JSON.stringify({ aplicar: true }) })
+      setOrden(r)
+      onSaved(`${r.cambios.length} movimientos ordenados`)
+      if (onDatosCambiados) onDatosCambiados()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   const [code, setCode] = useState(null)
   const [pass, setPass] = useState('')
   const [users, setUsers] = useState(null)
@@ -854,6 +922,49 @@ function AjustesScreen({ config, onError, onSaved, onLogout }) {
         <p className="hint">
           No duplica nada: si un movimiento ya está cargado, lo saltea.
         </p>
+      </section>
+
+      <section className="card">
+        <div className="card-title-row">
+          <h2>Ordenar lo ya cargado</h2>
+          <button className="chip" onClick={revisarOrden} disabled={ordenando}>
+            {ordenando ? 'Mirando…' : 'Revisar'}
+          </button>
+        </div>
+        <p className="hint">
+          Los movimientos viejos quedaron como los escribiste: «uade matricula»,
+          «NETFLIX». Puedo emprolijarlos y volver a categorizar los que quedaron
+          en Otros. Primero te muestro qué cambiaría; no toco nada sin que digas.
+        </p>
+
+        {orden && orden.cambios.length === 0 && (
+          <p className="hint">Está todo prolijo, no hay nada para cambiar.</p>
+        )}
+
+        {orden && orden.cambios.length > 0 && (
+          <>
+            <div className="cambios">
+              {orden.cambios.slice(0, 12).map((c) => (
+                <div className="cambio" key={c.id}>
+                  <span className="cambio-antes">{c.antes}</span>
+                  <span className="cambio-flecha">→</span>
+                  <span className="cambio-despues">{c.despues}</span>
+                  {c.categoriaAntes !== c.categoriaDespues && (
+                    <span className="tag">{c.categoriaAntes} → {c.categoriaDespues}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {orden.cambios.length > 12 && (
+              <p className="hint">y {orden.cambios.length - 12} más…</p>
+            )}
+            {!orden.aplicado && (
+              <button className="primary" style={{ marginTop: 14 }} onClick={aplicarOrden}>
+                Aplicar los {orden.cambios.length} cambios
+              </button>
+            )}
+          </>
+        )}
       </section>
 
       <form className="card" onSubmit={cambiarPass}>
@@ -1269,6 +1380,22 @@ export default function App() {
     setTab('home')
   }
 
+  // Corregir la categoria de un movimiento ya cargado. Manguito adivina bien
+  // casi siempre, pero cuando no, hay que poder arreglarlo sin borrar y cargar
+  // de nuevo.
+  async function handleRecategorizar(tx, categoria) {
+    try {
+      await api(`/transactions/${tx.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category: categoria }),
+      })
+      notify(`Ahora va en ${categoria}`)
+      await loadCore()
+    } catch (err) {
+      notify(err.message, 'error')
+    }
+  }
+
   async function handleDelete(tx) {
     const ok = await confirmar({
       titulo: '¿Borrar este movimiento?',
@@ -1458,7 +1585,13 @@ export default function App() {
             />
           )}
           {tab === 'movs' && (
-            <MovementsScreen transactions={transactions} onDelete={handleDelete} loading={false} />
+            <MovementsScreen
+              transactions={transactions}
+              categories={config.categories}
+              onDelete={handleDelete}
+              onRecategorizar={handleRecategorizar}
+              loading={false}
+            />
           )}
           {tab === 'subs' && (
             <SubsScreen
@@ -1489,6 +1622,7 @@ export default function App() {
           {tab === 'ajustes' && (
             <AjustesScreen
               config={config}
+              onDatosCambiados={() => loadCore().catch(() => {})}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
               onLogout={handleLogout}

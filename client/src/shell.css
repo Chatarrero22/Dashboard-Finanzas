@@ -783,3 +783,117 @@
 @media (max-width: 380px) {
   .dialogo .row-2 { grid-template-columns: 1fr; }
 }
+
+/* La categoría de un movimiento se puede tocar para corregirla */
+.tag-editable {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 3px 9px;
+  min-height: auto;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.tag-editable:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Las categorías para elegir, adentro del pop-up */
+.cats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cat-opcion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.cat-opcion:hover { border-color: var(--accent); color: var(--text-primary); }
+
+.cat-opcion.elegida {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.cat-opcion-ico { font-size: 15px; flex: none; }
+
+@media (max-width: 380px) {
+  .cats-grid { grid-template-columns: 1fr; }
+}
+
+/* La vista previa de "Ordenar lo ya cargado" */
+.cambios {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cambio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.cambio:last-child { border-bottom: none; }
+
+.cambio-antes {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.cambio-flecha { color: var(--text-muted); }
+.cambio-despues { font-weight: 560; }
+
+/* --------------------------------------------- que nada estire la columna */
+
+/* Los hijos de una grilla arrancan con min-width:auto, o sea que NO se
+   achican por debajo de su contenido: una descripción larga o un monto
+   grande ensanchan la columna y aparece scroll horizontal.
+   Con min-width:0 la columna manda y el texto se recorta adentro. */
+.fila-titular > *,
+.fila-dos > *,
+.patrimonio-grid > *,
+.presu-grid > *,
+.kpis > *,
+.kpi-grid > *,
+.cats-grid > * {
+  min-width: 0;
+}
+
+/* Y que el texto largo de una fila se recorte en vez de empujar */
+.rank-txt,
+.rank-meta,
+.parte-txt,
+.parte-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

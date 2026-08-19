@@ -49,13 +49,28 @@ export function dayLabel(iso) {
   return `${d[2]}/${d[1]}`
 }
 
-/* Un icono por categoria, para que las listas no sean todas grises.
-   Vive aca porque lo usan Resumen, Presupuestos y Gastos. */
+/* Un ícono por categoría, para que las listas no sean todas grises.
+   Vive acá porque lo usan Resumen, Presupuestos, Gastos y Movimientos.
+
+   Las claves tienen que ser EXACTAMENTE las de CATEGORIES en
+   server/categorizer.js. "Educacion" va sin tilde por eso: escrito
+   "Educación" no coincidía y salía con el ícono genérico. */
 export const ICONOS = {
-  Supermercado: '🛒', Comida: '🍔', Transporte: '🚗', Servicios: '⚡',
-  Salud: '💊', Ocio: '🎬', Ropa: '👕', Educación: '📚', Hogar: '🏠',
-  Impuestos: '🏛', Mascotas: '🐾', Regalos: '🎁', Viajes: '✈',
-  Tecnología: '💻', Sueldo: '💰', Otros: '◈',
+  Supermercado: '🛒',
+  Delivery: '🍔',
+  Transporte: '🚗',
+  Servicios: '⚡',
+  Entretenimiento: '🎬',
+  Salud: '💊',
+  Ropa: '👕',
+  Educacion: '📚',
+  Sueldo: '💰',
+  Transferencia: '🔁',
+  Otros: '◈',
+  // Alias por si alguna categoría vieja quedó escrita distinto
+  'Educación': '📚',
+  Comida: '🍔',
+  Ocio: '🎬',
 }
 
 export function icono(cat) {

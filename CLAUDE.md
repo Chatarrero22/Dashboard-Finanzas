@@ -79,6 +79,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
+| `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -156,6 +157,37 @@ verificá después con grep.
 `transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
 gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
 hijo.
+
+**El servidor viejo sigue vivo y `pkill` no lo mata.** `pkill -f "node
+server/index.js"` desde git-bash **no mata procesos de Windows**: no falla, no
+avisa, simplemente no hace nada. El servidor nuevo tampoco puede tomar el
+puerto, así que se muere calladito, y vos seguís probando contra el código de
+hace horas. Pasó: estuve un rato convencido de que un arreglo no funcionaba.
+
+Para matarlo de verdad, PowerShell:
+
+```powershell
+Get-Process node | ForEach-Object { Stop-Process -Id $_.Id -Force }
+```
+
+Y para saber si el que responde es el nuevo, comparalo con el archivo:
+
+```powershell
+Get-Process node | Select-Object Id, StartTime
+(Get-Item serverpi.js).LastWriteTime
+```
+
+Si el proceso arrancó **antes** que la última edición, estás probando lo viejo.
+
+**Ojo con tapar variables del módulo.** `var cat = ...` adentro de una función
+tapa al `var cat = require('./categorizer.js')` de arriba, y como `var` se
+eleva, la llamada explota con "Cannot read properties of undefined". Si la
+variable local se llama igual que un módulo importado, cambiale el nombre.
+
+**Los hijos de una grilla no se achican solos.** Un `grid-template-columns:
+1fr` no alcanza: los hijos arrancan con `min-width: auto`, así que un texto
+largo o un monto grande ensanchan la columna y aparece scroll horizontal a
+320px. Hay que ponerles `min-width: 0` (está en `shell.css`).
 
 **Dos apps en el puerto 3001.** Windows deja convivir una en IPv4 y otra en
 IPv6, y no sabés cuál te contesta. Si algo devuelve datos que no cierran,

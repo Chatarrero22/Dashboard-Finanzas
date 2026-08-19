@@ -13,6 +13,7 @@ var prices = require('./prices.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
 var alertasPantalla = require('./alertas-pantalla.js');
+var texto = require('./texto.js');
 
 var router = express.Router();
 
@@ -139,7 +140,10 @@ function insertTransactions(userId, transactions, platform) {
   var run = db.transaction(function (txs) {
     var ids = [];
     txs.forEach(function (t) {
-      var info = insert.run(userId, t.date, t.description, t.amount, t.category, platform, t.ai_categorized ? 1 : 0);
+      // La descripcion se ordena aca y no en cada pantalla: por esta funcion
+      // pasan la web, el bot de Telegram y los resumenes importados.
+      var desc = texto.ordenarDescripcion(t.description);
+      var info = insert.run(userId, t.date, desc, t.amount, t.category, platform, t.ai_categorized ? 1 : 0);
       ids.push(info.lastInsertRowid);
       (t.items || []).forEach(function (item) {
         insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
@@ -211,7 +215,8 @@ router.patch('/transactions/:id', function (req, res) {
 
   var next = {
     date: req.body.date != null ? req.body.date : current.date,
-    description: req.body.description != null ? req.body.description : current.description,
+    description: req.body.description != null
+      ? texto.ordenarDescripcion(req.body.description) : current.description,
     amount: req.body.amount != null ? Number(req.body.amount) : current.amount,
     category: req.body.category != null ? req.body.category : current.category
   };
@@ -578,6 +583,49 @@ router.get('/networth', async function (req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* -------------------------------------------------------- mantenimiento */
+
+/**
+ * Ordena las descripciones de los movimientos que ya estaban cargados y
+ * vuelve a categorizar los que quedaron en "Otros".
+ *
+ * Sin ?aplicar=1 solo devuelve la lista de lo que cambiaría: es la persona
+ * la que decide si lo toca o no. Nunca modificamos datos viejos sin permiso.
+ */
+router.post('/mantenimiento/ordenar', function (req, res) {
+  var aplicar = req.body && req.body.aplicar;
+  var filas = db.prepare('SELECT id, description, category FROM transactions WHERE user_id = ?')
+    .all(req.user.id);
+
+  var cambios = [];
+  filas.forEach(function (f) {
+    var desc = texto.ordenarDescripcion(f.description);
+    // Solo re-categorizamos lo que quedó en Otros: si vos elegiste una
+    // categoría a mano, no te la vamos a pisar.
+    // Ojo con el nombre: llamarla `cat` tapaba al módulo `cat` de arriba.
+    var categoria = f.category === 'Otros'
+      ? cat.categorizeByRules(desc, -1)
+      : f.category;
+
+    if (desc !== f.description || categoria !== f.category) {
+      cambios.push({
+        id: f.id,
+        antes: f.description, despues: desc,
+        categoriaAntes: f.category, categoriaDespues: categoria
+      });
+    }
+  });
+
+  if (aplicar && cambios.length) {
+    var upd = db.prepare('UPDATE transactions SET description = ?, category = ? WHERE id = ? AND user_id = ?');
+    db.transaction(function () {
+      cambios.forEach(function (c) { upd.run(c.despues, c.categoriaDespues, c.id, req.user.id); });
+    })();
+  }
+
+  res.json({ aplicado: Boolean(aplicar), total: filas.length, cambios: cambios });
 });
 
 /* ------------------------------------------------------------------ alertas */

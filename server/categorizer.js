@@ -17,7 +17,15 @@ var CATEGORIES = [
   'Otros'
 ];
 
-// Reglas locales: se usan como fallback si no hay API key o si falla la llamada.
+// Reglas locales: se usan como respaldo si no hay API key o si la llamada falla.
+//
+// OJO con el orden: se recorre de arriba abajo y gana la PRIMERA que coincide.
+// Las palabras se buscan como subcadena sobre el texto normalizado (minúscula,
+// sin tildes), así que 'uade' también pega en "UADE CUOTA AGOSTO".
+//
+// Por eso mismo cuidado con las palabras cortas o ambiguas: 'ub' o 'unc'
+// pegarían dentro de cualquier palabra, y 'palermo' es tanto un barrio como
+// una universidad. Ante la duda, poné el nombre largo.
 var RULES = [
   { cat: 'Supermercado', words: ['disco', 'coto', 'carrefour', 'jumbo', 'dia %', 'vea', 'chango', 'super', 'almacen', 'verduleria', 'carniceria'] },
   { cat: 'Delivery', words: ['rappi', 'pedidos ya', 'pedidosya', 'uber eats', 'mcdonald', 'burger', 'pizza', 'sushi', 'delivery'] },
@@ -26,7 +34,19 @@ var RULES = [
   { cat: 'Entretenimiento', words: ['cine', 'teatro', 'bar', 'boliche', 'steam', 'playstation', 'xbox', 'nintendo', 'concierto', 'recital'] },
   { cat: 'Salud', words: ['farmacia', 'osde', 'swiss medical', 'medicus', 'galeno', 'dentista', 'medico', 'laboratorio'] },
   { cat: 'Ropa', words: ['zara', 'adidas', 'nike', 'indumentaria', 'ropa', 'calzado', 'zapatilla'] },
-  { cat: 'Educacion', words: ['curso', 'universidad', 'facultad', 'udemy', 'platzi', 'libro'] },
+  { cat: 'Educacion', words: [
+      'curso', 'universidad', 'facultad', 'instituto', 'colegio', 'escuela',
+      'cuota escolar', 'matricula', 'posgrado', 'maestria', 'libreria', 'libro',
+      'apunte', 'fotocopia', 'ingles', 'idiomas', 'capacitacion',
+      // Universidades e institutos argentinos: es lo que figura en el resumen
+      'uade', 'uba', 'utn', 'uca', 'ucema', 'udesa', 'unlp', 'unsam',
+      'siglo 21', 'siglo21', 'kennedy', 'austral', 'di tella', 'ditella',
+      'maimonides', 'favaloro', 'itba', 'flacso', 'cbc',
+      'educacion it', 'educacionit', 'digital house', 'coderhouse',
+      // Plataformas
+      'udemy', 'platzi', 'coursera', 'domestika', 'crehana', 'duolingo',
+      'skillshare', 'edx'
+    ] },
   { cat: 'Sueldo', words: ['sueldo', 'salario', 'haberes', 'honorarios', 'factura cobrada'] },
   { cat: 'Transferencia', words: ['transferencia', 'reintegro', 'mercado pago', 'modo', 'cvu', 'plazo fijo', 'devolucion'] }
 ];
@@ -93,7 +113,11 @@ async function categorizeTransactions(transactions) {
   var prompt =
     'Categorizá estos movimientos de una cuenta personal argentina.\n' +
     'Categorías válidas (usá exactamente una de estas): ' + CATEGORIES.join(', ') + '.\n' +
-    'Montos negativos son gastos, positivos son ingresos.\n\n' +
+    'Montos negativos son gastos, positivos son ingresos.\n' +
+    'Nombres argentinos frecuentes: UADE, UBA, UTN, UCA, Siglo 21, Di Tella y ' +
+    'CoderHouse son Educacion; Edenor, Edesur, Metrogas y AySA son Servicios; ' +
+    'Coto, Disco, Jumbo y Vea son Supermercado; SUBE, YPF y Shell, Transporte.\n' +
+    'Si dudás entre una categoría concreta y Otros, elegí la concreta.\n\n' +
     JSON.stringify(list.map(function (t, i) {
       return { i: i, description: t.description, amount: t.amount };
     })) +
