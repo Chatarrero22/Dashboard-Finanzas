@@ -28,3 +28,9 @@ escritorio-original.html
 
 # El proyecto de Claude Design bajado (referencia, pesado)
 diseno-claude/
+
+# Scripts sueltos de prueba (Playwright, verificaciones puntuales)
+t[0-9]*.mjs
+shots*.mjs
+s[0-9].mjs
+func-tmp.mjs
