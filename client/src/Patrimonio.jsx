@@ -10,7 +10,19 @@
 import { money, Empty } from './comunes.jsx'
 import Numero from './Numero.jsx'
 
-const COLORES = ['var(--accent)', 'var(--good)', 'var(--blue)', 'var(--yellow)']
+const COLORES = [
+  'var(--accent)', 'var(--good)', 'var(--blue)',
+  'var(--yellow)', 'var(--hoja)', 'var(--critical)',
+]
+
+// Cómo se llama cada pedazo de la cartera en la rueda.
+const NOMBRES = {
+  accion: ['Acciones argentinas', 'Cotizan en la Bolsa de Buenos Aires'],
+  cedear: ['CEDEARs', 'Acciones del exterior, en pesos'],
+  bono: ['Bonos', 'Soberanos y provinciales'],
+  letra: ['Letras', 'Deuda del Tesoro a corto plazo'],
+  on: ['Obligaciones negociables', 'Deuda de empresas'],
+}
 
 /** Rueda de porciones. La animación de entrada la barre hacia su lugar. */
 function Rueda({ partes, total }) {
@@ -65,6 +77,10 @@ export default function PatrimonioScreen({ networth }) {
 
   const total = networth.total || 0
 
+  // Cada tipo de inversión es su propia porción: ver "Bonos" y "CEDEARs" por
+  // separado dice mucho más que un "Inversiones" que junta todo.
+  const porTipo = networth.porTipo || {}
+
   // Solo mostramos lo que tiene plata: una porción de $0 no dice nada.
   const partes = [
     {
@@ -74,11 +90,16 @@ export default function PatrimonioScreen({ networth }) {
     },
     {
       nombre: 'Cripto',
-      meta: networth.pricesAvailable
+      meta: networth.cryptoUsd
         ? `US$${Math.round(networth.cryptoUsd).toLocaleString('es-AR')} a ${networth.dolarNombre || 'MEP'}`
         : 'Sin precios ahora mismo',
       monto: networth.cryptoArs,
     },
+    ...Object.keys(NOMBRES).map((tipo) => ({
+      nombre: NOMBRES[tipo][0],
+      meta: NOMBRES[tipo][1],
+      monto: porTipo[tipo] || 0,
+    })),
   ].filter((p) => Math.abs(p.monto) > 0)
 
   // El porcentaje se calcula sobre la suma de valores absolutos: si el saldo
@@ -119,7 +140,7 @@ export default function PatrimonioScreen({ networth }) {
                     <div className="parte-nombre">{p.nombre}</div>
                     <div className="parte-meta">{p.meta}</div>
                   </div>
-                  <div className="parte-pct">{Math.round(p.pct)}%</div>
+                  <div className="parte-pct">{p.pct > 0 && p.pct < 1 ? '<1%' : `${Math.round(p.pct)}%`}</div>
                   <div className={`parte-monto monto-sensible ${p.monto < 0 ? 'negativo' : ''}`}>
                     {money(p.monto)}
                   </div>
@@ -130,10 +151,25 @@ export default function PatrimonioScreen({ networth }) {
         </div>
       )}
 
-      {!networth.pricesAvailable && (
+      {/* Una cuenta marcada "Invertido" guarda PESOS apartados. La cartera
+          guarda TITULOS. Son dos cosas distintas, pero si apartaste la plata
+          en una cuenta Y ademas cargaste lo que compraste, el patrimonio la
+          cuenta dos veces. Preferimos decirlo antes que mostrar un total que
+          no es. */}
+      {networth.invertido > 0 && (networth.mercadoArs > 0 || networth.cryptoArs > 0) && (
         <p className="hint">
-          No pude traer los precios de cripto ahora mismo, así que el total es solo
-          la parte en pesos.
+          Ojo: tenés {money(networth.invertido)} en cuentas marcadas como
+          «Invertido» <b>y</b> además títulos cargados en Inversiones. Si esa plata
+          es justamente la que usaste para comprarlos, está sumando dos veces.
+          Pasá esa cuenta a «Ahorro» o dejala en cero.
+        </p>
+      )}
+
+      {networth.sinPrecio && networth.sinPrecio.length > 0 && (
+        <p className="hint">
+          No pude cotizar {networth.sinPrecio.join(', ')} ahora mismo, así que
+          {networth.sinPrecio.length === 1 ? ' no está' : ' no están'} sumando al
+          total. Prefiero que falte antes que poner un número inventado.
         </p>
       )}
     </>

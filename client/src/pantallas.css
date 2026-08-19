@@ -1032,3 +1032,118 @@
 .tipo-txt { display: flex; flex-direction: column; }
 .tipo-nombre { font-size: 13.5px; font-weight: 600; }
 .tipo-txt small { font-size: 11.5px; color: var(--text-muted); }
+
+/* ===================================================== Inversiones ======= */
+
+/* Seis tipos de activo no entran uno abajo del otro sin volverse una lista
+   larguísima: van de a dos por fila y en una sola en el celular. */
+.tipos-chicos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tipos-chicos .tipo { min-height: 48px; padding: 9px 11px; }
+/* Los hijos de una grilla arrancan en min-width auto: sin esto un ticker
+   largo ensancha la columna y aparece scroll horizontal a 320px. */
+.tipos-chicos .tipo { min-width: 0; }
+.tipos-chicos .tipo-txt { min-width: 0; }
+.tipos-chicos .tipo-txt small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .tipos-chicos { grid-template-columns: 1fr; }
+}
+
+/* Buscador de especies del mercado */
+.buscador {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  overflow: hidden;
+  max-height: 232px;
+  overflow-y: auto;
+  background: var(--surface-1);
+}
+
+.buscador-vacio {
+  padding: 13px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.buscador-op {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.buscador-op:last-child { border-bottom: none; }
+.buscador-op:hover { background: var(--accent-soft); }
+
+.buscador-sim { font-weight: 600; flex: 1; min-width: 0; }
+
+.buscador-precio {
+  font-family: var(--fuente-titulo);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Pesos o dólares */
+.segmentado {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-1);
+}
+
+.segmentado button {
+  flex: 1;
+  min-height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.segmentado button.elegido {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Cuánto se movió el papel hoy */
+.var-chip {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.var-chip.sube { color: var(--good); }
+.var-chip.baja { color: var(--critical); }
+
+.item-lado { text-align: right; min-width: 0; }
+
+.item-pnl {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.item-pnl.positive { color: var(--good); }
+.item-pnl.negative { color: var(--critical); }

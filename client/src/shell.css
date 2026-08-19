@@ -1011,3 +1011,31 @@
 }
 
 .version-fecha { font-size: 0.78rem; color: var(--text-muted); }
+
+/* La barra de abajo del celular se comia el pie de los modales altos.
+   El overlay tiene z-index mayor, asi que "deberia" ganar, pero el
+   backdrop-filter de .nav la sube a su propia capa y termina tapando el
+   modal: el boton de guardar quedaba abajo de la barra y no se podia tocar.
+   En vez de pelear con las capas, le dejamos el lugar libre. */
+@media (max-width: 900px) {
+  .overlay {
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 20px);
+  }
+
+  .dialogo {
+    max-height: calc(100dvh - var(--nav-height) - var(--safe-bottom) - 40px);
+  }
+}
+
+/* El hover se queda pegado en pantallas tactiles: despues de tocar un tipo de
+   activo, el anterior seguia con el borde naranja y parecia elegido. */
+@media (hover: none) {
+  .tipo:hover { border-color: var(--border); }
+  .tipo.elegido:hover { border-color: var(--accent); }
+  .buscador-op:hover { background: none; }
+}
+
+/* Y en pantallas cortas la lista de especies no puede comerse el formulario. */
+@media (max-height: 740px) {
+  .buscador { max-height: 148px; }
+}

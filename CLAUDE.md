@@ -99,6 +99,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `fijos.js` | Carga sola las suscripciones el día que se cobran |
 | `parsers.js` | Importar resúmenes CSV / Excel / PDF |
 | `prices.js` | Cripto (CoinMarketCap) y dólar (dolarapi, sin clave) |
+| `mercado-arg.js` | Acciones, CEDEARs, bonos, letras y ONs en vivo (data912, sin clave) |
 | `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
@@ -117,6 +118,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `moneda.js` | Si los montos se muestran en pesos o dólares (botón ARS/US$) |
 | `Resumen.jsx` `Patrimonio.jsx` `Alertas.jsx` `Gastos.jsx` | Pantallas |
 | `Tarjetas.jsx` `Ahorro.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
+| `Inversiones.jsx` | Pantalla: la cartera a precio de mercado |
 | `Arbol.jsx` | Dibuja el árbol en SVG |
 | `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
@@ -178,6 +180,13 @@ una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
 **Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
 saldo en rojo se lee igual que uno a favor.
+
+**Las inversiones se valúan a mercado, cada una en su moneda.** La cripto
+cotiza en dólares contra CoinMarketCap. Todo lo demás —acciones argentinas,
+CEDEARs, bonos, letras y ONs— cotiza en la Bolsa de Buenos Aires y casi
+siempre en pesos (`mercado-arg.js`, data912, sin clave). Cada activo guarda en
+qué moneda está: **no se adivina por el ticker**. Los totales salen siempre en
+pesos, convirtiendo lo que está en dólares al MEP.
 
 **Si no hay cotización, no inventamos.** El botón US$ se deshabilita, la API
 responde 503 con un mensaje claro y una suscripción en dólares no se carga (se
@@ -316,6 +325,34 @@ día). Hay que contar cuántos hay y cuántos trae el archivo.
 símbolo está repetido (hay decenas de monedas "W", "RWA", "PIXEL") y el orden no
 es estable. Hay que elegir por `cmc_rank` / capitalización, si no el patrimonio
 varía 4x entre cargas.
+
+**Los bonos cotizan cada 100 nominales, no por unidad.** Vale para bonos,
+letras y ONs; las acciones y los CEDEARs sí van por unidad. Si tenés 100.000
+nominales de AL30 a 84.350, no tenés 8.435 millones: tenés `cantidad x precio
+/ 100`. Sin esa división el patrimonio se va **100 veces** para arriba. La
+cuenta vive en un solo lado a propósito: `mercado.valuar()`.
+
+**La moneda de una especie NO se puede adivinar por el ticker.** La tentación
+es "si termina en D es en dólares" (AL30 / AL30D / AL30C). Pero **YPFD es una
+acción en pesos**, y entre los CEDEARs hay AMD, HD, MCD, GILD, JD y uno que se
+llama C. Adivinando, el patrimonio se multiplica o se divide por mil y no se
+nota. Por eso la moneda la elige la persona al cargar el activo y se guarda en
+`portfolio_assets.currency`.
+
+Para chequear que las dos cosas están bien hay un truco lindo: cargá la misma
+tenencia en su versión pesos y en su versión dólares (AL30 y AL30D, mismos
+nominales). Los dos valores en pesos tienen que dar casi igual — la diferencia
+es solo el spread del MEP. Si dan 100x o 1500x distinto, se rompió la lámina o
+la conversión.
+
+**La cartera se valúa EN PESOS.** Toda la app guarda y muestra pesos, y el
+botón ARS/US$ convierte solo al dibujar. `/api/portfolio` devolvía dólares
+cuando solo había cripto; si volviera a hacerlo, el mismo número se
+convertiría dos veces.
+
+**La ganancia se mide solo sobre lo que tiene precio de compra.** Si un activo
+sin costo cargado suma su valor al P&L, aparece como ganancia pura: la cartera
+decía +110% cuando en realidad no sabíamos a cuánto se había comprado.
 
 **El orden de las reglas de categorización manda.** Gana la primera que
 coincide, y se busca como subcadena: `dia` pega dentro de `dias`. Por eso

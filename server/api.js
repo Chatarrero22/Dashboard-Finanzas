@@ -21,6 +21,7 @@ var medioDePago = require('./medio-de-pago.js');
 var dolares = require('./dolares.js');
 var version = require('./version.js');
 var cuentas = require('./cuentas.js');
+var mercado = require('./mercado-arg.js');
 
 var router = express.Router();
 
@@ -618,46 +619,173 @@ router.delete('/goals/:id', function (req, res) {
 
 /* --------------------------------------------------------------- portfolio */
 
+/** Los tipos de activo que aceptamos, y de dónde sale el precio de cada uno. */
+var TIPOS_ACTIVO = {
+  crypto: { nombre: 'Cripto', unidad: 'unidades', moneda: 'USD', lamina: 1 }
+};
+Object.keys(mercado.TIPOS).forEach(function (t) {
+  TIPOS_ACTIVO[t] = {
+    nombre: mercado.TIPOS[t].nombre,
+    plural: mercado.TIPOS[t].plural,
+    unidad: mercado.TIPOS[t].unidad,
+    moneda: null, // la elige la persona: ver mercado-arg.js
+    lamina: mercado.TIPOS[t].lamina
+  };
+});
+
+/**
+ * La cartera valuada, toda en pesos.
+ *
+ * Que el total salga EN PESOS no es un detalle: el resto de la app guarda y
+ * muestra pesos, y el botón ARS/US$ de arriba convierte solo al dibujar. Si
+ * acá devolviéramos dólares (como se hacía cuando solo había cripto), el
+ * mismo número se convertiría dos veces.
+ *
+ * Cada activo conserva además su precio en la moneda en la que cotiza, que es
+ * la que la persona reconoce: un CEDEAR de Apple vale $18.500, no US$11,7.
+ */
+async function valuarCartera(userId) {
+  var activos = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ? ORDER BY id ASC')
+    .all(userId);
+
+  var cripto = activos.filter(function (a) { return a.asset_type === 'crypto'; });
+  var arg = activos.filter(function (a) { return a.asset_type !== 'crypto'; });
+
+  var pedidos = await Promise.all([
+    prices.getPrices(cripto.map(function (a) { return a.symbol; })),
+    mercado.cotizar(arg.map(function (a) { return a.symbol; })),
+    prices.getDolar()
+  ]);
+  var quotesCripto = pedidos[0];
+  var quotesArg = pedidos[1];
+  var dolar = pedidos[2];
+
+  // El MEP es el cambio con el que se compran y venden estos activos, así que
+  // es el que corresponde para valuarlos.
+  var mep = (dolar.bolsa && dolar.bolsa.venta)
+    || (dolar.blue && dolar.blue.venta)
+    || (dolar.oficial && dolar.oficial.venta) || 0;
+
+  var totalValue = 0;
+  var totalCost = 0;
+  // Cuánto vale hoy lo que sí tiene precio de compra cargado: es contra esto
+  // que se compara el costo, no contra la cartera entera.
+  var valorConCosto = 0;
+  var porTipo = {};
+  var sinPrecio = [];
+
+  var lista = activos.map(function (a) {
+    var simbolo = String(a.symbol).toUpperCase();
+    var esCripto = a.asset_type === 'crypto';
+    var quote = esCripto ? quotesCripto[simbolo] : quotesArg[simbolo];
+
+    // La cripto siempre en dólares; lo argentino, en lo que dijo la persona.
+    var moneda = esCripto ? 'USD' : (a.currency || 'ARS');
+    var lamina = quote ? quote.lamina : (TIPOS_ACTIVO[a.asset_type] || {}).lamina || 1;
+
+    var precio = quote ? quote.price : null;
+    // En su propia moneda: acá vive la división por 100 de los bonos.
+    var valorPropio = precio == null ? null : mercado.valuar(a.quantity, precio, lamina);
+    var costoPropio = mercado.valuar(a.quantity, a.avg_price, lamina);
+
+    // A pesos. Sin cotización del dólar no se puede convertir lo que está en
+    // dólares, y preferimos que falte el dato antes que inventarlo.
+    var aPesos = function (n) {
+      if (n == null) return null;
+      if (moneda === 'ARS') return n;
+      return mep ? n * mep : null;
+    };
+
+    var value = aPesos(valorPropio);
+    var cost = aPesos(costoPropio);
+
+    if (precio == null) sinPrecio.push(simbolo);
+
+    if (value != null) {
+      totalValue += value;
+      porTipo[a.asset_type] = (porTipo[a.asset_type] || 0) + value;
+
+      // La ganancia se mide SOLO sobre lo que tiene precio de compra cargado.
+      // Si sumáramos el valor de un activo sin costo, aparecería como ganancia
+      // pura y el porcentaje daría cualquier cosa (110% cuando en realidad no
+      // sabemos a cuánto lo compraste).
+      if (cost) { valorConCosto += value; totalCost += cost; }
+    }
+
+    return {
+      id: a.id,
+      symbol: simbolo,
+      name: a.name,
+      asset_type: a.asset_type,
+      tipoNombre: (TIPOS_ACTIVO[a.asset_type] || {}).nombre || a.asset_type,
+      unidad: (TIPOS_ACTIVO[a.asset_type] || {}).unidad || 'unidades',
+      currency: moneda,
+      lamina: lamina,
+      quantity: a.quantity,
+      avg_price: a.avg_price,
+      // En la moneda en la que cotiza (lo que la persona ve en el broker).
+      price: precio,
+      change24h: quote ? quote.change24h : null,
+      valorPropio: valorPropio,
+      // En pesos, que es como se muestra en toda la app.
+      value: value,
+      cost: cost,
+      pnl: value != null && cost != null ? value - cost : null,
+      pnl_pct: value != null && cost ? ((value - cost) / cost) * 100 : null
+    };
+  });
+
+  return {
+    assets: lista,
+    porTipo: porTipo,
+    totalValue: totalValue,
+    totalCost: totalCost,
+    totalPnl: valorConCosto - totalCost,
+    totalPnlPct: totalCost ? ((valorConCosto - totalCost) / totalCost) * 100 : 0,
+    dolar: mep,
+    // Qué no pudimos cotizar, para poder decirlo en vez de mostrar un cero.
+    sinPrecio: sinPrecio,
+    pricesAvailable: lista.length === 0 || sinPrecio.length < lista.length,
+    // Hace cuánto son los precios del mercado argentino (null = nunca vinieron).
+    minutos: mercado.antiguedadMin()
+  };
+}
+
 router.get('/portfolio', async function (req, res) {
   try {
-    var assets = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ? ORDER BY id ASC').all(req.user.id);
-    var quotes = await prices.getPrices(assets.map(function (a) { return a.symbol; }));
-
-    var totalValue = 0;
-    var totalCost = 0;
-
-    assets.forEach(function (a) {
-      var quote = quotes[String(a.symbol).toUpperCase()];
-      a.price = quote ? quote.price : null;
-      a.change24h = quote ? quote.change24h : null;
-      a.value = quote ? quote.price * a.quantity : null;
-      a.cost = a.avg_price * a.quantity;
-      a.pnl = a.value != null ? a.value - a.cost : null;
-      a.pnl_pct = a.value != null && a.cost ? ((a.value - a.cost) / a.cost) * 100 : null;
-      if (a.value != null) { totalValue += a.value; totalCost += a.cost; }
-    });
-
-    res.json({
-      assets: assets,
-      totalValue: totalValue,
-      totalCost: totalCost,
-      totalPnl: totalValue - totalCost,
-      totalPnlPct: totalCost ? ((totalValue - totalCost) / totalCost) * 100 : 0,
-      pricesAvailable: Object.keys(quotes).length > 0
-    });
+    var cartera = await valuarCartera(req.user.id);
+    cartera.tipos = TIPOS_ACTIVO;
+    res.json(cartera);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** Buscador de especies para el formulario: acciones, CEDEARs, bonos, letras, ONs. */
+router.get('/mercado/buscar', async function (req, res) {
+  try {
+    res.json(await mercado.buscar(req.query.q, req.query.tipo, 20));
+  } catch (err) {
+    res.status(503).json({ error: 'No pude traer las cotizaciones del mercado' });
   }
 });
 
 router.post('/portfolio', function (req, res) {
   var b = req.body;
   if (!b.symbol) return res.status(400).json({ error: 'Falta el símbolo' });
+
+  var tipo = b.asset_type || 'crypto';
+  if (!TIPOS_ACTIVO[tipo]) return res.status(400).json({ error: 'No conozco ese tipo de activo' });
+
+  // La cripto cotiza en dólares y punto; el resto, en lo que diga la persona.
+  var moneda = tipo === 'crypto' ? 'USD' : (String(b.currency).toUpperCase() === 'USD' ? 'USD' : 'ARS');
+
   var info = db.prepare(
-    'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(
-    req.user.id, String(b.symbol).toUpperCase(), b.name || b.symbol, b.asset_type || 'crypto',
-    Number(b.quantity) || 0, Number(b.avg_price) || 0
+    req.user.id, String(b.symbol).toUpperCase().trim(), b.name || b.symbol, tipo,
+    Number(b.quantity) || 0, Number(b.avg_price) || Number(b.buy_price) || 0, moneda
   );
   arbol.alAgregarInversion(req.user.id);
   res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(info.lastInsertRowid));
@@ -667,10 +795,16 @@ router.patch('/portfolio/:id', function (req, res) {
   var current = db.prepare('SELECT * FROM portfolio_assets WHERE id = ? AND user_id = ?')
     .get(req.params.id, req.user.id);
   if (!current) return res.status(404).json({ error: 'No existe el activo' });
+
   var quantity = req.body.quantity != null ? Number(req.body.quantity) : current.quantity;
   var avgPrice = req.body.avg_price != null ? Number(req.body.avg_price) : current.avg_price;
-  db.prepare('UPDATE portfolio_assets SET quantity=?, avg_price=? WHERE id=? AND user_id=?')
-    .run(quantity, avgPrice, req.params.id, req.user.id);
+  var moneda = current.asset_type === 'crypto' ? 'USD'
+    : (req.body.currency != null
+        ? (String(req.body.currency).toUpperCase() === 'USD' ? 'USD' : 'ARS')
+        : (current.currency || 'ARS'));
+
+  db.prepare('UPDATE portfolio_assets SET quantity=?, avg_price=?, currency=? WHERE id=? AND user_id=?')
+    .run(quantity, avgPrice, moneda, req.params.id, req.user.id);
   res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(req.params.id));
 });
 
@@ -686,8 +820,6 @@ router.get('/networth', async function (req, res) {
     var cash = db.prepare('SELECT COALESCE(SUM(amount),0) total FROM transactions WHERE user_id = ?')
       .get(req.user.id).total;
 
-    var assets = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ?').all(req.user.id);
-    var quotes = await prices.getPrices(assets.map(function (a) { return a.symbol; }));
     var dolar = await prices.getDolar();
     // El MEP ("bolsa") es la referencia que usa el diseño y la que tiene
     // sentido para valuar. Si no viene, caemos al blue y despues al oficial.
@@ -697,11 +829,18 @@ router.get('/networth', async function (req, res) {
     var cual = (dolar.bolsa && dolar.bolsa.venta) ? 'MEP'
       : (dolar.blue && dolar.blue.venta) ? 'blue' : 'oficial';
 
-    var cryptoUsd = 0;
-    assets.forEach(function (a) {
-      var q = quotes[String(a.symbol).toUpperCase()];
-      if (q) cryptoUsd += q.price * a.quantity;
+    // Toda la cartera, no solo la cripto: las acciones, los CEDEARs y los
+    // bonos también son plata tuya y antes no sumaban en el patrimonio.
+    var cartera = await valuarCartera(req.user.id);
+
+    var cryptoArs = 0;
+    var mercadoArs = 0;
+    cartera.assets.forEach(function (a) {
+      if (a.value == null) return;
+      if (a.asset_type === 'crypto') cryptoArs += a.value;
+      else mercadoArs += a.value;
     });
+    var cryptoUsd = venta ? cryptoArs / venta : 0;
 
     // Cuanto se movio el patrimonio en los ultimos 30 dias. Solo podemos
     // medir la parte en pesos: de la cripto no guardamos precios viejos, asi
@@ -723,11 +862,15 @@ router.get('/networth', async function (req, res) {
         .reduce(function (a, c) { return a + c.saldo; }, 0),
       cambio30: cambio30,
       cryptoUsd: cryptoUsd,
-      cryptoArs: cryptoUsd * venta,
+      cryptoArs: cryptoArs,
+      // Acciones, CEDEARs, bonos, letras y ONs, ya pasados a pesos.
+      mercadoArs: mercadoArs,
+      porTipo: cartera.porTipo,
       dolar: venta,
       dolarNombre: cual,
-      total: cash + cryptoUsd * venta,
-      pricesAvailable: Object.keys(quotes).length > 0
+      total: cash + cryptoArs + mercadoArs,
+      pricesAvailable: cartera.pricesAvailable,
+      sinPrecio: cartera.sinPrecio
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1240,7 +1383,7 @@ router.get('/export', function (req, res) {
     subscriptions: db.prepare('SELECT name, plan, amount, category, billing_day, active, promo_price, promo_end, normal_price FROM subscriptions WHERE user_id = ?').all(uid),
     budgets: db.prepare('SELECT category, monthly_limit FROM budgets WHERE user_id = ?').all(uid),
     goals: db.prepare('SELECT name, target, saved, deadline, done FROM goals WHERE user_id = ?').all(uid),
-    portfolio: db.prepare('SELECT symbol, name, asset_type, quantity, avg_price, real_pnl, real_pnl_pct FROM portfolio_assets WHERE user_id = ?').all(uid)
+    portfolio: db.prepare('SELECT symbol, name, asset_type, quantity, avg_price, currency, real_pnl, real_pnl_pct FROM portfolio_assets WHERE user_id = ?').all(uid)
   });
 });
 
@@ -1346,11 +1489,14 @@ router.post('/import', function (req, res) {
       if (!a || !a.symbol) return;
       if (db.prepare('SELECT id FROM portfolio_assets WHERE user_id = ? AND symbol = ?').get(uid, a.symbol)) return;
       db.prepare(
-        'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, real_pnl, real_pnl_pct)' +
-        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency, real_pnl, real_pnl_pct)' +
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(
         uid, String(a.symbol).toUpperCase(), a.name || a.symbol, a.asset_type || 'crypto',
-        Number(a.quantity) || 0, Number(a.avg_price) || 0, Number(a.real_pnl) || 0, Number(a.real_pnl_pct) || 0
+        Number(a.quantity) || 0, Number(a.avg_price) || 0,
+        // Los respaldos viejos no traen moneda: eran todos cripto, o sea dólares.
+        a.currency || ((a.asset_type || 'crypto') === 'crypto' ? 'USD' : 'ARS'),
+        Number(a.real_pnl) || 0, Number(a.real_pnl_pct) || 0
       );
       resumen.cripto++;
     });

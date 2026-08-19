@@ -275,6 +275,23 @@ function initDB() {
     db.exec('ALTER TABLE transactions ADD COLUMN installment_total INTEGER');
   }
 
+  // Inversiones que no son cripto: acciones argentinas, CEDEARs, bonos,
+  // letras y ONs. Cotizan en la Bolsa de Buenos Aires y casi siempre EN
+  // PESOS, así que hay que saber en qué moneda está cada una: sin esto, un
+  // bono a 118.800 pesos se leería como 118.800 dólares.
+  //
+  // La moneda NO se adivina por el ticker (YPFD es una acción en pesos y hay
+  // CEDEARs que se llaman AMD, HD o C): la elige la persona al cargarlo.
+  if (!tieneColumna('portfolio_assets', 'currency')) {
+    db.exec("ALTER TABLE portfolio_assets ADD COLUMN currency TEXT DEFAULT 'ARS'");
+    // Lo que ya estaba cargado era todo cripto, y la cripto va en dólares.
+    db.exec("UPDATE portfolio_assets SET currency = 'USD' WHERE asset_type = 'crypto'");
+  }
+
+  // La cripto se cotiza contra CoinMarketCap, que devuelve dólares y nada
+  // más. No es una preferencia: es de dónde sale el precio.
+  db.exec("UPDATE portfolio_assets SET currency = 'USD' WHERE asset_type = 'crypto' AND currency <> 'USD'");
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
 }

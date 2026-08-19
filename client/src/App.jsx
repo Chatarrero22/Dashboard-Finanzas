@@ -10,6 +10,7 @@ import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import TarjetasScreen from './Tarjetas.jsx'
 import AhorroScreen from './Ahorro.jsx'
+import InversionesScreen from './Inversiones.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import { icono } from './comunes.jsx'
@@ -1321,138 +1322,6 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   )
 }
 
-function InvestScreen({ portfolio, accion, onError, onReload }) {
-  const { confirmar } = useDialogos()
-  const [abierto, setAbierto] = useState(false)
-  const [form, setForm] = useState({ symbol: '', quantity: '', buy_price: '' })
-
-  // El boton "+ Agregar activo" vive en el encabezado, que es de App.
-  useEffect(() => { if (accion) setAbierto(true) }, [accion])
-
-  async function agregar(e) {
-    e.preventDefault()
-    if (!form.symbol.trim() || !form.quantity) return onError('Falta el simbolo o la cantidad')
-    try {
-      await api('/portfolio', {
-        method: 'POST',
-        body: JSON.stringify({
-          symbol: form.symbol.trim().toUpperCase(),
-          quantity: Number(form.quantity),
-          buy_price: form.buy_price ? Number(form.buy_price) : null,
-        }),
-      })
-      setForm({ symbol: '', quantity: '', buy_price: '' })
-      setAbierto(false)
-      onReload()
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
-  if (!portfolio) return <div className="spinner" />
-
-  const { assets, totalValue, totalPnl, totalPnlPct, pricesAvailable } = portfolio
-
-  async function remove(asset) {
-    const ok = await confirmar({
-      titulo: `¿Sacar ${asset.symbol} del portfolio?`,
-      detalle: 'Deja de contar en tu patrimonio.',
-      aceptar: 'Sacarlo', peligro: true,
-    })
-    if (!ok) return
-    try {
-      await api(`/portfolio/${asset.id}`, { method: 'DELETE' })
-      onReload()
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
-  return (
-    <>
-      <Hero
-        label="Portfolio (USD)"
-        value={totalValue}
-        caption={
-          pricesAvailable
-            ? `${totalPnl >= 0 ? '▲' : '▼'} ${money(Math.abs(totalPnl))} (${totalPnlPct.toFixed(1)}%)`
-            : 'Sin cotizaciones — falta la clave de precios'
-        }
-      />
-      <section className="card">
-        {assets.length === 0 ? (
-          <Empty icon="📈" text="No hay activos cargados." />
-        ) : (
-          <div className="list">
-            {assets.map((a) => (
-              <div className="item" key={a.id}>
-                <div className="item-main">
-                  <div className="item-desc">{a.symbol}</div>
-                  <div className="item-meta">
-                    <span>{a.quantity}</span>
-                    {a.price != null && <span>a ${a.price.toFixed(2)}</span>}
-                  </div>
-                </div>
-                <div className={`item-amount ${a.pnl > 0 ? 'positive' : ''}`}>
-                  {a.value != null ? money(a.value) : '—'}
-                </div>
-                <button className="danger" aria-label={`Borrar ${a.symbol}`} onClick={() => remove(a)}>✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {abierto && (
-        <Modal
-          titulo="Agregar activo"
-          detalle="El precio lo traemos solo; el de compra es opcional y sirve para ver la ganancia."
-          onCerrar={() => setAbierto(false)}
-        >
-          <form onSubmit={agregar}>
-            <div className="row-2">
-              <label className="field">
-                <span className="field-label">Símbolo</span>
-                <input
-                  placeholder="BTC"
-                  value={form.symbol}
-                  onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })}
-                />
-              </label>
-              <label className="field">
-                <span className="field-label">Cantidad</span>
-                <input
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={form.quantity}
-                  onChange={(e) => setForm({ ...form, quantity: e.target.value.replace(/[^\d.]/g, '') })}
-                />
-              </label>
-            </div>
-            <label className="field">
-              <span className="field-label">Precio de compra en US$ (opcional)</span>
-              <input
-                inputMode="decimal"
-                placeholder="0"
-                value={form.buy_price}
-                onChange={(e) => setForm({ ...form, buy_price: e.target.value.replace(/[^\d.]/g, '') })}
-              />
-            </label>
-            <div className="dialogo-botones">
-              <button type="button" className="dialogo-btn" onClick={() => setAbierto(false)}>Cancelar</button>
-              <button
-                type="submit"
-                className="dialogo-btn principal"
-                disabled={!form.symbol.trim() || !form.quantity}
-              >Agregar</button>
-            </div>
-          </form>
-        </Modal>
-      )}
-    </>
-  )
-}
-
 /* -------------------------------------------------------------------- app */
 
 export default function App() {
@@ -1823,7 +1692,7 @@ export default function App() {
     metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', [
       { txt: '+ Nueva meta', tono: 'acento', go: pedir('metas', 'nuevo') },
     ]],
-    invest: ['Inversiones', 'Tu portfolio a precio de mercado', [
+    invest: ['Inversiones', 'Acciones, CEDEARs, bonos y cripto a precio de mercado', [
       { txt: '+ Agregar activo', tono: 'acento', go: pedir('invest', 'nuevo') },
     ]],
     arbol: ['Tu árbol', 'Crece cuando anotás y cumplís tus metas', []],
@@ -1962,7 +1831,7 @@ export default function App() {
             />
           )}
           {tab === 'invest' && (
-            <InvestScreen
+            <InversionesScreen
               portfolio={portfolio}
               accion={accionDe('invest')}
               onReload={reloadPortfolio}
