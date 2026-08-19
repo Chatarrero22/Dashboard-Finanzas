@@ -97,6 +97,8 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
 | `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
 | `dolares.js` | Gastos en dólares: los pasa a pesos al cambio del día |
+| `cuentas.js` | Dónde está la plata y cómo moverla entre cuentas |
+| `version.js` | Qué build está corriendo (para saber si el deploy entró) |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -112,7 +114,7 @@ Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
-`alerts_sent`, `learned_categories`, `cards`, `card_payments`.
+`alerts_sent`, `learned_categories`, `cards`, `card_payments`, `accounts`.
 
 ---
 
@@ -145,9 +147,7 @@ tarjeta de ahorro del mes, los tres grupos, el usuario abajo que lleva a
 Ajustes) y barra de arriba (ARS/US$, navegador de meses, dólar en vivo, tema,
 "Ocultar montos"). Vive en `Shell.jsx` + `shell.css`.
 
-1. **Ahorro** — necesita una tabla nueva (plazos fijos, cuentas) y su pantalla
-   de carga. Es trabajo de verdad, no maquetado.
-2. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
+1. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
 
 Otros pendientes:
 - **WhatsApp**: ahora es viable (hay dirección pública). Necesita webhook, número
@@ -199,6 +199,14 @@ todos los meses viejos se moverían solos cada vez que salta el dólar.
 
 No confundirlo con el botón ARS/US$ de la barra de arriba: ese es una forma
 de **mirar** lo mismo y sí usa la cotización de hoy (`moneda.js`).
+
+**Un traspaso entre cuentas son DOS movimientos que se anulan.** Mover plata a
+una cuenta de ahorro no es un gasto: la plata sigue siendo tuya. Se guarda como
+`-X` en la cuenta de origen y `+X` en la de destino, ambos con categoría
+`Traspaso`. Así la suma de todos los movimientos sigue dando tu plata total sin
+que ninguna consulta sepa de traspasos, pero hay que **excluir `Traspaso` de
+ingresos, gastos, `byCategory`, `topExpenses` y `byDay`**, o el mes se duplica.
+Lo mismo pasa con la categoría `Ajuste`.
 
 **El pago del resumen NO es un movimiento.** Las compras de la tarjeta ya
 están cargadas una por una, así que si además anotáramos el pago del resumen

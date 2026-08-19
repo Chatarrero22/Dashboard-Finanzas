@@ -9,6 +9,7 @@ import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import TarjetasScreen from './Tarjetas.jsx'
+import AhorroScreen from './Ahorro.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import { icono } from './comunes.jsx'
@@ -1475,6 +1476,7 @@ export default function App() {
   const [cards, setCards] = useState([])
   const [proximasCuotas, setProximasCuotas] = useState([])
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
+  const [cuentas, setCuentas] = useState([])
   // Los botones del encabezado viven acá (el encabezado es de App), pero los
   // formularios viven en cada pantalla. Guardamos la última acción pedida;
   // cambia de identidad en cada click para que la pantalla la note.
@@ -1622,6 +1624,7 @@ export default function App() {
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
     if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
     if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
+    if (tab === 'ahorro') api('/cuentas').then(setCuentas).catch(() => {})
   }, [tab, config, loadMetas])
 
   // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
@@ -1652,6 +1655,7 @@ export default function App() {
       if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
       if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
       if (tab === 'tarjetas') api('/cards').then(setCards).catch(() => {})
+      if (tab === 'ahorro') api('/cuentas').then(setCuentas).catch(() => {})
     }
 
     document.addEventListener('visibilitychange', alVolver)
@@ -1758,6 +1762,7 @@ export default function App() {
       { id: 'pnl', label: 'P&L', icon: '⌁' },
     ] },
     { titulo: 'Crecer', items: [
+      { id: 'ahorro', label: 'Ahorro', icon: '◈' },
       { id: 'metas', label: 'Metas', icon: '◎' },
       { id: 'invest', label: 'Inversiones', icon: '↗' },
       { id: 'arbol', label: 'Árbol', icon: '🌳' },
@@ -1812,6 +1817,9 @@ export default function App() {
       { txt: '+ Nuevo presupuesto', tono: 'acento', go: pedir('presu', 'nuevo') },
     ]],
     pnl: ['P&L', 'Ingresos, egresos y ahorro mes por mes', [{ txt: 'Exportar', go: exportar }]],
+    ahorro: ['Ahorro', 'Dónde está tu plata', [
+      { txt: '+ Nueva cuenta', tono: 'acento', go: pedir('ahorro', 'nuevo') },
+    ]],
     metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', [
       { txt: '+ Nueva meta', tono: 'acento', go: pedir('metas', 'nuevo') },
     ]],
@@ -1871,6 +1879,18 @@ export default function App() {
           {tab === 'patrimonio' && <PatrimonioScreen networth={networth} />}
           {tab === 'alertas' && <AlertasScreen alertas={alertas} />}
           {tab === 'gastos' && <GastosScreen dashboard={dashboard} />}
+          {tab === 'ahorro' && (
+            <AhorroScreen
+              cuentas={cuentas}
+              accion={accionDe('ahorro')}
+              onReload={() => {
+                api('/cuentas').then(setCuentas).catch(() => {})
+                loadCore().catch(() => {})
+              }}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
           {tab === 'tarjetas' && (
             <TarjetasScreen
               cards={cards}

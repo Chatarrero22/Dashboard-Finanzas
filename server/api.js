@@ -20,6 +20,7 @@ var cuotas = require('./cuotas.js');
 var medioDePago = require('./medio-de-pago.js');
 var dolares = require('./dolares.js');
 var version = require('./version.js');
+var cuentas = require('./cuentas.js');
 
 var router = express.Router();
 
@@ -138,8 +139,8 @@ function insertTransactions(userId, transactions, platform) {
   var insert = db.prepare(
     'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
     ' ai_categorized, card_id, installment_group, installment_num, installment_total,' +
-    ' amount_usd, usd_rate)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ' amount_usd, usd_rate, account_id)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -155,7 +156,7 @@ function insertTransactions(userId, transactions, platform) {
         userId, t.date, desc, t.amount, t.category, platform,
         t.ai_categorized ? 1 : 0, t.card_id || null,
         t.installment_group || null, t.installment_num || null, t.installment_total || null,
-        t.amount_usd || null, t.usd_rate || null
+        t.amount_usd || null, t.usd_rate || null, t.account_id || null
       );
       ids.push(info.lastInsertRowid);
       (t.items || []).forEach(function (item) {
@@ -242,6 +243,11 @@ router.post('/transactions', async function (req, res) {
         r.card_id = t.card_id || req.body.card_id || null;
         return r;
       });
+    }
+
+    // En qué cuenta cae. Si no se dice, la principal.
+    if (req.body.account_id) {
+      categorized.forEach(function (t) { t.account_id = req.body.account_id; });
     }
 
     // Si el monto vino en dólares, lo pasamos a pesos al cambio de HOY y
@@ -384,28 +390,31 @@ router.get('/dashboard', function (req, res) {
   var totals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
-    ' COUNT(*) count FROM transactions WHERE user_id = ?'
+    ' COUNT(*) count FROM transactions WHERE user_id = ?' +
+    " AND category NOT IN ('Traspaso')"
   ).get(uid);
 
   var monthTotals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
-    ' COUNT(*) count FROM transactions WHERE user_id = ? AND substr(date,1,7) = ?'
+    ' COUNT(*) count FROM transactions WHERE user_id = ?' +
+    " AND category NOT IN ('Traspaso') AND substr(date,1,7) = ?"
   ).get(uid, month);
 
   // Los ajustes de saldo quedan fuera del analisis por categoria: no son un
   // gasto en algo, son una correccion para que el total cierre con la realidad.
   var byCategory = db.prepare(
     'SELECT category, SUM(ABS(amount)) total, COUNT(*) count FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category <> 'Ajuste' AND substr(date,1,7) = ?" +
-    ' GROUP BY category ORDER BY total DESC'
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    ' AND substr(date,1,7) = ? GROUP BY category ORDER BY total DESC'
   ).all(uid, month);
 
   var byMonth = db.prepare(
     'SELECT substr(date,1,7) month,' +
     ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
-    ' FROM transactions WHERE user_id = ? GROUP BY month ORDER BY month DESC LIMIT 6'
+    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso')" +
+    ' GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid);
 
   // Las suscripciones en dolares se convierten para poder sumarlas con las
@@ -425,15 +434,16 @@ router.get('/dashboard', function (req, res) {
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
     'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category <> 'Ajuste' AND substr(date,1,7) = ?" +
-    ' ORDER BY total DESC LIMIT 5'
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    ' AND substr(date,1,7) = ? ORDER BY total DESC LIMIT 5'
   ).all(uid, month);
 
   // Cuanto se gasto cada dia del mes. Devolvemos los 31 dias siempre (con 0
   // donde no hubo nada) para que el grafico no se deforme segun el mes.
   var porDia = db.prepare(
     'SELECT CAST(substr(date,9,2) AS INTEGER) dia, SUM(ABS(amount)) total FROM transactions' +
-    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) = ? GROUP BY dia'
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    ' AND substr(date,1,7) = ? GROUP BY dia'
   ).all(uid, month);
   var diasDelMes = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
   var byDay = [];
@@ -701,8 +711,16 @@ router.get('/networth', async function (req, res) {
       'SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ? AND date >= ?'
     ).get(req.user.id, hace30).t;
 
+    var lista = cuentas.listar(req.user.id);
+
     res.json({
       cash: cash,
+      cuentas: lista,
+      // Cuanto de tu plata esta apartada o puesta a rendir.
+      ahorrado: lista.filter(function (c) { return c.tipo === 'ahorro'; })
+        .reduce(function (a, c) { return a + c.saldo; }, 0),
+      invertido: lista.filter(function (c) { return c.tipo === 'inversion'; })
+        .reduce(function (a, c) { return a + c.saldo; }, 0),
       cambio30: cambio30,
       cryptoUsd: cryptoUsd,
       cryptoArs: cryptoUsd * venta,
@@ -856,6 +874,70 @@ router.post('/cards/:id/asignar-sueltos', function (req, res) {
 /** Las cuotas que ya tenés comprometidas para los meses que vienen. */
 router.get('/cuotas', function (req, res) {
   res.json({ meses: tarjetas.cuotasQueSeVienen(req.user.id) });
+});
+
+/* --------------------------------------------------------------- cuentas */
+
+router.get('/cuentas', function (req, res) {
+  res.json(cuentas.listar(req.user.id));
+});
+
+router.post('/cuentas', function (req, res) {
+  if (!req.body.name) return res.status(400).json({ error: 'Ponele un nombre a la cuenta' });
+
+  cuentas.asegurarPrincipal(req.user.id);
+  var tipo = cuentas.TIPOS[req.body.tipo] ? req.body.tipo : 'gasto';
+
+  db.prepare('INSERT INTO accounts (user_id, name, tipo, color) VALUES (?, ?, ?, ?)')
+    .run(req.user.id, String(req.body.name).trim(), tipo, req.body.color || '#EE8A17');
+
+  res.json(cuentas.listar(req.user.id));
+});
+
+router.patch('/cuentas/:id', function (req, res) {
+  var c = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!c) return res.status(404).json({ error: 'No existe esa cuenta' });
+
+  db.prepare('UPDATE accounts SET name = ?, tipo = ?, color = ? WHERE id = ? AND user_id = ?').run(
+    req.body.name != null ? String(req.body.name).trim() : c.name,
+    cuentas.TIPOS[req.body.tipo] ? req.body.tipo : c.tipo,
+    req.body.color != null ? req.body.color : c.color,
+    req.params.id, req.user.id
+  );
+
+  res.json(cuentas.listar(req.user.id));
+});
+
+router.delete('/cuentas/:id', function (req, res) {
+  var c = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!c) return res.status(404).json({ error: 'No existe esa cuenta' });
+  if (c.es_default) return res.status(400).json({ error: 'No podés borrar la cuenta principal' });
+
+  // Los movimientos no se borran: pasan a la principal. Existieron igual.
+  var base = cuentas.principal(req.user.id);
+  db.prepare('UPDATE transactions SET account_id = ? WHERE account_id = ? AND user_id = ?')
+    .run(base.id, req.params.id, req.user.id);
+  db.prepare('DELETE FROM accounts WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+
+  res.json(cuentas.listar(req.user.id));
+});
+
+/**
+ * Mover plata de una cuenta a otra: ahorrar, invertir, sacar del plazo fijo.
+ * NO es un gasto ni un ingreso, y por eso queda fuera de esos totales.
+ */
+router.post('/cuentas/traspaso', function (req, res) {
+  try {
+    var r = cuentas.traspasar(
+      req.user.id, req.body.desde, req.body.hasta,
+      req.body.monto, req.body.fecha, req.body.nota
+    );
+    res.json({ traspaso: r, cuentas: cuentas.listar(req.user.id) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 /* ------------------------------------------------------------- aprendido */

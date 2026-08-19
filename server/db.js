@@ -168,6 +168,23 @@ function initDB() {
       UNIQUE (card_id, period_close)
     );
 
+    -- Dónde está la plata: efectivo, banco, la cuenta de alguien, un plazo
+    -- fijo. El saldo NO se guarda: es la suma de los movimientos de esa
+    -- cuenta, así nunca queda desincronizado.
+    --
+    -- tipo: 'gasto'      de acá sale el día a día
+    --       'ahorro'     apartada, no la tocás
+    --       'inversion'  puesta a rendir (plazo fijo, fondo)
+    CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      tipo TEXT DEFAULT 'gasto',
+      color TEXT DEFAULT '#EE8A17',
+      es_default INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- Lo que Manguito aprende cuando corregís una categoría a mano.
     -- La clave es la descripción normalizada (ver aprendido.js). Va por
     -- persona: lo que para vos es Servicios para otro puede ser otra cosa.
@@ -222,6 +239,14 @@ function initDB() {
   // congelarla haría que el gasto fijo dijera un número que ya no pagás.
   if (!tieneColumna('subscriptions', 'moneda')) {
     db.exec("ALTER TABLE subscriptions ADD COLUMN moneda TEXT DEFAULT 'ars'");
+  }
+
+  // En qué cuenta cayó cada movimiento. Nulo = la cuenta principal, así las
+  // bases viejas siguen sumando bien sin tener que tocar nada.
+  if (!tieneColumna('transactions', 'account_id')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN account_id INTEGER');
+    // Las dos patas de un traspaso comparten este grupo.
+    db.exec('ALTER TABLE transactions ADD COLUMN transfer_group TEXT');
   }
 
   // Gastos en dólares.

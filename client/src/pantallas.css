@@ -968,3 +968,67 @@
   margin-top: 2px;
   line-height: 1.4;
 }
+
+/* ========================================================== cuentas */
+
+.cuenta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cuenta:last-child { border-bottom: none; }
+
+.cuenta-punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.cuenta-txt { flex: 1; min-width: 0; }
+.cuenta-nombre { font-size: 0.95rem; font-weight: 540; }
+.cuenta-tipo { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+
+.cuenta-saldo {
+  font-family: var(--fuente-titulo);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cuenta-saldo.negativo { color: var(--critical); }
+
+/* Elegir qué es la cuenta */
+.tipos { display: flex; flex-direction: column; gap: 8px; }
+
+.tipo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-height: 54px;
+  transition: border-color 0.18s ease;
+}
+
+.tipo:hover { border-color: var(--accent); }
+
+.tipo.elegido {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.tipo-ico { font-size: 20px; flex: none; }
+.tipo-txt { display: flex; flex-direction: column; }
+.tipo-nombre { font-size: 13.5px; font-weight: 600; }
+.tipo-txt small { font-size: 11.5px; color: var(--text-muted); }
