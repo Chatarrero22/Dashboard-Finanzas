@@ -14,6 +14,7 @@ var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
 var alertasPantalla = require('./alertas-pantalla.js');
 var texto = require('./texto.js');
+var aprendido = require('./aprendido.js');
 
 var router = express.Router();
 
@@ -197,7 +198,33 @@ router.post('/transactions', async function (req, res) {
         };
       });
     } else {
-      categorized = await cat.categorizeTransactions(transactions);
+      // Lo que ya te aprendimos gana: no le preguntamos a la IA algo que vos
+      // ya corregiste una vez.
+      var sabidas = [];
+      var porPreguntar = [];
+      transactions.forEach(function (t, i) {
+        var conocida = aprendido.buscar(req.user.id, t.description);
+        if (conocida) sabidas[i] = conocida;
+        else porPreguntar.push(i);
+      });
+
+      var resueltas = porPreguntar.length
+        ? await cat.categorizeTransactions(porPreguntar.map(function (i) { return transactions[i]; }))
+        : [];
+
+      categorized = transactions.map(function (t, i) {
+        if (sabidas[i]) {
+          return {
+            date: t.date || new Date().toISOString().slice(0, 10),
+            description: String(t.description).trim(),
+            amount: Number(t.amount),
+            category: sabidas[i],
+            ai_categorized: 0,
+            items: t.items || []
+          };
+        }
+        return resueltas[porPreguntar.indexOf(i)];
+      });
     }
 
     var ids = insertTransactions(req.user.id, categorized, req.body.platform || 'Web');
@@ -223,6 +250,12 @@ router.patch('/transactions/:id', function (req, res) {
 
   db.prepare('UPDATE transactions SET date=?, description=?, amount=?, category=? WHERE id=? AND user_id=?')
     .run(next.date, next.description, next.amount, next.category, req.params.id, req.user.id);
+
+  // Si cambiaste la categoria a mano, Manguito se lo anota: la proxima vez
+  // que escribas algo parecido lo va a poner solo.
+  if (req.body.category != null && req.body.category !== current.category) {
+    aprendido.recordar(req.user.id, next.description, next.category);
+  }
 
   res.json(db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id));
 });
@@ -583,6 +616,21 @@ router.get('/networth', async function (req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* ------------------------------------------------------------- aprendido */
+
+/* Lo que Manguito aprendió de vos al corregir categorías. Se puede mirar y
+   borrar: si no, cambiaría cómo se categoriza sin que puedas verlo. */
+router.get('/aprendido', function (req, res) {
+  res.json({ reglas: aprendido.listar(req.user.id) });
+});
+
+router.delete('/aprendido/:id', function (req, res) {
+  if (!aprendido.olvidar(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'No existe esa regla' });
+  }
+  res.json({ success: true });
 });
 
 /* -------------------------------------------------------- mantenimiento */

@@ -897,3 +897,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Lo que Manguito aprendió, en Ajustes */
+.reglas { display: flex; flex-direction: column; margin-top: 10px; }
+
+.regla {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+
+.regla:last-child { border-bottom: none; }
+
+.regla-clave { font-weight: 560; }
+.regla-flecha { color: var(--text-muted); }
+.regla-cat { color: var(--text-secondary); }
+.regla .danger { margin-left: auto; }

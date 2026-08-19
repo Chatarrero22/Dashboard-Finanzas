@@ -748,6 +748,27 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   const { confirmar } = useDialogos()
   const [orden, setOrden] = useState(null)
   const [ordenando, setOrdenando] = useState(false)
+  const [reglas, setReglas] = useState(null)
+
+  const cargarReglas = useCallback(() => {
+    api('/aprendido').then((r) => setReglas(r.reglas)).catch(() => {})
+  }, [])
+  useEffect(() => { cargarReglas() }, [cargarReglas])
+
+  async function olvidar(r) {
+    const ok = await confirmar({
+      titulo: `¿Olvidar «${r.clave}»?`,
+      detalle: `Manguito deja de ponerlo en ${r.category} solo. Los movimientos ya cargados no se tocan.`,
+      aceptar: 'Olvidar', peligro: true,
+    })
+    if (!ok) return
+    try {
+      await api(`/aprendido/${r.id}`, { method: 'DELETE' })
+      cargarReglas()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
 
   // Primero mira, despues aplica: nunca tocamos datos viejos sin permiso.
   async function revisarOrden() {
@@ -923,6 +944,34 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
           No duplica nada: si un movimiento ya está cargado, lo saltea.
         </p>
       </section>
+
+      {reglas && reglas.length > 0 && (
+        <section className="card">
+          <div className="card-title-row">
+            <h2>Lo que aprendió Manguito</h2>
+            <span className="tag">{reglas.length}</span>
+          </div>
+          <p className="hint">
+            Cada vez que corregís una categoría, se la anota para la próxima.
+            Si alguna quedó mal, sacala de acá.
+          </p>
+          <div className="reglas">
+            {reglas.map((r) => (
+              <div className="regla" key={r.id}>
+                <span className="regla-clave">{r.clave}</span>
+                <span className="regla-flecha">→</span>
+                <span className="regla-cat">{icono(r.category)} {r.category}</span>
+                {r.veces > 1 && <span className="tag">{r.veces} veces</span>}
+                <button
+                  className="danger"
+                  aria-label={`Olvidar ${r.clave}`}
+                  onClick={() => olvidar(r)}
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="card">
         <div className="card-title-row">
@@ -1389,7 +1438,7 @@ export default function App() {
         method: 'PATCH',
         body: JSON.stringify({ category: categoria }),
       })
-      notify(`Ahora va en ${categoria}`)
+      notify(`Ahora va en ${categoria}. La próxima me lo acuerdo.`)
       await loadCore()
     } catch (err) {
       notify(err.message, 'error')

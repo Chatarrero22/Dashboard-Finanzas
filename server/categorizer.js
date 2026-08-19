@@ -30,7 +30,15 @@ var RULES = [
   { cat: 'Supermercado', words: ['disco', 'coto', 'carrefour', 'jumbo', 'dia %', 'vea', 'chango', 'super', 'almacen', 'verduleria', 'carniceria'] },
   { cat: 'Delivery', words: ['rappi', 'pedidos ya', 'pedidosya', 'uber eats', 'mcdonald', 'burger', 'pizza', 'sushi', 'delivery'] },
   { cat: 'Transporte', words: ['uber', 'cabify', 'didi', 'sube', 'taxi', 'ypf', 'shell', 'axion', 'nafta', 'peaje', 'estacionamiento'] },
-  { cat: 'Servicios', words: ['netflix', 'spotify', 'hbo', 'disney', 'crunchyrol', 'claude', 'openai', 'edenor', 'edesur', 'metrogas', 'aysa', 'personal', 'movistar', 'claro', 'fibertel', 'telecentro', 'internet', 'luz', 'gas', 'agua', 'seguro', 'abono'] },
+  { cat: 'Servicios', words: [
+      'netflix', 'spotify', 'hbo', 'disney', 'crunchyrol', 'claude', 'openai',
+      'edenor', 'edesur', 'metrogas', 'camuzzi', 'naturgy', 'aysa', 'abl',
+      'personal', 'movistar', 'claro', 'fibertel', 'telecentro', 'flow',
+      'directv', 'internet', 'luz', 'gas', 'agua', 'seguro', 'abono',
+      // Vivienda: son fijos mensuales, van con los servicios
+      'expensas', 'alquiler', 'administracion', 'consorcio', 'municipal',
+      'rentas', 'inmobiliario', 'cochera'
+    ] },
   { cat: 'Entretenimiento', words: ['cine', 'teatro', 'bar', 'boliche', 'steam', 'playstation', 'xbox', 'nintendo', 'concierto', 'recital'] },
   { cat: 'Salud', words: ['farmacia', 'osde', 'swiss medical', 'medicus', 'galeno', 'dentista', 'medico', 'laboratorio'] },
   { cat: 'Ropa', words: ['zara', 'adidas', 'nike', 'indumentaria', 'ropa', 'calzado', 'zapatilla'] },
@@ -117,6 +125,8 @@ async function categorizeTransactions(transactions) {
     'Nombres argentinos frecuentes: UADE, UBA, UTN, UCA, Siglo 21, Di Tella y ' +
     'CoderHouse son Educacion; Edenor, Edesur, Metrogas y AySA son Servicios; ' +
     'Coto, Disco, Jumbo y Vea son Supermercado; SUBE, YPF y Shell, Transporte.\n' +
+    'Las expensas, el alquiler y el ABL van en Servicios (son fijos de la casa).\n' +
+    '"Personal" acá es la empresa de telefonía, no un gasto personal: Servicios.\n' +
     'Si dudás entre una categoría concreta y Otros, elegí la concreta.\n\n' +
     JSON.stringify(list.map(function (t, i) {
       return { i: i, description: t.description, amount: t.amount };

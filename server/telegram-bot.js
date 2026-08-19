@@ -10,6 +10,8 @@ var db_module = require('./db.js');
 var db = db_module.db;
 var auth = require('./auth.js');
 var cat = require('./categorizer.js');
+var texto = require('./texto.js');
+var aprendido = require('./aprendido.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
@@ -33,7 +35,11 @@ function saveTransaction(userId, tx) {
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
   );
   var run = db.transaction(function (t) {
-    var info = insert.run(userId, t.date, t.description, t.amount, t.category, PLATFORM, t.ai_categorized ? 1 : 0);
+    // Ojo: el bot guarda por su cuenta, no pasa por insertTransactions de
+    // api.js. Por eso el ordenado de la descripcion tiene que estar tambien
+    // aca; si no, lo que entra por Telegram queda como se tecleo.
+    var desc = texto.ordenarDescripcion(t.description);
+    var info = insert.run(userId, t.date, desc, t.amount, t.category, PLATFORM, t.ai_categorized ? 1 : 0);
     (t.items || []).forEach(function (item) {
       insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
     });
@@ -171,6 +177,25 @@ async function readReceipt(buffer, mediaType) {
       };
     })
   };
+}
+
+/**
+ * Categoriza respetando lo que la persona ya corrigió alguna vez.
+ * Si no hay nada aprendido, cae en la IA o en las reglas locales.
+ */
+async function categorizarPara(userId, tx) {
+  var conocida = aprendido.buscar(userId, tx.description);
+  if (conocida) {
+    return {
+      date: tx.date || today(),
+      description: String(tx.description).trim(),
+      amount: Number(tx.amount),
+      category: conocida,
+      ai_categorized: 0,
+      items: tx.items || []
+    };
+  }
+  return (await cat.categorizeTransactions([tx]))[0];
 }
 
 /** Elige uno al azar, para que no conteste siempre igual. */
@@ -439,7 +464,7 @@ function start(config) {
       for await (var chunk of stream) chunks.push(chunk);
 
       var tx = await readReceipt(Buffer.concat(chunks), 'image/jpeg');
-      var categorized = (await cat.categorizeTransactions([tx]))[0];
+      var categorized = await categorizarPara(user.id, tx);
       categorized.items = tx.items;
       saveTransaction(user.id, categorized);
       var premioFoto = arbol.alAnotarMovimiento(user.id, { conFoto: true });
@@ -514,7 +539,7 @@ function start(config) {
     }
 
     try {
-      var categorized = (await cat.categorizeTransactions([parsed]))[0];
+      var categorized = await categorizarPara(user.id, parsed);
       saveTransaction(user.id, categorized);
       var premio = arbol.alAnotarMovimiento(user.id, { conFoto: false });
       bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, 0) + novedades(premio));

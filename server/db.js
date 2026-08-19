@@ -137,6 +137,19 @@ function initDB() {
       UNIQUE (user_id, kind, ref, sent_on)
     );
 
+    -- Lo que Manguito aprende cuando corregís una categoría a mano.
+    -- La clave es la descripción normalizada (ver aprendido.js). Va por
+    -- persona: lo que para vos es Servicios para otro puede ser otra cosa.
+    CREATE TABLE IF NOT EXISTS learned_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      clave TEXT NOT NULL,
+      category TEXT NOT NULL,
+      veces INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL,
+      UNIQUE (user_id, clave)
+    );
+
     CREATE TABLE IF NOT EXISTS portfolio_assets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL DEFAULT 1,

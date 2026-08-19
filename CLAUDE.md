@@ -80,6 +80,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
 | `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
+| `aprendido.js` | Memoria de categorías: lo que corregís a mano queda para la próxima |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -95,7 +96,7 @@ Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
-`alerts_sent`.
+`alerts_sent`, `learned_categories`.
 
 ---
 
@@ -157,6 +158,12 @@ verificá después con grep.
 `transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
 gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
 hijo.
+
+**El bot guarda por su cuenta.** `telegram-bot.js` tiene su propio
+`saveTransaction()` y **no pasa** por `insertTransactions()` de `api.js`. Todo
+lo que se aplique al guardar (ordenar la descripción, categorías aprendidas)
+hay que ponerlo en los dos lados o Telegram queda afuera. Ya pasó con el
+ordenado de textos.
 
 **El servidor viejo sigue vivo y `pkill` no lo mata.** `pkill -f "node
 server/index.js"` desde git-bash **no mata procesos de Windows**: no falla, no
