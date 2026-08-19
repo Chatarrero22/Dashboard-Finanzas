@@ -1229,6 +1229,20 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
         )}
       </section>
 
+      <section className="card">
+        <h2>Versión</h2>
+        <p className="hint">
+          Render no despliega solo: después de cada cambio hay que apretar
+          Manual Deploy. Si algo nuevo no aparece, mirá acá primero.
+        </p>
+        <div className="version">
+          <span className="version-build">{config.version?.build || '—'}</span>
+          {config.version?.fecha && (
+            <span className="version-fecha">desplegado {config.version.fecha}</span>
+          )}
+        </div>
+      </section>
+
       <form className="card" onSubmit={cambiarPass}>
         <h2>Cambiar contraseña</h2>
         <label className="field">
@@ -1545,6 +1559,7 @@ export default function App() {
       ai: me.ai,
       prices: me.prices,
       telegram: me.telegram,
+      version: me.version,
     })
   }, [])
 

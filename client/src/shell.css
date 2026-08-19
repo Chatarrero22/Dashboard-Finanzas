@@ -991,3 +991,23 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+/* La huella del build: sirve para saber si el deploy entró */
+.version {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.version-build {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.version-fecha { font-size: 0.78rem; color: var(--text-muted); }

@@ -36,6 +36,17 @@ Render **no despliega solo** (el repo se conectó por "Public Git Repository", s
 webhook). Después de `git push`, hay que apretar **Manual Deploy** en Render.
 Avisale siempre a Emanuel que lo haga.
 
+**Antes de investigar cualquier "no me funciona", chequeá que esté desplegado.**
+Ya pasó tres veces. En Ajustes hay una tarjeta **Versión** con la huella del
+build (`index-XXXX`), y desde afuera se ve así:
+
+```bash
+curl -s https://dashboard-finanzas-n4g4.onrender.com/ | grep -o 'index-[A-Za-z0-9_-]*\.js'
+ls client/dist/assets/index-*.js   # el de acá
+```
+
+Si no coinciden, el deploy no entró y no hay nada que debuggear.
+
 ---
 
 ## Cómo se corre local

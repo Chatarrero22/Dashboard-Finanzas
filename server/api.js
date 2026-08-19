@@ -19,6 +19,7 @@ var tarjetas = require('./tarjetas.js');
 var cuotas = require('./cuotas.js');
 var medioDePago = require('./medio-de-pago.js');
 var dolares = require('./dolares.js');
+var version = require('./version.js');
 
 var router = express.Router();
 
@@ -79,7 +80,8 @@ router.get('/me', auth.opcional, function (req, res) {
     appName: process.env.APP_NAME || 'Manguito',
     ai: Boolean(process.env.ANTHROPIC_API_KEY),
     prices: Boolean(process.env.CMC_API_KEY),
-    telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN)
+    telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    version: version.actual()
   });
 });
 
