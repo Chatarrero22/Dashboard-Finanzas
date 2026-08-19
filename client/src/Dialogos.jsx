@@ -21,6 +21,58 @@ export function useDialogos() {
   return ctx
 }
 
+/**
+ * Modal genérico: la misma caja que usan los diálogos, pero con el contenido
+ * que le pases. Sirve para los formularios de alta ("+ Nuevo presupuesto",
+ * "+ Nuevo gasto fijo") que antes se desplegaban abajo de la pantalla.
+ *
+ * El <form> lo pone quien lo usa, para que maneje su propio submit.
+ */
+export function Modal({ titulo, detalle, onCerrar, children, ancho }) {
+  const cajaRef = useRef(null)
+
+  useEffect(() => {
+    // El foco va al primer campo: se puede escribir sin tocar el mouse.
+    const t = setTimeout(() => {
+      const caja = cajaRef.current
+      if (!caja) return
+      const primero = caja.querySelector('input, select, textarea')
+      if (primero) primero.focus()
+      else caja.focus()
+    }, 30)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    function tecla(e) { if (e.key === 'Escape') { e.preventDefault(); onCerrar() } }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [onCerrar])
+
+  return (
+    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar() }}>
+      <div
+        className="dialogo"
+        ref={cajaRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        style={ancho ? { maxWidth: ancho } : undefined}
+      >
+        <div className="dialogo-head">
+          <div>
+            <div className="dialogo-titulo">{titulo}</div>
+            {detalle && <div className="dialogo-detalle">{detalle}</div>}
+          </div>
+          <button type="button" className="dialogo-x" onClick={onCerrar} aria-label="Cerrar">✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function Dialogo({ pedido, onCerrar }) {
   const [texto, setTexto] = useState(pedido.valor || '')
   const inputRef = useRef(null)

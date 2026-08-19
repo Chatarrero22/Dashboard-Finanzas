@@ -9,7 +9,7 @@ import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
-import { useDialogos } from './Dialogos.jsx'
+import { Modal, useDialogos } from './Dialogos.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
 
@@ -132,36 +132,6 @@ function Empty({ icon, text }) {
     <div className="empty">
       <span className="big">{icon}</span>
       {text}
-    </div>
-  )
-}
-
-function BudgetList({ budgets }) {
-  return (
-    <div>
-      {budgets.map((b) => (
-        <div className="budget" key={b.id}>
-          <div className="budget-head">
-            <span className="budget-name">{b.category}</span>
-            <span className="budget-nums">{money(b.spent)} / {money(b.monthly_limit)}</span>
-          </div>
-          <div
-            className="budget-track"
-            role="img"
-            aria-label={`${b.category}: gastaste ${money(b.spent)} de ${money(b.monthly_limit)}`}
-          >
-            <div
-              className={`budget-fill ${b.status}`}
-              style={{ width: `${Math.min(b.pct, 100)}%` }}
-            />
-          </div>
-          <div className={`budget-left ${b.status}`}>
-            {b.status === 'pasado'
-              ? `Te pasaste por ${money(Math.abs(b.remaining))}`
-              : `Te quedan ${money(b.remaining)}`}
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
@@ -399,10 +369,13 @@ function MovementsScreen({ transactions, onDelete, loading }) {
   )
 }
 
-function SubsScreen({ subs, onReload, onError, onSaved }) {
+function SubsScreen({ subs, accion, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', amount: '', billing_day: '1' })
+
+  // El boton "+ Nuevo gasto fijo" vive en el encabezado, que es de App.
+  useEffect(() => { if (accion) setShowForm(true) }, [accion])
 
   const total = subs.filter((s) => s.active).reduce((sum, s) => sum + s.amount, 0)
 
@@ -446,41 +419,50 @@ function SubsScreen({ subs, onReload, onError, onSaved }) {
     <>
       <Hero label="Suscripciones por mes" value={total} />
 
-      {showForm ? (
-        <form className="card" onSubmit={add}>
-          <label className="field">
-            <span className="field-label">Nombre</span>
-            <input
-              value={form.name}
-              placeholder="Netflix"
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </label>
-          <div className="row-2">
+      {showForm && (
+        <Modal
+          titulo="Nuevo gasto fijo"
+          detalle="Se carga solo el día que se cobra, todos los meses."
+          onCerrar={() => setShowForm(false)}
+        >
+          <form onSubmit={add}>
             <label className="field">
-              <span className="field-label">Monto</span>
+              <span className="field-label">Nombre</span>
               <input
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })}
+                value={form.name}
+                placeholder="Netflix"
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </label>
-            <label className="field">
-              <span className="field-label">Día de cobro</span>
-              <input
-                inputMode="numeric"
-                value={form.billing_day}
-                onChange={(e) => setForm({ ...form, billing_day: e.target.value.replace(/\D/g, '') })}
-              />
-            </label>
-          </div>
-          <button className="primary" type="submit">Agregar</button>
-          <button className="ghost" type="button" style={{ width: '100%', marginTop: 8 }} onClick={() => setShowForm(false)}>
-            Cancelar
-          </button>
-        </form>
-      ) : (
-        <button className="primary" onClick={() => setShowForm(true)}>+ Agregar suscripción</button>
+            <div className="row-2">
+              <label className="field">
+                <span className="field-label">Monto</span>
+                <input
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Día de cobro</span>
+                <input
+                  inputMode="numeric"
+                  value={form.billing_day}
+                  onChange={(e) => setForm({ ...form, billing_day: e.target.value.replace(/\D/g, '') })}
+                />
+              </label>
+            </div>
+            <div className="dialogo-botones">
+              <button type="button" className="dialogo-btn" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button
+                type="submit"
+                className="dialogo-btn principal"
+                disabled={!form.name.trim() || !form.amount}
+              >Agregar</button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       <section className="card">
@@ -605,11 +587,14 @@ function MenuScreen({ grupos, actual, onGo }) {
   )
 }
 
-function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved }) {
+function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
   const { confirmar, pedirTexto } = useDialogos()
   const [goalForm, setGoalForm] = useState({ name: '', target: '' })
-  const [budgetForm, setBudgetForm] = useState({ category: '', monthly_limit: '' })
+  const [abierto, setAbierto] = useState(false)
   const [celebrating, setCelebrating] = useState(null)
+
+  // El boton "+ Nueva meta" vive en el encabezado, que es de App.
+  useEffect(() => { if (accion) setAbierto(true) }, [accion])
 
   async function addGoal(e) {
     e.preventDefault()
@@ -620,6 +605,7 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
         body: JSON.stringify({ name: goalForm.name.trim(), target: Number(goalForm.target) }),
       })
       setGoalForm({ name: '', target: '' })
+      setAbierto(false)
       onSaved('Meta creada')
       onReload()
     } catch (err) {
@@ -668,118 +654,56 @@ function MetasScreen({ goals, budgets, categories, onReload, onError, onSaved })
     }
   }
 
-  async function addBudget(e) {
-    e.preventDefault()
-    if (!budgetForm.category || !budgetForm.monthly_limit) return onError('Elegí la categoría y el monto')
-    try {
-      await api('/budgets', {
-        method: 'POST',
-        body: JSON.stringify({
-          category: budgetForm.category,
-          monthly_limit: Number(budgetForm.monthly_limit),
-        }),
-      })
-      setBudgetForm({ category: '', monthly_limit: '' })
-      onSaved('Presupuesto guardado')
-      onReload()
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
-  async function removeBudget(b) {
-    const ok = await confirmar({
-      titulo: `¿Sacar el tope de ${b.category}?`,
-      detalle: 'El presupuesto desaparece, pero los gastos quedan.',
-      aceptar: 'Sacarlo', peligro: true,
-    })
-    if (!ok) return
-    try {
-      await api(`/budgets/${b.id}`, { method: 'DELETE' })
-      onReload()
-    } catch (err) {
-      onError(err.message)
-    }
-  }
-
   return (
     <>
       <section className="card">
-        <h2>Metas de ahorro</h2>
+        <div className="card-title-row">
+          <h2>Metas de ahorro</h2>
+          {goals.length > 0 && <span className="tag">{goals.length}</span>}
+        </div>
         {goals.length === 0 ? (
-          <Empty icon="🎯" text="Poné una meta y mirá cómo sube." />
+          <Empty icon="🎯" text="Poné una meta con el botón de arriba y mirá cómo sube." />
         ) : (
           <GoalList goals={goals} onAdd={addToGoal} onRemove={removeGoal} celebrating={celebrating} />
         )}
       </section>
 
-      <form className="card" onSubmit={addGoal}>
-        <h2>Nueva meta</h2>
-        <label className="field">
-          <span className="field-label">¿Para qué juntás?</span>
-          <input
-            placeholder="Viaje, notebook, fondo de emergencia…"
-            value={goalForm.name}
-            onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">¿Cuánto necesitás?</span>
-          <input
-            inputMode="decimal"
-            placeholder="0"
-            value={goalForm.target}
-            onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value.replace(/[^\d.]/g, '') })}
-          />
-        </label>
-        <button className="primary" type="submit">Crear meta</button>
-      </form>
-
-      <section className="card">
-        <h2>Presupuestos del mes</h2>
-        {budgets.length === 0 ? (
-          <Empty icon="🎛️" text="Poné un tope por categoría y te aviso cuando te acerques." />
-        ) : (
-          <>
-            <BudgetList budgets={budgets} />
-            <div className="chips" style={{ marginTop: 14 }}>
-              {budgets.map((b) => (
-                <button key={b.id} className="chip" onClick={() => removeBudget(b)}>
-                  ✕ {b.category}
-                </button>
-              ))}
+      {/* El alta abre un pop-up, no se despliega abajo */}
+      {abierto && (
+        <Modal
+          titulo="Nueva meta"
+          detalle="Un objetivo para juntar de a poco."
+          onCerrar={() => setAbierto(false)}
+        >
+          <form onSubmit={addGoal}>
+            <label className="field">
+              <span className="field-label">¿Para qué juntás?</span>
+              <input
+                placeholder="Viaje, notebook, fondo de emergencia…"
+                value={goalForm.name}
+                onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">¿Cuánto necesitás?</span>
+              <input
+                inputMode="decimal"
+                placeholder="0"
+                value={goalForm.target}
+                onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value.replace(/[^\d.]/g, '') })}
+              />
+            </label>
+            <div className="dialogo-botones">
+              <button type="button" className="dialogo-btn" onClick={() => setAbierto(false)}>Cancelar</button>
+              <button
+                type="submit"
+                className="dialogo-btn principal"
+                disabled={!goalForm.name.trim() || !goalForm.target}
+              >Crear meta</button>
             </div>
-          </>
-        )}
-      </section>
-
-      <form className="card" onSubmit={addBudget}>
-        <h2>Poner un tope</h2>
-        <div className="row-2">
-          <label className="field">
-            <span className="field-label">Categoría</span>
-            <select
-              value={budgetForm.category}
-              onChange={(e) => setBudgetForm({ ...budgetForm, category: e.target.value })}
-            >
-              <option value="">Elegí…</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Máximo por mes</span>
-            <input
-              inputMode="decimal"
-              placeholder="0"
-              value={budgetForm.monthly_limit}
-              onChange={(e) =>
-                setBudgetForm({ ...budgetForm, monthly_limit: e.target.value.replace(/[^\d.]/g, '') })
-              }
-            />
-          </label>
-        </div>
-        <button className="primary" type="submit">Guardar tope</button>
-      </form>
+          </form>
+        </Modal>
+      )}
     </>
   )
 }
@@ -1015,8 +939,34 @@ function AjustesScreen({ config, onError, onSaved, onLogout }) {
   )
 }
 
-function InvestScreen({ portfolio, onError, onReload }) {
+function InvestScreen({ portfolio, accion, onError, onReload }) {
   const { confirmar } = useDialogos()
+  const [abierto, setAbierto] = useState(false)
+  const [form, setForm] = useState({ symbol: '', quantity: '', buy_price: '' })
+
+  // El boton "+ Agregar activo" vive en el encabezado, que es de App.
+  useEffect(() => { if (accion) setAbierto(true) }, [accion])
+
+  async function agregar(e) {
+    e.preventDefault()
+    if (!form.symbol.trim() || !form.quantity) return onError('Falta el simbolo o la cantidad')
+    try {
+      await api('/portfolio', {
+        method: 'POST',
+        body: JSON.stringify({
+          symbol: form.symbol.trim().toUpperCase(),
+          quantity: Number(form.quantity),
+          buy_price: form.buy_price ? Number(form.buy_price) : null,
+        }),
+      })
+      setForm({ symbol: '', quantity: '', buy_price: '' })
+      setAbierto(false)
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   if (!portfolio) return <div className="spinner" />
 
   const { assets, totalValue, totalPnl, totalPnlPct, pricesAvailable } = portfolio
@@ -1070,6 +1020,53 @@ function InvestScreen({ portfolio, onError, onReload }) {
           </div>
         )}
       </section>
+
+      {abierto && (
+        <Modal
+          titulo="Agregar activo"
+          detalle="El precio lo traemos solo; el de compra es opcional y sirve para ver la ganancia."
+          onCerrar={() => setAbierto(false)}
+        >
+          <form onSubmit={agregar}>
+            <div className="row-2">
+              <label className="field">
+                <span className="field-label">Símbolo</span>
+                <input
+                  placeholder="BTC"
+                  value={form.symbol}
+                  onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Cantidad</span>
+                <input
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={form.quantity}
+                  onChange={(e) => setForm({ ...form, quantity: e.target.value.replace(/[^\d.]/g, '') })}
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span className="field-label">Precio de compra en US$ (opcional)</span>
+              <input
+                inputMode="decimal"
+                placeholder="0"
+                value={form.buy_price}
+                onChange={(e) => setForm({ ...form, buy_price: e.target.value.replace(/[^\d.]/g, '') })}
+              />
+            </label>
+            <div className="dialogo-botones">
+              <button type="button" className="dialogo-btn" onClick={() => setAbierto(false)}>Cancelar</button>
+              <button
+                type="submit"
+                className="dialogo-btn principal"
+                disabled={!form.symbol.trim() || !form.quantity}
+              >Agregar</button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   )
 }
@@ -1094,10 +1091,13 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const { confirmar } = useDialogos()
   const [alertas, setAlertas] = useState(null)
-  // Los botones del encabezado de Presupuestos viven acá (el encabezado es de
-  // App), pero el formulario vive en la pantalla. Este objeto cambia de
-  // identidad en cada click para que la pantalla lo note.
-  const [presuAccion, setPresuAccion] = useState(null)
+  // Los botones del encabezado viven acá (el encabezado es de App), pero los
+  // formularios viven en cada pantalla. Guardamos la última acción pedida;
+  // cambia de identidad en cada click para que la pantalla la note.
+  const [accion, setAccion] = useState(null)
+  const pedir = (pantalla, tipo) => () => setAccion({ pantalla, tipo, n: Date.now() })
+  // Cada pantalla solo mira las suyas.
+  const accionDe = (pantalla) => (accion && accion.pantalla === pantalla ? accion : null)
 
   // Controles de la barra de arriba, como en el diseño.
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
@@ -1372,14 +1372,20 @@ export default function App() {
     alertas: ['Alertas', 'Lo que conviene que mires ahora', []],
     movs: ['Movimientos', `${transactions.length} anotados en total`, [{ txt: 'Exportar', go: exportar }]],
     gastos: ['Gastos', 'En qué se te va la plata', []],
-    subs: ['Gastos fijos', 'Lo que se repite todos los meses', []],
+    subs: ['Gastos fijos', 'Lo que se repite todos los meses', [
+      { txt: '+ Nuevo gasto fijo', tono: 'acento', go: pedir('subs', 'nuevo') },
+    ]],
     presu: ['Presupuestos', 'Un tope por categoría y cuánto llevás', [
-      { txt: 'Sugerir topes', go: () => setPresuAccion({ tipo: 'sugerir', n: Date.now() }) },
-      { txt: '+ Nuevo presupuesto', tono: 'acento', go: () => setPresuAccion({ tipo: 'nuevo', n: Date.now() }) },
+      { txt: 'Sugerir topes', go: pedir('presu', 'sugerir') },
+      { txt: '+ Nuevo presupuesto', tono: 'acento', go: pedir('presu', 'nuevo') },
     ]],
     pnl: ['P&L', 'Ingresos, egresos y ahorro mes por mes', [{ txt: 'Exportar', go: exportar }]],
-    metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', []],
-    invest: ['Inversiones', 'Tu portfolio a precio de mercado', []],
+    metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', [
+      { txt: '+ Nueva meta', tono: 'acento', go: pedir('metas', 'nuevo') },
+    ]],
+    invest: ['Inversiones', 'Tu portfolio a precio de mercado', [
+      { txt: '+ Agregar activo', tono: 'acento', go: pedir('invest', 'nuevo') },
+    ]],
     arbol: ['Tu árbol', 'Crece cuando anotás y cumplís tus metas', []],
     ajustes: ['Ajustes', 'Tu cuenta, Telegram y respaldo', []],
     add: ['Nuevo movimiento', 'Anotá un gasto o un ingreso', []],
@@ -1437,8 +1443,7 @@ export default function App() {
           {tab === 'metas' && (
             <MetasScreen
               goals={goals}
-              budgets={budgets}
-              categories={config.categories}
+              accion={accionDe('metas')}
               onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
@@ -1458,6 +1463,7 @@ export default function App() {
           {tab === 'subs' && (
             <SubsScreen
               subs={subs}
+              accion={accionDe('subs')}
               onReload={reloadSubs}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
@@ -1471,7 +1477,7 @@ export default function App() {
               categories={config.categories}
               ingresoDelMes={dashboard ? dashboard.income : 0}
               mes={mes}
-              accion={presuAccion}
+              accion={accionDe('presu')}
               onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
@@ -1491,6 +1497,7 @@ export default function App() {
           {tab === 'invest' && (
             <InvestScreen
               portfolio={portfolio}
+              accion={accionDe('invest')}
               onReload={reloadPortfolio}
               onError={(m) => notify(m, 'error')}
             />

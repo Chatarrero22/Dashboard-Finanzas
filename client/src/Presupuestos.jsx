@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { api, money, mesNombre, icono, Empty } from './comunes.jsx'
-import { useDialogos } from './Dialogos.jsx'
+import { Modal, useDialogos } from './Dialogos.jsx'
 
 /** Una tarjeta de presupuesto. */
 function Tarjeta({ b, onBorrar }) {
@@ -144,14 +144,14 @@ export default function PresupuestosScreen({
         </span>
       </div>
 
-      {/* Alta a mano, se abre con el botón naranja de arriba */}
+      {/* El alta a mano abre un pop-up, no se despliega abajo */}
       {abierto && (
-        <form className="card" onSubmit={guardar}>
-          <div className="card-title-row">
-            <h2>Nuevo presupuesto</h2>
-            <button type="button" className="chip" onClick={() => setAbierto(false)}>Cerrar</button>
-          </div>
-          <div className="row-2">
+        <Modal
+          titulo="Nuevo presupuesto"
+          detalle={`Un tope de gasto por categoría para ${mesNombre(mes)}.`}
+          onCerrar={() => setAbierto(false)}
+        >
+          <form onSubmit={guardar}>
             <label className="field">
               <span className="field-label">Categoría</span>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -168,9 +168,16 @@ export default function PresupuestosScreen({
                 onChange={(e) => setForm({ ...form, monthly_limit: e.target.value.replace(/[^\d.]/g, '') })}
               />
             </label>
-          </div>
-          <button className="primary" type="submit">Guardar tope</button>
-        </form>
+            <div className="dialogo-botones">
+              <button type="button" className="dialogo-btn" onClick={() => setAbierto(false)}>Cancelar</button>
+              <button
+                type="submit"
+                className="dialogo-btn principal"
+                disabled={!form.category || !form.monthly_limit}
+              >Guardar tope</button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Sugerencias de Manguito */}
