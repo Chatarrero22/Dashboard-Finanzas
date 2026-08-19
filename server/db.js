@@ -206,6 +206,12 @@ function initDB() {
     db.exec('ALTER TABLE transactions ADD COLUMN card_id INTEGER');
   }
 
+  // La tarjeta con la que pagás casi todo: los movimientos nuevos van ahí
+  // solos y vos marcás las excepciones (efectivo, débito, transferencia).
+  if (!tieneColumna('cards', 'es_default')) {
+    db.exec('ALTER TABLE cards ADD COLUMN es_default INTEGER DEFAULT 0');
+  }
+
   // Compras en cuotas: cada cuota es una fila con su propia fecha, así cae en
   // el mes que corresponde sin que ninguna consulta tenga que saber de cuotas.
   // Las tres se comparten por grupo para poder borrar el plan entero.

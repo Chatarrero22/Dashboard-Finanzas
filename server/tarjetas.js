@@ -139,6 +139,7 @@ function listar(userId, hoy) {
       limit_amount: t.limit_amount || 0,
       close_day: t.close_day,
       due_day: t.due_day,
+      es_default: Boolean(t.es_default),
       consumo: consumo.total,
       movimientos: consumo.n,
       // Sin límite cargado no hay porcentaje: mostrar 0% sería mentir.
@@ -204,8 +205,26 @@ function cuotasQueSeVienen(userId, meses) {
   return Object.keys(porMes).sort().slice(0, cuantos).map(function (k) { return porMes[k]; });
 }
 
+/** La tarjeta con la que pagas casi todo, o null. */
+function porDefecto(userId) {
+  return db.prepare('SELECT * FROM cards WHERE user_id = ? AND es_default = 1').get(userId) || null;
+}
+
+/** Solo puede haber una predeterminada por persona. */
+function marcarPorDefecto(userId, cardId) {
+  db.prepare('UPDATE cards SET es_default = 0 WHERE user_id = ?').run(userId);
+  if (cardId) db.prepare('UPDATE cards SET es_default = 1 WHERE id = ? AND user_id = ?').run(cardId, userId);
+}
+
+function todas(userId) {
+  return db.prepare('SELECT id, name FROM cards WHERE user_id = ?').all(userId);
+}
+
 module.exports = {
   listar: listar,
+  porDefecto: porDefecto,
+  marcarPorDefecto: marcarPorDefecto,
+  todas: todas,
   periodoActual: periodoActual,
   vencimientoDe: vencimientoDe,
   resumenesPendientes: resumenesPendientes,

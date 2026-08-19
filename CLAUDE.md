@@ -84,6 +84,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
 | `tarjetas.js` | Tarjetas: período de resumen, cierre, vencimiento y deuda pendiente |
 | `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
+| `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`

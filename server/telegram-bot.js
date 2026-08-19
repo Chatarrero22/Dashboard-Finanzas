@@ -15,6 +15,7 @@ var aprendido = require('./aprendido.js');
 var correccion = require('./correccion.js');
 var cuotas = require('./cuotas.js');
 var tarjetasMod = require('./tarjetas.js');
+var medioDePago = require('./medio-de-pago.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
@@ -191,7 +192,7 @@ async function readReceipt(buffer, mediaType) {
  * Categoriza respetando lo que la persona ya corrigió alguna vez.
  * Si no hay nada aprendido, cae en la IA o en las reglas locales.
  */
-async function categorizarPara(userId, tx) {
+async function categorizarPara(userId, tx, textoOriginal) {
   var conocida = aprendido.buscar(userId, tx.description);
   if (conocida) {
     return {
@@ -200,10 +201,23 @@ async function categorizarPara(userId, tx) {
       amount: Number(tx.amount),
       category: conocida,
       ai_categorized: 0,
+      card_id: conTarjeta(userId, tx, textoOriginal),
       items: tx.items || []
     };
   }
-  return (await cat.categorizeTransactions([tx]))[0];
+  var salida = (await cat.categorizeTransactions([tx]))[0];
+  salida.card_id = conTarjeta(userId, tx, textoOriginal);
+  return salida;
+}
+
+/** Con qué tarjeta se pagó: la predeterminada, salvo que digas otra cosa. */
+function conTarjeta(userId, tx, textoOriginal) {
+  return medioDePago.elegirTarjeta(
+    tx.amount,
+    textoOriginal || tx.description,
+    tarjetasMod.porDefecto(userId),
+    tarjetasMod.todas(userId)
+  );
 }
 
 /**
@@ -563,7 +577,7 @@ function start(config) {
       for await (var chunk of stream) chunks.push(chunk);
 
       var tx = await readReceipt(Buffer.concat(chunks), 'image/jpeg');
-      var categorized = await categorizarPara(user.id, tx);
+      var categorized = await categorizarPara(user.id, tx, tx.description);
       categorized.items = tx.items;
       saveTransaction(user.id, categorized);
       var premioFoto = arbol.alAnotarMovimiento(user.id, { conFoto: true });
@@ -706,7 +720,7 @@ function start(config) {
     }
 
     try {
-      var categorized = await categorizarPara(user.id, parsed);
+      var categorized = await categorizarPara(user.id, parsed, msg.text);
 
       // "Lavarropas 600000 en 6 cuotas": una fila por cuota, cada una en su
       // mes. Se parte DESPUÉS de categorizar para que todas queden igual.

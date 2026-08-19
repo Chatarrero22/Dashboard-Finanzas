@@ -20,9 +20,9 @@ const COLORES = [
   { nombre: 'Gris', valor: '#6B5634' },
 ]
 
-const VACIA = { name: '', last4: '', color: COLORES[0].valor, limit_amount: '', close_day: '1', due_day: '10' }
+const VACIA = { name: '', last4: '', color: COLORES[0].valor, limit_amount: '', close_day: '1', due_day: '10', es_default: false }
 
-function Tarjeta({ t, onEditar, onBorrar, onPagar }) {
+function Tarjeta({ t, onEditar, onBorrar, onPagar, onOrdenar }) {
   const pct = t.pct == null ? null : Math.min(t.pct, 100)
 
   return (
@@ -31,7 +31,10 @@ function Tarjeta({ t, onEditar, onBorrar, onPagar }) {
       <div className="tarjeta-cuerpo">
         <div className="tarjeta-head">
           <div>
-            <div className="tarjeta-nombre">{t.name}</div>
+            <div className="tarjeta-nombre">
+              {t.name}
+              {t.es_default && <span className="tag" style={{ marginLeft: 8 }}>por defecto</span>}
+            </div>
             {t.last4 && <div className="tarjeta-num">•••• {t.last4}</div>}
           </div>
           <div className="tarjeta-acciones">
@@ -95,7 +98,12 @@ function Tarjeta({ t, onEditar, onBorrar, onPagar }) {
           </div>
         </div>
 
-        <button className="tarjeta-borrar" onClick={() => onBorrar(t)}>Borrar tarjeta</button>
+        <div className="tarjeta-pie-acciones">
+          <button className="tarjeta-link" onClick={() => onOrdenar(t)}>
+            Poner esta tarjeta a los gastos sueltos
+          </button>
+          <button className="tarjeta-borrar" onClick={() => onBorrar(t)}>Borrar tarjeta</button>
+        </div>
       </div>
     </div>
   )
@@ -125,6 +133,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
       limit_amount: String(t.limit_amount || ''),
       close_day: String(t.close_day),
       due_day: String(t.due_day),
+      es_default: t.es_default,
     })
     setAbierto(true)
   }
@@ -139,6 +148,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
       limit_amount: Number(form.limit_amount) || 0,
       close_day: Number(form.close_day) || 1,
       due_day: Number(form.due_day) || 10,
+      es_default: form.es_default,
     }
     try {
       if (editando) await api(`/cards/${editando.id}`, { method: 'PATCH', body: JSON.stringify(cuerpo) })
@@ -163,6 +173,34 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
     try {
       await api(`/cards/${t.id}/pagar`, { method: 'POST', body: JSON.stringify({}) })
       onSaved('Resumen marcado como pagado')
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
+  // Los gastos que cargaste antes de tener tarjeta quedaron sin ninguna.
+  async function ordenarSueltos(t) {
+    try {
+      const previo = await api(`/cards/${t.id}/asignar-sueltos`, {
+        method: 'POST', body: JSON.stringify({}),
+      })
+      if (previo.cuantos === 0) return onSaved('No hay gastos sueltos para asignar')
+
+      const ok = await confirmar({
+        titulo: `¿Poner ${t.name} a ${previo.cuantos} gastos?`,
+        detalle: `Son los que no tienen ninguna tarjeta, ${money(previo.total)} en total.` +
+          (previo.respetados
+            ? ` Dejo afuera ${previo.respetados} donde dijiste efectivo, débito o transferencia.`
+            : ''),
+        aceptar: 'Asignarlos',
+      })
+      if (!ok) return
+
+      const r = await api(`/cards/${t.id}/asignar-sueltos`, {
+        method: 'POST', body: JSON.stringify({ aplicar: true }),
+      })
+      onSaved(`${r.cuantos} gastos quedaron en ${t.name}`)
       onReload()
     } catch (err) {
       onError(err.message)
@@ -196,7 +234,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
       ) : (
         <div className="tarjetas-grid">
           {cards.map((t) => (
-            <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} />
+            <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} onOrdenar={ordenarSueltos} />
           ))}
         </div>
       )}
@@ -299,6 +337,18 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
                 ))}
               </div>
             </div>
+
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.es_default}
+                onChange={(e) => setForm({ ...form, es_default: e.target.checked })}
+              />
+              <span>
+                Con esta pago casi todo
+                <small>Los gastos nuevos van acá solos, salvo que digas «efectivo» o «débito».</small>
+              </span>
+            </label>
 
             <div className="dialogo-botones">
               <button type="button" className="dialogo-btn" onClick={() => { setAbierto(false); setEditando(null) }}>

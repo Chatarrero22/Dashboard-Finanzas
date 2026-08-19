@@ -17,6 +17,7 @@ var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
 var tarjetas = require('./tarjetas.js');
 var cuotas = require('./cuotas.js');
+var medioDePago = require('./medio-de-pago.js');
 
 var router = express.Router();
 
@@ -238,6 +239,19 @@ router.post('/transactions', async function (req, res) {
         return r;
       });
     }
+
+    // Con qué tarjeta se pagó. Si no viene dicho, manda la predeterminada:
+    // marcar una por una es imposible cuando pagás casi todo con la misma.
+    var porDefecto = tarjetas.porDefecto(req.user.id);
+    var misTarjetas = tarjetas.todas(req.user.id);
+    categorized.forEach(function (t, i) {
+      if (req.body.card_id !== undefined) {
+        t.card_id = req.body.card_id;
+      } else if (!t.card_id) {
+        var texto = (transactions[i] && transactions[i].description) || t.description;
+        t.card_id = medioDePago.elegirTarjeta(t.amount, texto, porDefecto, misTarjetas);
+      }
+    });
 
     // Las cuotas se parten recién acá, después de categorizar: así la IA ve
     // la compra entera una sola vez y todas las cuotas quedan en la misma
@@ -675,6 +689,11 @@ router.post('/cards', function (req, res) {
     Math.min(Math.max(Number(req.body.due_day) || 10, 1), 31)
   );
 
+  // La primera tarjeta que cargás queda como predeterminada sola: si tenés
+  // una sola, obviamente pagás con esa.
+  var esPrimera = db.prepare('SELECT COUNT(*) c FROM cards WHERE user_id = ?').get(req.user.id).c === 1;
+  if (req.body.es_default || esPrimera) tarjetas.marcarPorDefecto(req.user.id, info.lastInsertRowid);
+
   res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === info.lastInsertRowid; }));
 });
 
@@ -695,6 +714,8 @@ router.patch('/cards/:id', function (req, res) {
     req.body.due_day != null ? Math.min(Math.max(Number(req.body.due_day), 1), 31) : actual.due_day,
     req.params.id, req.user.id
   );
+
+  if (req.body.es_default) tarjetas.marcarPorDefecto(req.user.id, Number(req.params.id));
 
   res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === Number(req.params.id); }));
 });
@@ -742,6 +763,45 @@ router.delete('/cards/:id/pagar/:cierre', function (req, res) {
   db.prepare('DELETE FROM card_payments WHERE user_id = ? AND card_id = ? AND period_close = ?')
     .run(req.user.id, req.params.id, req.params.cierre);
   res.json({ success: true });
+});
+
+/**
+ * Poner una tarjeta a todos los gastos que no tienen ninguna.
+ * Sirve para ordenar lo que cargaste antes de tener tarjetas.
+ * Sin ?aplicar solo cuenta cuántos serían.
+ */
+router.post('/cards/:id/asignar-sueltos', function (req, res) {
+  var tarjeta = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!tarjeta) return res.status(404).json({ error: 'No existe esa tarjeta' });
+
+  var desde = req.body.desde || '0000-01-01';
+
+  var sueltos = db.prepare(
+    'SELECT id, description, amount FROM transactions' +
+    ' WHERE user_id = ? AND card_id IS NULL AND amount < 0 AND date >= ?'
+  ).all(req.user.id, desde);
+
+  // Si en la descripción dice "efectivo", "débito" o "transferencia", ya nos
+  // dijiste que no fue con tarjeta: no se lo pisamos.
+  var candidatos = sueltos.filter(function (t) {
+    return medioDePago.loQueDijo(t.description) !== 'no';
+  });
+
+  if (req.body.aplicar && candidatos.length) {
+    var poner = db.prepare('UPDATE transactions SET card_id = ? WHERE id = ? AND user_id = ?');
+    db.transaction(function () {
+      candidatos.forEach(function (t) { poner.run(tarjeta.id, t.id, req.user.id); });
+    })();
+  }
+
+  res.json({
+    aplicado: Boolean(req.body.aplicar),
+    cuantos: candidatos.length,
+    total: candidatos.reduce(function (a, t) { return a + Math.abs(t.amount); }, 0),
+    // Los que dejamos afuera porque vos dijiste cómo los pagaste.
+    respetados: sueltos.length - candidatos.length
+  });
 });
 
 /** Las cuotas que ya tenés comprometidas para los meses que vienen. */
