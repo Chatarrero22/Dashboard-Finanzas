@@ -33,38 +33,42 @@ la app que la persona usa todos los días.
 ### Deploy
 
 Render **no despliega solo** (el repo se conectó por "Public Git Repository", sin
-webhook). Después de `git push`, hay que apretar **Manual Deploy** en Render.
+webhook). Después de `git push` hay que apretar **Manual Deploy** en Render.
 Avisale siempre a Emanuel que lo haga.
 
 **Antes de investigar cualquier "no me funciona", chequeá que esté desplegado.**
-Ya pasó tres veces. En Ajustes hay una tarjeta **Versión** con la huella del
-build (`index-XXXX`), y desde afuera se ve así:
+Ya pasó tres veces: perdí un rato buscando bugs que no existían. En Ajustes hay
+una tarjeta **Versión** con la huella del build; desde afuera se compara así:
 
 ```bash
 curl -s https://dashboard-finanzas-n4g4.onrender.com/ | grep -o 'index-[A-Za-z0-9_-]*\.js'
 ls client/dist/assets/index-*.js   # el de acá
 ```
 
-Si no coinciden, el deploy no entró y no hay nada que debuggear.
+Si no coinciden, el deploy no entró y no hay nada que debuggear. Un **502**
+suele ser el reinicio del deploy: esperá y reintentá antes de asustarte.
 
 ---
 
 ## Cómo se corre local
 
-```
+```bash
 node server/index.js                 # todo junto: web + API + bot
 cd client && npm run build           # después de tocar el frontend
 ```
 
 Para probar sin ensuciar los datos reales:
 
-```
+```bash
 DB_FILE=demo.db PORT=3999 TELEGRAM_BOT_TOKEN= node server/index.js
 ```
 
 > **Nunca corras el bot local y el de Render al mismo tiempo**: Telegram solo
 > admite un lector por token, se pelean y un gasto puede terminar en la base
 > equivocada. Ya pasó. Por eso arriba va `TELEGRAM_BOT_TOKEN=` vacío.
+
+Al terminar, borrá `data/demo.db*` y matá el proceso (ver más abajo: `pkill` no
+sirve en Windows).
 
 ---
 
@@ -78,43 +82,106 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | Archivo | Qué hace |
 |---|---|
 | `index.js` | Arranca todo: express, estáticos, bot, gastos fijos, alertas |
-| `config.js` | Config por entorno. `DATA_DIR`, `DB_FILE`, `PORT`, `APP_NAME` |
+| `config.js` | Config por entorno: `DATA_DIR`, `DB_FILE`, `PORT`, `APP_NAME` |
 | `db.js` | Esquema + migraciones. **Las migraciones van antes de los índices** |
 | `auth.js` | Login con scrypt, sesiones en cookie httpOnly, vínculo con Telegram |
 | `api.js` | Todos los endpoints. `router.use(auth.requerido)` divide público/privado |
-| `categorizer.js` | Categorización con Claude (`claude-opus-5`) + reglas locales de respaldo |
+| `categorizer.js` | Categoriza con Claude (`claude-opus-5`) + reglas locales de respaldo |
+| `aprendido.js` | Memoria: lo que corregís a mano queda para la próxima |
+| `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
 | `plata.js` | Entiende "5 lucas", "un palo y medio", "15k", "2.500,50" |
+| `dolares.js` | Detecta montos en dólares y los pasa a pesos |
+| `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
+| `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
+| `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
+| `tarjetas.js` | Período de resumen, cierre, vencimiento y deuda pendiente |
+| `cuentas.js` | Dónde está la plata y cómo moverla entre cuentas |
+| `fijos.js` | Carga sola las suscripciones el día que se cobran |
 | `parsers.js` | Importar resúmenes CSV / Excel / PDF |
 | `prices.js` | Cripto (CoinMarketCap) y dólar (dolarapi, sin clave) |
-| `fijos.js` | Carga sola las suscripciones el día que se cobran |
 | `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
-| `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
-| `aprendido.js` | Memoria de categorías: lo que corregís a mano queda para la próxima |
-| `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
-| `tarjetas.js` | Tarjetas: período de resumen, cierre, vencimiento y deuda pendiente |
-| `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
-| `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
-| `dolares.js` | Gastos en dólares: los pasa a pesos al cambio del día |
-| `cuentas.js` | Dónde está la plata y cómo moverla entre cuentas |
 | `version.js` | Qué build está corriendo (para saber si el deploy entró) |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
 
-`App.jsx` es grande (pantallas Home, Agregar, Movimientos, Metas, Subs, Cripto,
-Ajustes, Árbol, Menú). `Pnl.jsx` y `Presupuestos.jsx` son pantallas aparte;
-`comunes.jsx` tiene los helpers compartidos (`money`, `monthLabel`, `Empty`,
-`BudgetList`). `Arbol.jsx` dibuja el árbol en SVG.
+| Archivo | Qué hace |
+|---|---|
+| `App.jsx` | El grande: estado, navegación, y las pantallas que no salieron a un archivo |
+| `Shell.jsx` | Barra lateral, barra de arriba y encabezado de pantalla |
+| `Dialogos.jsx` | `<Modal>` y los diálogos propios (`confirmar`, `pedirTexto`) |
+| `Numero.jsx` | Un monto que sube solo hasta su valor |
+| `comunes.jsx` | `money`, fechas, `ICONOS` por categoría, `Empty` |
+| `moneda.js` | Si los montos se muestran en pesos o dólares (botón ARS/US$) |
+| `Resumen.jsx` `Patrimonio.jsx` `Alertas.jsx` `Gastos.jsx` | Pantallas |
+| `Tarjetas.jsx` `Ahorro.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
+| `Arbol.jsx` | Dibuja el árbol en SVG |
+| `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
-Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú).
+Estilos: `index.css` (tokens + base), `shell.css` (armazón, modales),
+`pantallas.css` y `resumen.css`.
 
 ### Tablas
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
 `alerts_sent`, `learned_categories`, `cards`, `card_payments`, `accounts`.
+
+---
+
+## Cómo se modela la plata
+
+Esta es la parte que más cuesta y la que más fácil se rompe. Cada decisión de
+acá se tomó por un motivo; si algo parece más simple de otra forma, leé el
+motivo antes de cambiarlo.
+
+**El gasto se cuenta el día de la compra.** No el día que sale la plata. Es lo
+correcto para categorías, presupuestos y P&L: si comprás en agosto, gastaste en
+agosto aunque pagues la tarjeta en septiembre.
+
+**Categorías que NO son gastos: `Traspaso` y `Ajuste`.** Hay que excluirlas de
+ingresos, gastos, `byCategory`, `topExpenses` y `byDay`. Si no, mover plata al
+ahorro aparece como un gasto y el mes queda arruinado.
+
+**Un traspaso entre cuentas son DOS movimientos que se anulan.** `-X` en la
+cuenta de origen y `+X` en la de destino, con el mismo `transfer_group`. Que
+sean dos y no uno es a propósito: así la suma de todos los movimientos sigue
+dando tu plata total sin que ninguna consulta sepa que existen los traspasos.
+
+**El saldo de una cuenta no se guarda.** Es la suma de sus movimientos. Guardarlo
+sería tener dos verdades que se pueden contradecir.
+
+**El pago del resumen de la tarjeta NO es un movimiento.** Las compras ya están
+cargadas una por una; si además anotáramos el pago, el mes contaría el doble.
+Por eso existe `card_payments`, que solo marca "el resumen que cerró tal día
+está pagado" sin tocar `transactions`.
+
+**Las cuotas son una fila por mes.** Cada una con su fecha, así cae sola en el
+mes y en el resumen de tarjeta que corresponde. El redondeo va todo a la última
+cuota: la suma tiene que dar el total exacto, siempre.
+
+**Un gasto en dólares y una suscripción en dólares se guardan al revés, y está
+bien:**
+
+- Un **gasto suelto** se guarda **en pesos**, congelado al cambio del día
+  (`amount_usd` y `usd_rate` guardan el original). Pasó una vez y ya está: si
+  lo recalculáramos, todos los meses viejos se moverían cada vez que salta el
+  dólar.
+- Una **suscripción** se guarda **en dólares** y `fijos.js` la convierte cada
+  mes al cambio de ese día. US$15 no te sale lo mismo en marzo que en agosto;
+  congelarla haría que el gasto fijo mostrara un número que ya no pagás.
+
+No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
+una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
+
+**Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
+saldo en rojo se lee igual que uno a favor.
+
+**Si no hay cotización, no inventamos.** El botón US$ se deshabilita, la API
+responde 503 con un mensaje claro y una suscripción en dólares no se carga (se
+reintenta al día siguiente). Preferible que falte un dato a que haya uno falso.
 
 ---
 
@@ -134,31 +201,35 @@ DesignSync). Los tokens de los dos temas están copiados tal cual en `index.css`
 `DISENO.md` tiene el inventario de clases y las restricciones (16px en inputs,
 44px de alto tocable, nada de scroll horizontal a 320px).
 
+Los formularios de alta abren en **pop-up**, nunca desplegados abajo de la
+pantalla. Emanuel lo pidió explícitamente más de una vez.
+
 ---
 
-## Lo que falta (por orden de conveniencia)
+## Lo que falta
 
-El diseño tiene 14 pantallas. Hechas: Resumen, Patrimonio, Alertas, Movimientos,
-Gastos, Gastos fijos, Presupuestos, P&L, Metas, Inversiones, Árbol, Ajustes,
-Agregar.
+De las 14 pantallas del diseño están las 13: Resumen, Patrimonio, Alertas,
+Movimientos, Gastos, Gastos fijos, Tarjetas, Presupuestos, P&L, Ahorro, Metas,
+Inversiones, Árbol (más Ajustes y el alta en pop-up).
 
-El armazón del diseño ya está: barra lateral (logo, "+ Nuevo movimiento",
-tarjeta de ahorro del mes, los tres grupos, el usuario abajo que lleva a
-Ajustes) y barra de arriba (ARS/US$, navegador de meses, dólar en vivo, tema,
-"Ocultar montos"). Vive en `Shell.jsx` + `shell.css`.
+Queda:
 
 1. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
+2. **WhatsApp** — viable (hay dirección pública). Necesita webhook, número
+   aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
+3. **Los dos números del Resumen** — "gastaste este mes" (lo de hoy) vs "sale de
+   tu cuenta este mes" (el resumen que vence + lo que no es tarjeta). Los datos
+   ya están; falta mostrarlos.
+4. **La deuda de tarjeta en Patrimonio** — hoy resta bien el total pero no dice
+   cuánto de eso es tarjeta sin pagar.
 
-Otros pendientes:
-- **WhatsApp**: ahora es viable (hay dirección pública). Necesita webhook, número
-  aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
-- El usuario de **Sofía** puede estar sin crear en producción.
-- El **modo simple ya no existe**: todos ven las 12 secciones. Escondía cosas
+### Cosas del pasado que conviene saber
+
+- El **modo simple ya no existe**: todos ven las 13 secciones. Escondía cosas
   que la persona necesitaba y no había forma de darse cuenta de por qué no
   aparecían. La columna `simple_ui` sigue en la base porque borrarla en SQLite
   es un lío, pero **no se lee**: `initDB()` la pone en 0. No la vuelvas a usar.
-- La conversión a US$ usa el blue de `/api/networth`. Si algún día se quiere el
-  MEP (que es lo que dice el diseño), hay que sumarlo en `prices.js`.
+- La otra persona que usa la app es **Camila**.
 
 ---
 
@@ -166,86 +237,35 @@ Otros pendientes:
 
 No las repitas.
 
-**Heredocs de bash con JSX.** Los backticks de los template literals rompen el
-heredoc y el archivo queda con saltos de línea literales dentro de strings.
-Para JSX usá la herramienta Write o archivos aparte, no `cat <<'EOF'`.
+### El entorno y las herramientas
 
-**Reemplazos con Python que fallan callados.** `s.replace(viejo, nuevo)` no
-avisa si no encontró nada e imprime "listo" igual. Poné `assert viejo in s` o
-verificá después con grep.
+**Los heredocs de bash se comen los escapes.** Es la que más veces mordió.
 
-**`transform` de CSS vs atributo `transform` de SVG.** Si el elemento tiene
-`transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
-gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
-hijo.
+- Los **backticks** de los template literals de JSX rompen el heredoc y el
+  archivo queda con saltos de línea literales dentro de strings.
+- `\n` dentro de un string puede convertirse en un salto de línea real, y el
+  archivo deja de compilar.
+- `\b` dentro de un regex puede convertirse en el **carácter de retroceso**
+  (byte `0x08`). Esto es lo peor: el archivo **compila**, el regex **nunca
+  coincide**, y mirando el código no se ve nada raro.
 
-**Un modal más alto que la pantalla deja el botón afuera.** El overlay
-centra con flex; si el formulario no entra, el botón de guardar queda fuera de
-la vista y no hay forma de llegar. En el celular pasó con el alta de un
-movimiento. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
-`overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
-
-**Un gasto suelto y una suscripción en dólares se guardan al revés.** Un gasto
-suelto va **en pesos**, congelado al cambio del día (pasó una vez y ya está).
-Una suscripción va **en dólares**, y `fijos.js` la convierte cada mes al cambio
-de ese día: US$15 no te sale lo mismo en marzo que en agosto, y congelarla haría
-que el gasto fijo dijera un número que ya no pagás. No los unifiques.
-
-**Los gastos en dólares se guardan en PESOS.** `amount` siempre está en pesos,
-convertido al cambio del día en que se cargó, y queda congelado: que el dólar
-suba después no cambia lo que te salió ese día. `amount_usd` y `usd_rate`
-guardan el original para poder mostrarlo. Si se recalculara al cambio de hoy,
-todos los meses viejos se moverían solos cada vez que salta el dólar.
-
-No confundirlo con el botón ARS/US$ de la barra de arriba: ese es una forma
-de **mirar** lo mismo y sí usa la cotización de hoy (`moneda.js`).
-
-**Un traspaso entre cuentas son DOS movimientos que se anulan.** Mover plata a
-una cuenta de ahorro no es un gasto: la plata sigue siendo tuya. Se guarda como
-`-X` en la cuenta de origen y `+X` en la de destino, ambos con categoría
-`Traspaso`. Así la suma de todos los movimientos sigue dando tu plata total sin
-que ninguna consulta sepa de traspasos, pero hay que **excluir `Traspaso` de
-ingresos, gastos, `byCategory`, `topExpenses` y `byDay`**, o el mes se duplica.
-Lo mismo pasa con la categoría `Ajuste`.
-
-**El pago del resumen NO es un movimiento.** Las compras de la tarjeta ya
-están cargadas una por una, así que si además anotáramos el pago del resumen
-como un gasto, el mes contaría el doble. Por eso existe la tabla
-`card_payments`: solo marca "el resumen que cerró tal día está pagado", sin
-tocar `transactions`. Si alguna vez parece más simple guardarlo como un
-movimiento, no lo es.
-
-**Los heredocs también se comen ``.** Además de romper los backticks del
-JSX, un `<<'PY'` puede convertir `` dentro de un regex en el **carácter de
-retroceso** (byte 0x08). El archivo compila, el regex nunca coincide, y no se
-ve mirando el código. Para detectarlo:
+Para strings con escapes usá la herramienta **Edit** o **Write**, no heredocs.
+Para detectar el daño:
 
 ```bash
-python -c "import io,glob; print([p for p in glob.glob('server/*.js') if b'' in io.open(p,'rb').read()])"
+python -c "import io,glob; print([p for p in glob.glob('server/*.js') if b'\x08' in io.open(p,'rb').read()])"
 ```
 
-Para strings con escapes, usá la herramienta Edit, no heredocs.
+(Este mismo archivo ya salió dañado una vez por escribirlo con un heredoc.)
 
-**Una acción pendiente que no se limpia abre modales solos.** Los botones del
-encabezado (`+ Nuevo…`) viven en `App` y las pantallas los reciben por props.
-Si la acción queda guardada, al volver a esa pantalla el `useEffect` la ve al
-montarse y abre el formulario solo. Se limpia en `irA()`, **antes** de cambiar
-de pestaña: los efectos de los hijos corren antes que los del padre, así que
-limpiarla en un efecto no alcanza.
+**Reemplazos con Python que fallan callados.** `s.replace(viejo, nuevo)` no
+avisa si no encontró nada e imprime "listo" igual. Poné `assert viejo in s`.
+Ojo además: si el script hace varios reemplazos y uno falla, **no se escribe
+ninguno** — verificá después con grep, no confíes en el "ok".
 
-**El bot guarda por su cuenta.** `telegram-bot.js` tiene su propio
-`saveTransaction()` y **no pasa** por `insertTransactions()` de `api.js`. Todo
-lo que se aplique al guardar (ordenar la descripción, categorías aprendidas)
-hay que ponerlo en los dos lados o Telegram queda afuera. Ya pasó con el
-ordenado de textos.
-
-**El servidor viejo sigue vivo y `pkill` no lo mata.** `pkill -f "node
-server/index.js"` desde git-bash **no mata procesos de Windows**: no falla, no
-avisa, simplemente no hace nada. El servidor nuevo tampoco puede tomar el
-puerto, así que se muere calladito, y vos seguís probando contra el código de
-hace horas. Pasó: estuve un rato convencido de que un arreglo no funcionaba.
-
-Para matarlo de verdad, PowerShell:
+**`pkill` no mata procesos de Windows.** Desde git-bash no falla, no avisa,
+simplemente no hace nada. El servidor nuevo tampoco puede tomar el puerto, se
+muere calladito, y seguís probando contra el código de hace horas.
 
 ```powershell
 Get-Process node | ForEach-Object { Stop-Process -Id $_.Id -Force }
@@ -255,24 +275,38 @@ Y para saber si el que responde es el nuevo, comparalo con el archivo:
 
 ```powershell
 Get-Process node | Select-Object Id, StartTime
-(Get-Item serverpi.js).LastWriteTime
+(Get-Item server\api.js).LastWriteTime
 ```
 
 Si el proceso arrancó **antes** que la última edición, estás probando lo viejo.
 
+**`cd x && ... &` deja el `cd` adentro del subshell.** El `&` aplica a toda la
+cadena, así que el directorio de trabajo del shell no cambia y los comandos
+siguientes corren donde no querías. Poné el `cd` en un statement aparte.
+
+**Dos apps en el mismo puerto.** Windows deja convivir una en IPv4 y otra en
+IPv6, y no sabés cuál te contesta. Si algo devuelve datos que no cierran,
+revisá `Get-NetTCPConnection -State Listen -LocalPort 3999` antes que el código.
+
+**Los tests dejan basura.** Si no reiniciás la base entre corridas, una prueba
+que "falla" puede ser una fila que dejó la corrida anterior. Antes de dudar del
+código, mirá si el dato ya estaba.
+
+### El backend
+
+**El bot guarda por su cuenta.** `telegram-bot.js` tiene su propio
+`saveTransaction()` y **no pasa** por `insertTransactions()` de `api.js`. Todo
+lo que se aplique al guardar (ordenar la descripción, categorías aprendidas,
+tarjeta por defecto) hay que ponerlo en los dos lados o Telegram queda afuera.
+
 **Ojo con tapar variables del módulo.** `var cat = ...` adentro de una función
 tapa al `var cat = require('./categorizer.js')` de arriba, y como `var` se
-eleva, la llamada explota con "Cannot read properties of undefined". Si la
-variable local se llama igual que un módulo importado, cambiale el nombre.
+eleva, la llamada explota con "Cannot read properties of undefined".
 
-**Los hijos de una grilla no se achican solos.** Un `grid-template-columns:
-1fr` no alcanza: los hijos arrancan con `min-width: auto`, así que un texto
-largo o un monto grande ensanchan la columna y aparece scroll horizontal a
-320px. Hay que ponerles `min-width: 0` (está en `shell.css`).
-
-**Dos apps en el puerto 3001.** Windows deja convivir una en IPv4 y otra en
-IPv6, y no sabés cuál te contesta. Si algo devuelve datos que no cierran,
-revisá `Get-NetTCPConnection -State Listen -LocalPort 3001` antes que el código.
+**Los avisos se consumen al calcularlos.** Las funciones de `alertas.js` llaman
+a `esNuevo()`, que marca el aviso como enviado. Si una pantalla las usa, abrirla
+apaga el aviso de Telegram del día. Por eso existe `alertas-pantalla.js`, que
+calcula lo mismo sin escribir nada.
 
 **Deduplicar contando, no preguntando.** El importador usaba "¿existe uno
 igual?" y perdía movimientos legítimamente repetidos (dos cafés iguales el mismo
@@ -283,33 +317,67 @@ símbolo está repetido (hay decenas de monedas "W", "RWA", "PIXEL") y el orden 
 es estable. Hay que elegir por `cmc_rank` / capitalización, si no el patrimonio
 varía 4x entre cargas.
 
-**Los avisos se consumen al calcularlos.** Las funciones de `alertas.js`
-llaman a `esNuevo()`, que marca el aviso como enviado en `alerts_sent`. Si una
-pantalla las usa, abrir esa pantalla apaga el aviso de Telegram del día. Por eso
-existe `alertas-pantalla.js`, que calcula lo mismo sin escribir nada.
-
-**`.nav-pc` heredaba `position: fixed`.** La barra lateral de escritorio no se
-parecía en nada al diseño y el motivo no estaba en el layout: `.nav-pc` no tenía
-estilos propios y se comía el `position: fixed; bottom: 0` de `.nav`, la barra
-del celular. Era la barra de abajo con títulos encima. Si algo "no se parece al
-diseño", fijate qué está heredando antes de reescribir el componente.
-
-**Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
-saldo en rojo se lee igual que uno a favor.
+**El orden de las reglas de categorización manda.** Gana la primera que
+coincide, y se busca como subcadena: `dia` pega dentro de `dias`. Por eso
+`Gustitos` va después de `Delivery` (para que "rappi" siga siendo Delivery) y
+las palabras cortas o ambiguas son peligrosas.
 
 **El disco de Render.** Si no está montado en `/data`, los datos se borran en
 cada deploy. Se verifica creando algo, redesplegando y viendo si sobrevive.
+
+### El frontend
+
+**`.nav-pc` heredaba `position: fixed`.** La barra lateral no se parecía en nada
+al diseño y el motivo no estaba en el layout: heredaba el `position: fixed;
+bottom: 0` de `.nav`, la barra del celular. Si algo "no se parece al diseño",
+fijate qué está heredando antes de reescribir el componente.
+
+**Los hijos de una grilla no se achican solos.** Arrancan con `min-width: auto`,
+así que un texto largo o un monto grande ensanchan la columna y aparece scroll
+horizontal a 320px. Hay que ponerles `min-width: 0` (está en `shell.css`).
+
+**Un modal más alto que la pantalla deja el botón afuera.** El overlay centra
+con flex; si el formulario no entra, el botón de guardar queda fuera de la vista
+y no hay forma de llegar. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
+`overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
+
+**Una acción pendiente que no se limpia abre modales solos.** Los botones del
+encabezado (`+ Nuevo…`) viven en `App` y las pantallas los reciben por props. Si
+la acción queda guardada, al volver el `useEffect` la ve al montarse y abre el
+formulario. Se limpia en `irA()`, **antes** de cambiar de pestaña: los efectos
+de los hijos corren antes que los del padre.
+
+**`transform` de CSS vs atributo `transform` de SVG.** Si el elemento tiene
+`transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
+gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
+hijo.
+
+**Una animación con `both` y retardo arranca invisible.** El anillo de la rueda
+se veía como un disco lleno porque el centro tenía `opacity: 0` durante el
+retardo. Lo que tapa algo no puede desvanecerse.
+
+**Los íconos por categoría tienen que coincidir exactamente.** `ICONOS` en
+`comunes.jsx` y `EMOJIS` en `telegram-bot.js` se indexan por el nombre de
+`CATEGORIES`. Escribir "Educación" con tilde cuando la categoría es "Educacion"
+no falla: simplemente sale el ícono genérico. Al agregar una categoría,
+verificá que las dos listas la tengan.
+
+**El texto que se muestra puede tener caracteres combinantes.** `⃠` (U+20E0) se
+dibuja *encima* de la letra anterior: "⃠ Ocultar" se veía como una O tachada.
+Si un ícono de texto se ve raro, revisá que no sea combinante.
 
 ---
 
 ## Cómo trabajar acá
 
 - **Verificá con capturas reales**, no con "debería andar". Playwright está
-  instalado: sacá screenshots a tamaño iPhone 13 y 1440px, en claro y oscuro,
-  y miralas. Varios bugs (hojas voladoras, barra desbordada, signo perdido)
-  aparecieron solo mirando.
+  instalado: sacá screenshots a 1440px, iPhone 13 (390) y 320px, en claro y
+  oscuro, y **miralas**. Varios bugs (hojas voladoras, barra desbordada, signo
+  perdido, botón fuera de pantalla, anillo lleno) aparecieron solo mirando.
 - Chequeá siempre: sin scroll horizontal a 320px, sin errores de consola, modo
-  oscuro completo.
+  oscuro completo, y que ninguna pantalla abra un modal sola al entrar.
+- Los scripts de prueba van con nombres tipo `t12.mjs` — están en `.gitignore`
+  y **hay que borrarlos** antes de commitear.
 - Español rioplatense en todo lo que ve el usuario. Comentarios del código
   también en español.
 - Emanuel prefiere que le expliques el porqué, no solo el qué. Y que le avises
