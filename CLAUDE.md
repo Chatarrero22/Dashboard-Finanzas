@@ -141,6 +141,10 @@ Otros pendientes:
 - **WhatsApp**: ahora es viable (hay dirección pública). Necesita webhook, número
   aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
 - El usuario de **Sofía** (`simple_ui`) puede estar sin crear en producción.
+- **Ojo con el modo simple:** un usuario con `simple_ui` ve **menos secciones**
+  (sin Patrimonio, Gastos fijos, Tarjetas, P&L ni Inversiones). Si alguien
+  reporta que "no le aparecen las secciones nuevas", mirá eso antes que el
+  deploy. Se cambia desde Ajustes → Personas, tocando el modo.
 - La conversión a US$ usa el blue de `/api/networth`. Si algún día se quiere el
   MEP (que es lo que dice el diseño), hay que sumarlo en `prices.js`.
 

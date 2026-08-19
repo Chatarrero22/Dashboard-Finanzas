@@ -1006,6 +1006,30 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
     } catch (err) { onError(err.message) }
   }
 
+  /* El modo simple muestra menos secciones. Se puede cambiar cuando quieras:
+     antes había que borrar a la persona y perder sus datos. */
+  async function cambiarModo(u) {
+    const aSimple = !u.simple_ui
+    const ok = await confirmar({
+      titulo: aSimple ? `¿Pasar a ${u.display_name} a modo simple?` : `¿Que ${u.display_name} vea todo?`,
+      detalle: aSimple
+        ? 'Va a ver solo Resumen, Alertas, Movimientos, Gastos, Presupuestos, Metas y el Árbol.'
+        : 'Suma Patrimonio, Gastos fijos, Tarjetas, P&L e Inversiones. Sus datos no se tocan.',
+      aceptar: 'Cambiar',
+    })
+    if (!ok) return
+    try {
+      await api(`/users/${u.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ simple_ui: aSimple }),
+      })
+      onSaved(aSimple ? `${u.display_name} pasa a modo simple` : `${u.display_name} ahora ve todo`)
+      cargarUsuarios()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   async function borrarUsuario(u) {
     const ok = await confirmar({
       titulo: `¿Borrar a ${u.display_name}?`,
@@ -1191,6 +1215,16 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
                         {u.is_admin ? <span className="tag">admin</span> : null}
                         {u.telegram_linked ? <span className="tag">Telegram</span> : null}
                       </div>
+                      {/* El modo decide cuántas secciones ve esa persona.
+                          Antes solo se elegía al crearla y no había forma
+                          de cambiarlo sin borrarla. */}
+                      <button
+                        className="tag tag-editable"
+                        style={{ marginTop: 6 }}
+                        onClick={() => cambiarModo(u)}
+                      >
+                        {u.simple_ui ? '◔ Modo simple' : '◉ Ve todo'} ▾
+                      </button>
                     </div>
                     {u.id !== 1 && (
                       <button className="danger" aria-label={`Borrar ${u.display_name}`} onClick={() => borrarUsuario(u)}>✕</button>
