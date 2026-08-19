@@ -8,6 +8,7 @@
  * Los datos salen de /api/networth.
  */
 import { money, Empty } from './comunes.jsx'
+import Numero from './Numero.jsx'
 
 const COLORES = ['var(--accent)', 'var(--good)', 'var(--blue)', 'var(--yellow)']
 
@@ -92,7 +93,7 @@ export default function PatrimonioScreen({ networth }) {
         <div className="titular-txt patrimonio-cabeza">
           <div>
             <div className="titular-label">Patrimonio total</div>
-            <div className="patrimonio-num monto-sensible">{money(total)}</div>
+            <Numero className="patrimonio-num monto-sensible" valor={total} />
           </div>
           <Variacion cambio={networth.cambio30} total={total} />
         </div>

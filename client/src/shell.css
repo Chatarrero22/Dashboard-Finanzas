@@ -917,3 +917,23 @@
 .regla-flecha { color: var(--text-muted); }
 .regla-cat { color: var(--text-secondary); }
 .regla .danger { margin-left: auto; }
+
+/* Los números que suben solos son <span>: en los lugares donde antes había
+   un <div> hay que devolverles el salto de línea. */
+.titular-num,
+.kpi-chico-valor,
+.kpi-valor,
+.patrimonio-num,
+.tarjeta-consumo {
+  display: block;
+}
+
+/* El puntito de color de la tarjeta */
+.punto-tarjeta {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+  flex: none;
+  margin-right: 5px;
+}

@@ -6,6 +6,7 @@
  * a dónde va la plata y la tendencia, y abajo el detalle.
  */
 import { money, monthLabel, mesNombre, dayLabel, icono, Empty } from './comunes.jsx'
+import Numero from './Numero.jsx'
 
 const COLORES = [
   'var(--accent)', 'var(--blue)', 'var(--good)',
@@ -34,9 +35,10 @@ function Titular({ dashboard, mes }) {
       <div className="titular-brillo" />
       <div className="titular-txt">
         <div className="titular-label">Resultado de {mesNombre(mes)}</div>
-        <div className={`titular-num monto-sensible ${enRojo ? 'negativo' : 'positivo'}`}>
-          {money(neto)}
-        </div>
+        <Numero
+          className={`titular-num monto-sensible ${enRojo ? 'negativo' : 'positivo'}`}
+          valor={neto}
+        />
         <div className="titular-pie">
           <span className={`titular-chip ${enRojo || pctGastado == null ? 'mal' : 'ok'}`}>{chip}</span>
           <span className="titular-movs">
@@ -59,10 +61,10 @@ function Kpis({ dashboard }) {
   const promedio = dashboard.expense / (dashboard.diasDelMes ? Math.min(diaDeHoy, dashboard.diasDelMes) : 1)
 
   const items = [
-    { label: 'Entró', valor: money(dashboard.income), pie: `${dashboard.byMonth ? '' : ''}ingresos del mes`, color: 'var(--good)' },
-    { label: 'Salió', valor: money(dashboard.expense), pie: `${dashboard.count} movimientos`, color: 'var(--accent)' },
+    { label: 'Entró', numero: dashboard.income, pie: 'ingresos del mes', color: 'var(--good)' },
+    { label: 'Salió', numero: dashboard.expense, pie: `${dashboard.count} movimientos`, color: 'var(--accent)' },
     { label: 'Ahorro', valor: pctAhorro == null ? '—' : `${pctAhorro}%`, pie: 'del ingreso', color: 'var(--blue)' },
-    { label: 'Promedio', valor: money(promedio), pie: 'por día', color: 'var(--yellow)' },
+    { label: 'Promedio', numero: promedio, pie: 'por día', color: 'var(--yellow)' },
   ]
 
   return (
@@ -73,7 +75,9 @@ function Kpis({ dashboard }) {
             <span className="kpi-punto" style={{ background: k.color }} />
             <span className="kpi-chico-label">{k.label}</span>
           </div>
-          <div className="kpi-chico-valor monto-sensible">{k.valor}</div>
+          {k.numero != null
+            ? <Numero className="kpi-chico-valor monto-sensible" valor={k.numero} />
+            : <div className="kpi-chico-valor monto-sensible">{k.valor}</div>}
           <div className="kpi-chico-pie">{k.pie}</div>
         </div>
       ))}

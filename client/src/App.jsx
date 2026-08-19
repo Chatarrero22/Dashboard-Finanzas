@@ -8,6 +8,7 @@ import PatrimonioScreen from './Patrimonio.jsx'
 import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
+import TarjetasScreen from './Tarjetas.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import { icono } from './comunes.jsx'
@@ -313,10 +314,12 @@ function AddScreen({ config, categories, onSaved, onError }) {
   )
 }
 
-function MovementsScreen({ transactions, categories, onDelete, onRecategorizar, loading }) {
+function MovementsScreen({ transactions, categories, cards, onDelete, onRecategorizar, onAsignarTarjeta, loading }) {
   const [query, setQuery] = useState('')
   // El movimiento al que le estamos cambiando la categoría, si hay alguno.
   const [editando, setEditando] = useState(null)
+  // El movimiento al que le estamos poniendo tarjeta, si hay alguno.
+  const [tarjetaDe, setTarjetaDe] = useState(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -358,6 +361,22 @@ function MovementsScreen({ transactions, categories, onDelete, onRecategorizar, 
                     >
                       {icono(t.category)} {t.category} ▾
                     </button>
+                    {/* Con qué tarjeta se pagó. Solo aparece si cargaste
+                        alguna: si no, es ruido. */}
+                    {cards && cards.length > 0 && (
+                      <button
+                        className="tag tag-editable"
+                        onClick={() => setTarjetaDe(t)}
+                        title="Con qué tarjeta se pagó"
+                      >
+                        {(() => {
+                          const c = cards.find((x) => x.id === t.card_id)
+                          return c
+                            ? <><span className="punto-tarjeta" style={{ background: c.color }} />{c.name}</>
+                            : '▭ Sin tarjeta'
+                        })()} ▾
+                      </button>
+                    )}
                     {t.items?.length > 0 && <span>{t.items.length} productos</span>}
                   </div>
                 </div>
@@ -376,6 +395,42 @@ function MovementsScreen({ transactions, categories, onDelete, onRecategorizar, 
           </div>
         )}
       </section>
+
+      {tarjetaDe && (
+        <Modal
+          titulo="¿Con qué tarjeta?"
+          detalle={`${tarjetaDe.description} · ${money(tarjetaDe.amount)}`}
+          onCerrar={() => setTarjetaDe(null)}
+        >
+          <div className="cats-grid">
+            <button
+              className={`cat-opcion ${!tarjetaDe.card_id ? 'elegida' : ''}`}
+              onClick={async () => {
+                const tx = tarjetaDe
+                setTarjetaDe(null)
+                if (tx.card_id) await onAsignarTarjeta(tx, null)
+              }}
+            >
+              <span className="cat-opcion-ico">◈</span>
+              Ninguna
+            </button>
+            {cards.map((c) => (
+              <button
+                key={c.id}
+                className={`cat-opcion ${c.id === tarjetaDe.card_id ? 'elegida' : ''}`}
+                onClick={async () => {
+                  const tx = tarjetaDe
+                  setTarjetaDe(null)
+                  if (c.id !== tx.card_id) await onAsignarTarjeta(tx, c.id)
+                }}
+              >
+                <span className="punto-tarjeta" style={{ background: c.color }} />
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {editando && (
         <Modal
@@ -1251,6 +1306,7 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const { confirmar } = useDialogos()
   const [alertas, setAlertas] = useState(null)
+  const [cards, setCards] = useState([])
   // Los botones del encabezado viven acá (el encabezado es de App), pero los
   // formularios viven en cada pantalla. Guardamos la última acción pedida;
   // cambia de identidad en cada click para que la pantalla la note.
@@ -1258,6 +1314,21 @@ export default function App() {
   const pedir = (pantalla, tipo) => () => setAccion({ pantalla, tipo, n: Date.now() })
   // Cada pantalla solo mira las suyas.
   const accionDe = (pantalla) => (accion && accion.pantalla === pantalla ? accion : null)
+
+  /*
+   * Cambiar de pantalla limpia la acción pendiente.
+   *
+   * Sin esto, la acción quedaba guardada para siempre: entrabas a Gastos
+   * fijos, abrías el formulario, lo cerrabas, y la próxima vez que volvías a
+   * la pantalla el modal se abría solo, porque al montarse veía la acción
+   * vieja. Hay que limpiarla ANTES de cambiar de pestaña, no en un efecto:
+   * los efectos de los hijos corren antes que los del padre, así que la
+   * pantalla alcanzaría a ver el valor viejo igual.
+   */
+  const irA = (destino) => {
+    setAccion(null)
+    setTab(destino)
+  }
 
   // Controles de la barra de arriba, como en el diseño.
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
@@ -1381,6 +1452,7 @@ export default function App() {
     if (tab === 'subs' && !config.simple) api('/subscriptions').then(setSubs).catch(() => {})
     if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
+    if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
   }, [tab, config, loadMetas])
 
   // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
@@ -1410,6 +1482,7 @@ export default function App() {
       if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
       if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
       if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
+      if (tab === 'tarjetas') api('/cards').then(setCards).catch(() => {})
     }
 
     document.addEventListener('visibilitychange', alVolver)
@@ -1440,6 +1513,22 @@ export default function App() {
       })
       notify(`Ahora va en ${categoria}. La próxima me lo acuerdo.`)
       await loadCore()
+    } catch (err) {
+      notify(err.message, 'error')
+    }
+  }
+
+  // Con qué tarjeta se pagó un movimiento. null = ninguna.
+  async function handleAsignarTarjeta(tx, cardId) {
+    try {
+      await api(`/transactions/${tx.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ card_id: cardId }),
+      })
+      const c = cards.find((x) => x.id === cardId)
+      notify(c ? `Va con ${c.name}` : 'Sin tarjeta')
+      await loadCore()
+      api('/cards').then(setCards).catch(() => {})
     } catch (err) {
       notify(err.message, 'error')
     }
@@ -1501,6 +1590,7 @@ export default function App() {
           { id: 'movs', label: 'Movimientos', icon: '⇄' },
           { id: 'gastos', label: 'Gastos', icon: '◔' },
           { id: 'subs', label: 'Gastos fijos', icon: '⟲' },
+          { id: 'tarjetas', label: 'Tarjetas', icon: '▭' },
           { id: 'presu', label: 'Presupuestos', icon: '◑' },
           { id: 'pnl', label: 'P&L', icon: '⌁' },
         ] },
@@ -1551,6 +1641,9 @@ export default function App() {
     subs: ['Gastos fijos', 'Lo que se repite todos los meses', [
       { txt: '+ Nuevo gasto fijo', tono: 'acento', go: pedir('subs', 'nuevo') },
     ]],
+    tarjetas: ['Tarjetas', 'Cierres, vencimientos y consumo del resumen', [
+      { txt: '+ Nueva tarjeta', tono: 'acento', go: pedir('tarjetas', 'nuevo') },
+    ]],
     presu: ['Presupuestos', 'Un tope por categoría y cuánto llevás', [
       { txt: 'Sugerir topes', go: pedir('presu', 'sugerir') },
       { txt: '+ Nuevo presupuesto', tono: 'acento', go: pedir('presu', 'nuevo') },
@@ -1580,8 +1673,8 @@ export default function App() {
         marca={config.appName || 'Manguito'}
         grupos={grupos}
         tab={tab}
-        onGo={setTab}
-        onNuevo={() => setTab('add')}
+        onGo={irA}
+        onNuevo={() => irA('add')}
         ahorro={ahorro}
         usuario={{ nombre: config.displayName, sub: `@${config.username}` }}
       />
@@ -1609,13 +1702,22 @@ export default function App() {
               dashboard={dashboard}
               transactions={transactions}
               mes={mes}
-              onGo={setTab}
+              onGo={irA}
               config={config}
             />
           )}
           {tab === 'patrimonio' && <PatrimonioScreen networth={networth} />}
           {tab === 'alertas' && <AlertasScreen alertas={alertas} />}
           {tab === 'gastos' && <GastosScreen dashboard={dashboard} />}
+          {tab === 'tarjetas' && (
+            <TarjetasScreen
+              cards={cards}
+              accion={accionDe('tarjetas')}
+              onReload={() => api('/cards').then(setCards).catch(() => {})}
+              onSaved={notify}
+              onError={(m) => notify(m, 'error')}
+            />
+          )}
           {tab === 'metas' && (
             <MetasScreen
               goals={goals}
@@ -1637,8 +1739,10 @@ export default function App() {
             <MovementsScreen
               transactions={transactions}
               categories={config.categories}
+              cards={cards}
               onDelete={handleDelete}
               onRecategorizar={handleRecategorizar}
+              onAsignarTarjeta={handleAsignarTarjeta}
               loading={false}
             />
           )}
@@ -1651,7 +1755,7 @@ export default function App() {
               onError={(m) => notify(m, 'error')}
             />
           )}
-          {tab === 'mas' && <MenuScreen grupos={grupos} actual={tab} onGo={setTab} />}
+          {tab === 'mas' && <MenuScreen grupos={grupos} actual={tab} onGo={irA} />}
           {tab === 'pnl' && <PnlScreen pnl={pnl} />}
           {tab === 'presu' && (
             <PresupuestosScreen
@@ -1693,7 +1797,7 @@ export default function App() {
           <button
             key={t.id}
             aria-current={tab === t.id || (t.id === 'mas' && !principales.some((x) => x.id === tab)) ? 'page' : undefined}
-            onClick={() => setTab(t.id)}
+            onClick={() => irA(t.id)}
           >
             <span className="icon">{t.icon}</span>
             {t.label}

@@ -676,3 +676,175 @@
 .presu.mal .presu-pct,
 .presu.mal .presu-estado { color: var(--critical); }
 .presu.mal .presu-fill { background: var(--critical); }
+
+/* ========================================================== tarjetas */
+
+.tarjetas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .tarjetas-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+}
+
+.tarjeta {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 20px;
+  background: var(--surface-1);
+  animation: mIn 0.45s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* El resplandor del color de la tarjeta, moviéndose despacio */
+.tarjeta-brillo {
+  position: absolute;
+  inset: -60% 20% 60% 20%;
+  opacity: 0.14;
+  pointer-events: none;
+  animation: drift 24s ease-in-out infinite alternate;
+}
+
+.tarjeta-cuerpo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tarjeta-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tarjeta-nombre { font-size: 15px; font-weight: 600; }
+
+.tarjeta-num {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 1.4px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+
+.tarjeta-acciones { display: flex; align-items: center; gap: 10px; }
+
+.tarjeta-chip {
+  width: 34px;
+  height: 24px;
+  border-radius: 6px;
+  opacity: 0.85;
+  flex: none;
+}
+
+.tarjeta-label { font-size: 11.5px; color: var(--text-tertiary); }
+
+.tarjeta-consumo {
+  display: block;
+  font-family: var(--fuente-titulo);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -1.3px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-track {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tarjeta-fill {
+  height: 100%;
+  border-radius: 99px;
+  transform-origin: left;
+  animation: mGrow 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.tarjeta-pie {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+.tarjeta-fechas { display: flex; gap: 10px; }
+
+.tarjeta-fecha {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 11px 13px;
+}
+
+.tarjeta-fecha-label {
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.tarjeta-fecha-valor {
+  font-size: 13px;
+  font-weight: 540;
+  margin-top: 3px;
+}
+
+.tarjeta-fecha-sub {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Borrar es una acción rara: no compite con lo demás */
+.tarjeta-borrar {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  padding: 0;
+  min-height: auto;
+  cursor: pointer;
+}
+
+.tarjeta-borrar:hover { color: var(--critical); }
+
+@media (min-width: 900px) {
+  .tarjeta { padding: 24px; }
+  .tarjeta-consumo { font-size: 32px; }
+}
+
+/* Los colores para elegir en el formulario */
+.colores { display: flex; gap: 9px; flex-wrap: wrap; }
+
+.color {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border-radius: 11px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+
+.color:hover { transform: scale(1.08); }
+
+.color.elegido {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--surface-1) inset;
+}

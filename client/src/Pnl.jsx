@@ -1,4 +1,5 @@
 import { money, monthLabel, Empty } from './comunes.jsx'
+import Numero from './Numero.jsx'
 
 /** Barras de ingresos vs egresos, una al lado de la otra por mes. */
 function PnlBarras({ meses }) {
@@ -59,19 +60,20 @@ export default function PnlScreen({ pnl }) {
       <div className="kpis">
         <div className="kpi">
           <div className="kpi-label">Entró este mes</div>
-          <div className="kpi-valor positivo">{money(a.ingresos)}</div>
+          <Numero className="kpi-valor positivo monto-sensible" valor={a.ingresos} />
           <Variacion valor={v.ingresos} />
         </div>
         <div className="kpi">
           <div className="kpi-label">Salió este mes</div>
-          <div className="kpi-valor negativo">{money(a.egresos)}</div>
+          <Numero className="kpi-valor negativo monto-sensible" valor={a.egresos} />
           <Variacion valor={v.egresos} invertido />
         </div>
         <div className="kpi">
           <div className="kpi-label">Ahorro del mes</div>
-          <div className={`kpi-valor ${a.ahorro >= 0 ? 'positivo' : 'negativo'}`}>
-            {money(a.ahorro)}
-          </div>
+          <Numero
+            className={`kpi-valor monto-sensible ${a.ahorro >= 0 ? 'positivo' : 'negativo'}`}
+            valor={a.ahorro}
+          />
           <span className="kpi-sub">
             Tasa de ahorro: {a.tasa == null ? '—' : `${Math.round(a.tasa)}%`}
           </span>

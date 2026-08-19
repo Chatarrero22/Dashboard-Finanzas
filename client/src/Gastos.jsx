@@ -3,6 +3,7 @@
  * Usa byCategory de /api/dashboard, que ya acepta ?month=.
  */
 import { money, Empty } from './comunes.jsx'
+import Numero from './Numero.jsx'
 
 const COLORES = [
   'var(--accent)', 'var(--blue)', 'var(--good)',
@@ -30,7 +31,7 @@ export default function GastosScreen({ dashboard }) {
       <div className="kpis kpis-3">
         <div className="kpi">
           <div className="kpi-label">Total gastado</div>
-          <div className="kpi-valor negativo monto-sensible">{money(total)}</div>
+          <Numero className="kpi-valor negativo monto-sensible" valor={total} />
           <span className="kpi-sub">{dashboard.count} movimientos</span>
         </div>
         <div className="kpi">

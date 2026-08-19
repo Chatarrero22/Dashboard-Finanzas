@@ -82,6 +82,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
 | `aprendido.js` | Memoria de categorías: lo que corregís a mano queda para la próxima |
 | `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
+| `tarjetas.js` | Tarjetas de crédito: período de resumen, cierre y vencimiento |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -97,7 +98,7 @@ Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
-`alerts_sent`, `learned_categories`.
+`alerts_sent`, `learned_categories`, `cards`.
 
 ---
 
@@ -130,8 +131,8 @@ tarjeta de ahorro del mes, los tres grupos, el usuario abajo que lleva a
 Ajustes) y barra de arriba (ARS/US$, navegador de meses, dólar en vivo, tema,
 "Ocultar montos"). Vive en `Shell.jsx` + `shell.css`.
 
-1. **Tarjetas** y **Ahorro** — necesitan tablas nuevas (tarjetas de crédito,
-   plazos fijos) y pantallas de carga. Es trabajo de verdad, no maquetado.
+1. **Ahorro** — necesita una tabla nueva (plazos fijos, cuentas) y su pantalla
+   de carga. Es trabajo de verdad, no maquetado.
 2. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
 
 Otros pendientes:
@@ -159,6 +160,13 @@ verificá después con grep.
 `transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
 gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
 hijo.
+
+**Una acción pendiente que no se limpia abre modales solos.** Los botones del
+encabezado (`+ Nuevo…`) viven en `App` y las pantallas los reciben por props.
+Si la acción queda guardada, al volver a esa pantalla el `useEffect` la ve al
+montarse y abre el formulario solo. Se limpia en `irA()`, **antes** de cambiar
+de pestaña: los efectos de los hijos corren antes que los del padre, así que
+limpiarla en un efecto no alcanza.
 
 **El bot guarda por su cuenta.** `telegram-bot.js` tiene su propio
 `saveTransaction()` y **no pasa** por `insertTransactions()` de `api.js`. Todo

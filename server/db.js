@@ -137,6 +137,22 @@ function initDB() {
       UNIQUE (user_id, kind, ref, sent_on)
     );
 
+    -- Tarjetas de crédito: para saber cuánto llevás gastado y cuándo cierra.
+    -- close_day / due_day son días del mes (28, 10). El consumo NO se guarda:
+    -- se calcula sumando los movimientos que tienen esta card_id.
+    CREATE TABLE IF NOT EXISTS cards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      last4 TEXT DEFAULT '',
+      color TEXT DEFAULT '#EE8A17',
+      limit_amount REAL DEFAULT 0,
+      close_day INTEGER DEFAULT 1,
+      due_day INTEGER DEFAULT 10,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- Lo que Manguito aprende cuando corregís una categoría a mano.
     -- La clave es la descripción normalizada (ver aprendido.js). Va por
     -- persona: lo que para vos es Servicios para otro puede ser otra cosa.
@@ -168,7 +184,15 @@ function initDB() {
   // al final los índices: un índice sobre user_id falla si la columna no existe.
   migrarAMultiusuario();
 
+  // Con qué tarjeta se pagó cada movimiento. Va suelta (sin FOREIGN KEY) para
+  // que borrar una tarjeta no se lleve puestos los gastos: los movimientos
+  // pasados existieron igual.
+  if (!tieneColumna('transactions', 'card_id')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN card_id INTEGER');
+  }
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
 }
 
 /**

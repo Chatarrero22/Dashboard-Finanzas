@@ -15,6 +15,7 @@ var arbol = require('./arbol.js');
 var alertasPantalla = require('./alertas-pantalla.js');
 var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
+var tarjetas = require('./tarjetas.js');
 
 var router = express.Router();
 
@@ -131,8 +132,8 @@ router.use(auth.requerido);
 
 function insertTransactions(userId, transactions, platform) {
   var insert = db.prepare(
-    'INSERT INTO transactions (user_id, date, description, amount, category, platform, ai_categorized)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform, ai_categorized, card_id)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -144,7 +145,7 @@ function insertTransactions(userId, transactions, platform) {
       // La descripcion se ordena aca y no en cada pantalla: por esta funcion
       // pasan la web, el bot de Telegram y los resumenes importados.
       var desc = texto.ordenarDescripcion(t.description);
-      var info = insert.run(userId, t.date, desc, t.amount, t.category, platform, t.ai_categorized ? 1 : 0);
+      var info = insert.run(userId, t.date, desc, t.amount, t.category, platform, t.ai_categorized ? 1 : 0, t.card_id || null);
       ids.push(info.lastInsertRowid);
       (t.items || []).forEach(function (item) {
         insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
@@ -194,6 +195,7 @@ router.post('/transactions', async function (req, res) {
           amount: Number(t.amount),
           category: req.body.category,
           ai_categorized: 0,
+          card_id: t.card_id || req.body.card_id || null,
           items: t.items || []
         };
       });
@@ -220,10 +222,14 @@ router.post('/transactions', async function (req, res) {
             amount: Number(t.amount),
             category: sabidas[i],
             ai_categorized: 0,
+            card_id: t.card_id || req.body.card_id || null,
             items: t.items || []
           };
         }
-        return resueltas[porPreguntar.indexOf(i)];
+        // Las que fueron a la IA vuelven sin la tarjeta: se la devolvemos.
+        var r = resueltas[porPreguntar.indexOf(i)];
+        r.card_id = t.card_id || req.body.card_id || null;
+        return r;
       });
     }
 
@@ -241,6 +247,8 @@ router.patch('/transactions/:id', function (req, res) {
   if (!current) return res.status(404).json({ error: 'No existe la transacción' });
 
   var next = {
+    // null es un valor valido: significa "sacale la tarjeta"
+    card_id: req.body.card_id !== undefined ? req.body.card_id : current.card_id,
     date: req.body.date != null ? req.body.date : current.date,
     description: req.body.description != null
       ? texto.ordenarDescripcion(req.body.description) : current.description,
@@ -248,8 +256,8 @@ router.patch('/transactions/:id', function (req, res) {
     category: req.body.category != null ? req.body.category : current.category
   };
 
-  db.prepare('UPDATE transactions SET date=?, description=?, amount=?, category=? WHERE id=? AND user_id=?')
-    .run(next.date, next.description, next.amount, next.category, req.params.id, req.user.id);
+  db.prepare('UPDATE transactions SET date=?, description=?, amount=?, category=?, card_id=? WHERE id=? AND user_id=?')
+    .run(next.date, next.description, next.amount, next.category, next.card_id, req.params.id, req.user.id);
 
   // Si cambiaste la categoria a mano, Manguito se lo anota: la proxima vez
   // que escribas algo parecido lo va a poner solo.
@@ -616,6 +624,64 @@ router.get('/networth', async function (req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/* -------------------------------------------------------------- tarjetas */
+
+router.get('/cards', function (req, res) {
+  res.json(tarjetas.listar(req.user.id));
+});
+
+router.post('/cards', function (req, res) {
+  if (!req.body.name) return res.status(400).json({ error: 'Falta el nombre de la tarjeta' });
+
+  var info = db.prepare(
+    'INSERT INTO cards (user_id, name, last4, color, limit_amount, close_day, due_day)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    req.user.id,
+    String(req.body.name).trim(),
+    String(req.body.last4 || '').replace(/\D/g, '').slice(-4),
+    req.body.color || '#EE8A17',
+    Number(req.body.limit_amount) || 0,
+    Math.min(Math.max(Number(req.body.close_day) || 1, 1), 31),
+    Math.min(Math.max(Number(req.body.due_day) || 10, 1), 31)
+  );
+
+  res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === info.lastInsertRowid; }));
+});
+
+router.patch('/cards/:id', function (req, res) {
+  var actual = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!actual) return res.status(404).json({ error: 'No existe esa tarjeta' });
+
+  db.prepare(
+    'UPDATE cards SET name=?, last4=?, color=?, limit_amount=?, close_day=?, due_day=?' +
+    ' WHERE id=? AND user_id=?'
+  ).run(
+    req.body.name != null ? String(req.body.name).trim() : actual.name,
+    req.body.last4 != null ? String(req.body.last4).replace(/\D/g, '').slice(-4) : actual.last4,
+    req.body.color != null ? req.body.color : actual.color,
+    req.body.limit_amount != null ? Number(req.body.limit_amount) : actual.limit_amount,
+    req.body.close_day != null ? Math.min(Math.max(Number(req.body.close_day), 1), 31) : actual.close_day,
+    req.body.due_day != null ? Math.min(Math.max(Number(req.body.due_day), 1), 31) : actual.due_day,
+    req.params.id, req.user.id
+  );
+
+  res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === Number(req.params.id); }));
+});
+
+router.delete('/cards/:id', function (req, res) {
+  var info = db.prepare('DELETE FROM cards WHERE id = ? AND user_id = ?')
+    .run(req.params.id, req.user.id);
+  if (info.changes === 0) return res.status(404).json({ error: 'No existe esa tarjeta' });
+
+  // Los movimientos quedan: existieron igual, solo dejan de estar asignados.
+  db.prepare('UPDATE transactions SET card_id = NULL WHERE card_id = ? AND user_id = ?')
+    .run(req.params.id, req.user.id);
+
+  res.json({ success: true });
 });
 
 /* ------------------------------------------------------------- aprendido */
