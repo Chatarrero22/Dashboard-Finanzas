@@ -193,7 +193,7 @@ function Upcoming({ items }) {
 
 /* ------------------------------------------------------------ agregar gasto */
 
-function AddForm({ categories, onSaved, onError }) {
+function AddForm({ categories, onSaved, onError, onCerrar }) {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [kind, setKind] = useState('gasto')
@@ -242,7 +242,7 @@ function AddForm({ categories, onSaved, onError }) {
   }
 
   return (
-    <form className="card" onSubmit={submit}>
+    <form onSubmit={submit}>
       <div className="segmented">
         <button type="button" aria-pressed={kind === 'gasto'} onClick={() => setKind('gasto')}>
           Gasto
@@ -308,34 +308,46 @@ function AddForm({ categories, onSaved, onError }) {
         </label>
       )}
 
-      <button className="primary" type="submit" disabled={saving}>
-        {saving ? 'Guardando…' : 'Guardar'}
-      </button>
       {!category && (
         <p className="hint">Si dejás la categoría en automática, la elige sola.</p>
       )}
+
+      <div className="dialogo-botones">
+        <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
+        <button
+          type="submit"
+          className="dialogo-btn principal"
+          disabled={saving || !amount || !description.trim()}
+        >
+          {saving ? 'Guardando…' : 'Guardar'}
+        </button>
+      </div>
     </form>
   )
 }
 
 /* -------------------------------------------------------------- pantallas */
 
-function AddScreen({ config, categories, onSaved, onError }) {
+/** El alta de un movimiento, en un pop-up. */
+function NuevoMovimiento({ config, categories, onSaved, onError, onCerrar }) {
   return (
-    <>
-      <AddForm categories={categories} onSaved={onSaved} onError={onError} />
-      {config.telegram && (
-        <div className="card">
-          <h2>Desde el celular</h2>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-            También podés escribirle al bot de Telegram “Disco 15400” o mandarle
-            la foto de un ticket, y se carga solo.
-          </p>
-        </div>
-      )}
-    </>
+    <Modal
+      titulo="Nuevo movimiento"
+      detalle={config.telegram
+        ? 'También podés escribirle al bot: «Disco 15400», o mandarle la foto de un ticket.'
+        : 'Anotá un gasto o un ingreso.'}
+      onCerrar={onCerrar}
+    >
+      <AddForm
+        categories={categories}
+        onSaved={onSaved}
+        onError={onError}
+        onCerrar={onCerrar}
+      />
+    </Modal>
   )
 }
+
 
 function MovementsScreen({ transactions, categories, cards, onDelete, onRecategorizar, onAsignarTarjeta, loading }) {
   const [query, setQuery] = useState('')
@@ -831,6 +843,36 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   const [orden, setOrden] = useState(null)
   const [ordenando, setOrdenando] = useState(false)
   const [reglas, setReglas] = useState(null)
+  const [saldo, setSaldo] = useState(null)
+  const [saldoReal, setSaldoReal] = useState('')
+
+  useEffect(() => { api('/saldo').then((r) => setSaldo(r.saldo)).catch(() => {}) }, [])
+
+  async function ajustarSaldo(e) {
+    e.preventDefault()
+    const real = Number(saldoReal)
+    if (!saldoReal || isNaN(real)) return onError('Escribí cuánta plata tenés de verdad')
+
+    const dif = real - (saldo || 0)
+    const ok = await confirmar({
+      titulo: dif < 0 ? `¿Descontar ${money(Math.abs(dif))}?` : `¿Sumar ${money(dif)}?`,
+      detalle: `La app cree que tenés ${money(saldo || 0)} y vos decís que tenés ${money(real)}. ` +
+        'Anoto un solo movimiento por la diferencia, con categoría Ajuste. ' +
+        'No cuenta como gasto en ninguna categoría.',
+      aceptar: 'Ajustar',
+    })
+    if (!ok) return
+
+    try {
+      const r = await api('/saldo', { method: 'POST', body: JSON.stringify({ saldoReal: real }) })
+      setSaldo(r.saldo)
+      setSaldoReal('')
+      onSaved(r.ajustado ? 'Saldo ajustado' : r.mensaje)
+      if (onDatosCambiados) onDatosCambiados()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
 
   const cargarReglas = useCallback(() => {
     api('/aprendido').then((r) => setReglas(r.reglas)).catch(() => {})
@@ -1054,6 +1096,28 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
           </div>
         </section>
       )}
+
+      <form className="card" onSubmit={ajustarSaldo}>
+        <h2>Poner el saldo real</h2>
+        <p className="hint">
+          La app solo sabe de lo que cargaste. Si pagaste el resumen de un mes
+          que nunca cargaste, cree que tenés esa plata y no la tenés. Decime
+          cuánto tenés de verdad y anoto un solo movimiento por la diferencia.
+        </p>
+        <p className="hint">
+          Según lo cargado tenés <strong className="monto-sensible">{money(saldo || 0)}</strong>.
+        </p>
+        <label className="field">
+          <span className="field-label">¿Cuánto tenés de verdad?</span>
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={saldoReal}
+            onChange={(e) => setSaldoReal(e.target.value.replace(/[^\d.-]/g, ''))}
+          />
+        </label>
+        <button className="primary" type="submit" disabled={!saldoReal}>Ajustar</button>
+      </form>
 
       <section className="card">
         <div className="card-title-row">
@@ -1335,6 +1399,7 @@ export default function App() {
   const [alertas, setAlertas] = useState(null)
   const [cards, setCards] = useState([])
   const [proximasCuotas, setProximasCuotas] = useState([])
+  const [nuevoAbierto, setNuevoAbierto] = useState(false)
   // Los botones del encabezado viven acá (el encabezado es de App), pero los
   // formularios viven en cada pantalla. Guardamos la última acción pedida;
   // cambia de identidad en cada click para que la pantalla la note.
@@ -1527,8 +1592,11 @@ export default function App() {
 
   async function handleSaved(message) {
     notify(message)
+    setNuevoAbierto(false)
     await loadCore()
-    setTab('home')
+    // Nos quedamos donde estábamos: antes te tiraba al Resumen aunque
+    // estuvieras cargando varios seguidos.
+    api('/cards').then(setCards).catch(() => {})
   }
 
   // Corregir la categoria de un movimiento ya cargado. Manguito adivina bien
@@ -1639,7 +1707,7 @@ export default function App() {
   // siempre y el resto vive en "Más".
   const principales = [
     { id: 'home', label: 'Resumen', icon: '◉' },
-    { id: 'add', label: 'Agregar', icon: '＋' },
+    { id: 'nuevo', label: 'Agregar', icon: '＋' },
     { id: 'movs', label: 'Movimientos', icon: '⇄' },
     { id: 'arbol', label: 'Árbol', icon: '🌳' },
     { id: 'mas', label: 'Más', icon: '☰' },
@@ -1690,7 +1758,6 @@ export default function App() {
     ]],
     arbol: ['Tu árbol', 'Crece cuando anotás y cumplís tus metas', []],
     ajustes: ['Ajustes', 'Tu cuenta, Telegram y respaldo', []],
-    add: ['Nuevo movimiento', 'Anotá un gasto o un ingreso', []],
     mas: ['Más', 'Todas las secciones', []],
   }
   const meta = META[tab] || ['', '', []]
@@ -1707,7 +1774,7 @@ export default function App() {
         grupos={grupos}
         tab={tab}
         onGo={irA}
-        onNuevo={() => irA('add')}
+        onNuevo={() => setNuevoAbierto(true)}
         ahorro={ahorro}
         usuario={{ nombre: config.displayName, sub: `@${config.username}` }}
       />
@@ -1762,14 +1829,6 @@ export default function App() {
               accion={accionDe('metas')}
               onReload={() => { loadMetas().catch(() => {}); loadCore().catch(() => {}) }}
               onSaved={notify}
-              onError={(m) => notify(m, 'error')}
-            />
-          )}
-          {tab === 'add' && (
-            <AddScreen
-              config={config}
-              categories={config.categories}
-              onSaved={handleSaved}
               onError={(m) => notify(m, 'error')}
             />
           )}
@@ -1835,13 +1894,23 @@ export default function App() {
           <button
             key={t.id}
             aria-current={tab === t.id || (t.id === 'mas' && !principales.some((x) => x.id === tab)) ? 'page' : undefined}
-            onClick={() => irA(t.id)}
+            onClick={() => (t.id === 'nuevo' ? setNuevoAbierto(true) : irA(t.id))}
           >
             <span className="icon">{t.icon}</span>
             {t.label}
           </button>
         ))}
       </nav>
+
+      {nuevoAbierto && (
+        <NuevoMovimiento
+          config={config}
+          categories={config.categories}
+          onSaved={handleSaved}
+          onError={(m) => notify(m, 'error')}
+          onCerrar={() => setNuevoAbierto(false)}
+        />
+      )}
 
       {toast && (
         <div className={`toast ${toast.type === 'error' ? 'error' : ''}`} role="status">

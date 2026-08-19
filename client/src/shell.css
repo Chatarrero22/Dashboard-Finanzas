@@ -631,6 +631,10 @@
   justify-content: center;
   padding: 20px;
   animation: mFade 0.2s ease both;
+  /* Si el formulario es mas alto que la pantalla, el overlay scrollea.
+     Sin esto, en el celular el boton de guardar quedaba fuera de la
+     pantalla y no habia forma de llegar. */
+  overflow-y: auto;
 }
 
 .dialogo {
@@ -645,6 +649,12 @@
   gap: 18px;
   box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.55);
   animation: mIn 0.28s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  /* Nunca mas alto que la pantalla: si no entra, scrollea adentro. */
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  /* En el celular el margen de arriba lo pone la barra de estado */
+  margin: auto;
 }
 
 .dialogo:focus { outline: none; }
@@ -709,6 +719,12 @@
 .dialogo-botones {
   display: flex;
   gap: 10px;
+  /* Los botones se quedan a la vista mientras scrolleas el formulario. */
+  position: sticky;
+  bottom: -22px;
+  padding: 10px 0 0;
+  margin-bottom: -2px;
+  background: linear-gradient(to bottom, transparent, var(--surface-2) 22%);
 }
 
 .dialogo-btn {

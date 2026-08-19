@@ -361,9 +361,12 @@ router.get('/dashboard', function (req, res) {
     ' COUNT(*) count FROM transactions WHERE user_id = ? AND substr(date,1,7) = ?'
   ).get(uid, month);
 
+  // Los ajustes de saldo quedan fuera del analisis por categoria: no son un
+  // gasto en algo, son una correccion para que el total cierre con la realidad.
   var byCategory = db.prepare(
     'SELECT category, SUM(ABS(amount)) total, COUNT(*) count FROM transactions' +
-    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) = ? GROUP BY category ORDER BY total DESC'
+    " WHERE user_id = ? AND amount < 0 AND category <> 'Ajuste' AND substr(date,1,7) = ?" +
+    ' GROUP BY category ORDER BY total DESC'
   ).all(uid, month);
 
   var byMonth = db.prepare(
@@ -380,7 +383,7 @@ router.get('/dashboard', function (req, res) {
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
     'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
-    ' WHERE user_id = ? AND amount < 0 AND substr(date,1,7) = ?' +
+    " WHERE user_id = ? AND amount < 0 AND category <> 'Ajuste' AND substr(date,1,7) = ?" +
     ' ORDER BY total DESC LIMIT 5'
   ).all(uid, month);
 
@@ -822,6 +825,52 @@ router.delete('/aprendido/:id', function (req, res) {
     return res.status(404).json({ error: 'No existe esa regla' });
   }
   res.json({ success: true });
+});
+
+/* ------------------------------------------------------------- saldo real */
+
+/**
+ * Poner el saldo en lo que de verdad tenés.
+ *
+ * Sirve cuando arrancás: la app solo sabe de lo que cargaste, así que si
+ * pagaste el resumen de un mes que nunca cargaste, cree que tenés esa plata
+ * y no la tenés. En vez de inventar gastos, se anota UN movimiento de ajuste
+ * por la diferencia.
+ *
+ * Va con categoría "Ajuste" y queda fuera del análisis por categoría: no es
+ * un gasto en algo, es una corrección para que el total cierre.
+ */
+router.get('/saldo', function (req, res) {
+  var saldo = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ?')
+    .get(req.user.id).t;
+  res.json({ saldo: saldo });
+});
+
+router.post('/saldo', function (req, res) {
+  if (req.body.saldoReal == null || isNaN(Number(req.body.saldoReal))) {
+    return res.status(400).json({ error: 'Decime cuánta plata tenés de verdad' });
+  }
+
+  var saldo = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ?')
+    .get(req.user.id).t;
+  var real = Number(req.body.saldoReal);
+  var diferencia = real - saldo;
+
+  if (Math.abs(diferencia) < 1) {
+    return res.json({ ajustado: false, saldo: saldo, mensaje: 'Ya cerraba, no hizo falta ajustar' });
+  }
+
+  var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
+  var texto = req.body.motivo
+    ? String(req.body.motivo).trim()
+    : (diferencia < 0 ? 'Ajuste de saldo' : 'Ajuste de saldo (a favor)');
+
+  db.prepare(
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform)' +
+    " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste')"
+  ).run(req.user.id, fecha, texto, diferencia);
+
+  res.json({ ajustado: true, diferencia: diferencia, saldo: real });
 });
 
 /* -------------------------------------------------------- mantenimiento */

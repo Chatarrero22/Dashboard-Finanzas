@@ -163,6 +163,12 @@ verificá después con grep.
 gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
 hijo.
 
+**Un modal más alto que la pantalla deja el botón afuera.** El overlay
+centra con flex; si el formulario no entra, el botón de guardar queda fuera de
+la vista y no hay forma de llegar. En el celular pasó con el alta de un
+movimiento. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
+`overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
+
 **El pago del resumen NO es un movimiento.** Las compras de la tarjeta ya
 están cargadas una por una, así que si además anotáramos el pago del resumen
 como un gasto, el mes contaría el doble. Por eso existe la tabla
