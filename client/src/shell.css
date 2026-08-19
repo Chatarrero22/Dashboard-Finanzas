@@ -937,3 +937,8 @@
   flex: none;
   margin-right: 5px;
 }
+
+/* Un movimiento con fecha futura (una cuota que todavía no llegó) se ve
+   más apagado: todavía no pasó. */
+.item.futuro { opacity: 0.62; }
+.item.futuro .item-amount { font-weight: 540; }

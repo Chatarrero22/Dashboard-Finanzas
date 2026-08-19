@@ -16,6 +16,7 @@ var alertasPantalla = require('./alertas-pantalla.js');
 var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
 var tarjetas = require('./tarjetas.js');
+var cuotas = require('./cuotas.js');
 
 var router = express.Router();
 
@@ -132,8 +133,9 @@ router.use(auth.requerido);
 
 function insertTransactions(userId, transactions, platform) {
   var insert = db.prepare(
-    'INSERT INTO transactions (user_id, date, description, amount, category, platform, ai_categorized, card_id)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
+    ' ai_categorized, card_id, installment_group, installment_num, installment_total)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -145,7 +147,11 @@ function insertTransactions(userId, transactions, platform) {
       // La descripcion se ordena aca y no en cada pantalla: por esta funcion
       // pasan la web, el bot de Telegram y los resumenes importados.
       var desc = texto.ordenarDescripcion(t.description);
-      var info = insert.run(userId, t.date, desc, t.amount, t.category, platform, t.ai_categorized ? 1 : 0, t.card_id || null);
+      var info = insert.run(
+        userId, t.date, desc, t.amount, t.category, platform,
+        t.ai_categorized ? 1 : 0, t.card_id || null,
+        t.installment_group || null, t.installment_num || null, t.installment_total || null
+      );
       ids.push(info.lastInsertRowid);
       (t.items || []).forEach(function (item) {
         insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
@@ -233,6 +239,16 @@ router.post('/transactions', async function (req, res) {
       });
     }
 
+    // Las cuotas se parten recién acá, después de categorizar: así la IA ve
+    // la compra entera una sola vez y todas las cuotas quedan en la misma
+    // categoría.
+    var enCuotas = Number(req.body.cuotas) || 0;
+    if (enCuotas > 1) {
+      categorized = categorized.reduce(function (acc, t) {
+        return acc.concat(cuotas.partir(t, enCuotas));
+      }, []);
+    }
+
     var ids = insertTransactions(req.user.id, categorized, req.body.platform || 'Web');
     var premio = arbol.alAnotarMovimiento(req.user.id, {});
     res.json({ success: true, count: categorized.length, ids: ids, transactions: categorized, premio: premio });
@@ -269,6 +285,17 @@ router.patch('/transactions/:id', function (req, res) {
 });
 
 router.delete('/transactions/:id', function (req, res) {
+  // ?plan=1 borra todas las cuotas de la compra, no solo esta.
+  if (req.query.plan) {
+    var fila = db.prepare('SELECT installment_group FROM transactions WHERE id = ? AND user_id = ?')
+      .get(req.params.id, req.user.id);
+    if (fila && fila.installment_group) {
+      var borradas = db.prepare('DELETE FROM transactions WHERE user_id = ? AND installment_group = ?')
+        .run(req.user.id, fila.installment_group).changes;
+      return res.json({ success: true, borradas: borradas });
+    }
+  }
+
   var info = db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?')
     .run(req.params.id, req.user.id);
   // Si no borró nada, o no existe o es de otra persona: para el que pregunta
@@ -682,6 +709,44 @@ router.delete('/cards/:id', function (req, res) {
     .run(req.params.id, req.user.id);
 
   res.json({ success: true });
+});
+
+/**
+ * Marcar un resumen como pagado.
+ *
+ * NO crea ningún movimiento a propósito: las compras de ese resumen ya están
+ * cargadas una por una. Si además anotáramos el pago, el gasto contaría dos
+ * veces y el mes quedaría al doble.
+ */
+router.post('/cards/:id/pagar', function (req, res) {
+  var tarjeta = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!tarjeta) return res.status(404).json({ error: 'No existe esa tarjeta' });
+
+  var pendientes = tarjetas.resumenesPendientes(req.user.id, tarjeta);
+  if (pendientes.length === 0) {
+    return res.status(400).json({ error: 'No hay resúmenes pendientes en esa tarjeta' });
+  }
+
+  // Sin decir cuál, se paga el más viejo: es el que vence antes.
+  var cual = req.body.cierre
+    ? pendientes.find(function (r) { return r.cierre === req.body.cierre; })
+    : pendientes[0];
+  if (!cual) return res.status(404).json({ error: 'No encontré ese resumen' });
+
+  tarjetas.pagarResumen(req.user.id, tarjeta.id, cual.cierre, cual.monto, req.body.fecha);
+  res.json({ pagado: cual, tarjetas: tarjetas.listar(req.user.id) });
+});
+
+router.delete('/cards/:id/pagar/:cierre', function (req, res) {
+  db.prepare('DELETE FROM card_payments WHERE user_id = ? AND card_id = ? AND period_close = ?')
+    .run(req.user.id, req.params.id, req.params.cierre);
+  res.json({ success: true });
+});
+
+/** Las cuotas que ya tenés comprometidas para los meses que vienen. */
+router.get('/cuotas', function (req, res) {
+  res.json({ meses: tarjetas.cuotasQueSeVienen(req.user.id) });
 });
 
 /* ------------------------------------------------------------- aprendido */

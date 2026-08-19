@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { api, money, Empty } from './comunes.jsx'
+import { mesLargo } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
@@ -21,7 +22,7 @@ const COLORES = [
 
 const VACIA = { name: '', last4: '', color: COLORES[0].valor, limit_amount: '', close_day: '1', due_day: '10' }
 
-function Tarjeta({ t, onEditar, onBorrar }) {
+function Tarjeta({ t, onEditar, onBorrar, onPagar }) {
   const pct = t.pct == null ? null : Math.min(t.pct, 100)
 
   return (
@@ -59,6 +60,24 @@ function Tarjeta({ t, onEditar, onBorrar }) {
           </div>
         </div>
 
+        {/* Lo que ya cerro y falta pagar: esta es la plata que de verdad
+            te sale de la cuenta este mes. */}
+        {t.aPagar && (
+          <div className={`a-pagar ${t.vencido ? 'vencido' : ''}`}>
+            <div className="a-pagar-txt">
+              <div className="a-pagar-label">
+                {t.vencido ? 'VENCIÓ Y NO LO PAGASTE' : 'A PAGAR'}
+              </div>
+              <div className="a-pagar-monto monto-sensible">{money(t.aPagar.monto)}</div>
+              <div className="a-pagar-sub">
+                cerró el {t.aPagar.cierreTexto} · vence el {t.aPagar.venceTexto}
+                {t.pendientes.length > 1 && ` · y ${t.pendientes.length - 1} resumen más atrasado`}
+              </div>
+            </div>
+            <button className="chip" onClick={() => onPagar(t)}>Ya lo pagué</button>
+          </div>
+        )}
+
         <div className="tarjeta-fechas">
           <div className="tarjeta-fecha">
             <div className="tarjeta-fecha-label">CIERRE</div>
@@ -82,7 +101,7 @@ function Tarjeta({ t, onEditar, onBorrar }) {
   )
 }
 
-export default function TarjetasScreen({ cards, accion, onReload, onError, onSaved }) {
+export default function TarjetasScreen({ cards, proximas, accion, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [form, setForm] = useState(VACIA)
   const [editando, setEditando] = useState(null)
@@ -133,6 +152,23 @@ export default function TarjetasScreen({ cards, accion, onReload, onError, onSav
     }
   }
 
+  async function pagar(t) {
+    const ok = await confirmar({
+      titulo: `¿Pagaste ${money(t.aPagar.monto)} de ${t.name}?`,
+      detalle: 'No lo cuento como gasto nuevo: esas compras ya están anotadas una por una. ' +
+        'Solo dejo de mostrártelo como pendiente.',
+      aceptar: 'Sí, lo pagué',
+    })
+    if (!ok) return
+    try {
+      await api(`/cards/${t.id}/pagar`, { method: 'POST', body: JSON.stringify({}) })
+      onSaved('Resumen marcado como pagado')
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   async function borrar(t) {
     const ok = await confirmar({
       titulo: `¿Borrar ${t.name}?`,
@@ -160,9 +196,34 @@ export default function TarjetasScreen({ cards, accion, onReload, onError, onSav
       ) : (
         <div className="tarjetas-grid">
           {cards.map((t) => (
-            <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} />
+            <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} />
           ))}
         </div>
+      )}
+
+      {proximas && proximas.length > 0 && (
+        <section className="card">
+          <div className="card-rotulo">CUOTAS QUE SE VIENEN</div>
+          <p className="hint">
+            Plata que ya está comprometida. No la tenés disponible aunque
+            todavía no haya salido.
+          </p>
+          <div className="cuotas-meses">
+            {proximas.map((m) => (
+              <div className="cuota-mes" key={m.mes}>
+                <div className="cuota-mes-head">
+                  <span className="cuota-mes-nombre">{mesLargo(m.mes)}</span>
+                  <span className="cuota-mes-total monto-sensible">{money(m.total)}</span>
+                </div>
+                <div className="cuota-detalle">
+                  {m.cuotas.map((c, i) => (
+                    <span key={i}>{c.description}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {abierto && (

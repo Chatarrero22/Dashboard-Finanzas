@@ -153,6 +153,21 @@ function initDB() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- Resúmenes de tarjeta que ya pagaste.
+    --
+    -- El pago NO se guarda como un movimiento: si lo hiciéramos, contaría dos
+    -- veces (las compras del resumen ya están cargadas una por una). Acá solo
+    -- anotamos "el resumen que cerró tal día, está pagado".
+    CREATE TABLE IF NOT EXISTS card_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      card_id INTEGER NOT NULL,
+      period_close TEXT NOT NULL,
+      amount REAL NOT NULL,
+      paid_on TEXT NOT NULL,
+      UNIQUE (card_id, period_close)
+    );
+
     -- Lo que Manguito aprende cuando corregís una categoría a mano.
     -- La clave es la descripción normalizada (ver aprendido.js). Va por
     -- persona: lo que para vos es Servicios para otro puede ser otra cosa.
@@ -189,6 +204,15 @@ function initDB() {
   // pasados existieron igual.
   if (!tieneColumna('transactions', 'card_id')) {
     db.exec('ALTER TABLE transactions ADD COLUMN card_id INTEGER');
+  }
+
+  // Compras en cuotas: cada cuota es una fila con su propia fecha, así cae en
+  // el mes que corresponde sin que ninguna consulta tenga que saber de cuotas.
+  // Las tres se comparten por grupo para poder borrar el plan entero.
+  if (!tieneColumna('transactions', 'installment_group')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN installment_group TEXT');
+    db.exec('ALTER TABLE transactions ADD COLUMN installment_num INTEGER');
+    db.exec('ALTER TABLE transactions ADD COLUMN installment_total INTEGER');
   }
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');

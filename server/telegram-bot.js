@@ -13,6 +13,8 @@ var cat = require('./categorizer.js');
 var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
 var correccion = require('./correccion.js');
+var cuotas = require('./cuotas.js');
+var tarjetasMod = require('./tarjetas.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
@@ -29,8 +31,9 @@ function money(n) {
 
 function saveTransaction(userId, tx) {
   var insert = db.prepare(
-    'INSERT INTO transactions (user_id, date, description, amount, category, platform, ai_categorized)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
+    ' ai_categorized, card_id, installment_group, installment_num, installment_total)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -40,7 +43,11 @@ function saveTransaction(userId, tx) {
     // api.js. Por eso el ordenado de la descripcion tiene que estar tambien
     // aca; si no, lo que entra por Telegram queda como se tecleo.
     var desc = texto.ordenarDescripcion(t.description);
-    var info = insert.run(userId, t.date, desc, t.amount, t.category, PLATFORM, t.ai_categorized ? 1 : 0);
+    var info = insert.run(
+      userId, t.date, desc, t.amount, t.category, PLATFORM, t.ai_categorized ? 1 : 0,
+      t.card_id || null, t.installment_group || null,
+      t.installment_num || null, t.installment_total || null
+    );
     (t.items || []).forEach(function (item) {
       insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
     });
@@ -229,6 +236,58 @@ var EMOJIS = {
 
 function emojiDe(categoria) {
   return EMOJIS[categoria] || '📌';
+}
+
+var MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+  'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** "2027-01-19" -> "enero de 2027" */
+function mesDe(iso) {
+  var p = String(iso).split('-');
+  return MESES_LARGOS[Number(p[1]) - 1] + ' de ' + p[0];
+}
+
+/**
+ * Marca pagado el resumen más viejo de esa tarjeta y cuenta cómo quedó.
+ * No crea ningún movimiento: ver el comentario de tarjetas.pagarResumen().
+ */
+function pagarYAvisar(bot, chatId, userId, cardId) {
+  var tarjeta = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?').get(cardId, userId);
+  if (!tarjeta) return bot.sendMessage(chatId, 'Esa tarjeta ya no está 🤷');
+
+  var pendientes = tarjetasMod.resumenesPendientes(userId, tarjeta);
+  if (pendientes.length === 0) {
+    return bot.sendMessage(chatId, 'Esa tarjeta no tiene resúmenes pendientes 👌');
+  }
+
+  var cual = pendientes[0];
+  tarjetasMod.pagarResumen(userId, tarjeta.id, cual.cierre, cual.monto);
+
+  var quedan = tarjetasMod.resumenesPendientes(userId, tarjeta);
+  var msg = 'Listo ✅\n' +
+    'Marqué pagado el resumen de ' + tarjeta.name + ' que cerró el ' +
+    cual.cierreTexto + ' · ' + money(cual.monto) + '\n\n' +
+    'No lo cuento como gasto nuevo: esas compras ya estaban anotadas una por una.';
+
+  if (quedan.length) {
+    msg += '\n\nTe queda pendiente ' + money(quedan[0].monto) +
+      ' del resumen que cerró el ' + quedan[0].cierreTexto + '.';
+  }
+
+  return bot.sendMessage(chatId, msg);
+}
+
+/**
+ * ¿Me está diciendo que pagó el resumen de la tarjeta?
+ *
+ * Es importante distinguirlo: si lo anotáramos como un gasto, contaría dos
+ * veces, porque las compras de ese resumen ya están cargadas una por una.
+ */
+function intencionDePagarTarjeta(text) {
+  var t = String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!/\bpag(ue|ué|o|amos|e)\b/.test(t)) return null;
+  if (!/\b(tarjeta|resumen|visa|master|mastercard|amex|naranja|cabal)\b/.test(t)) return null;
+  return { texto: t };
 }
 
 /** Elige uno al azar, para que no conteste siempre igual. */
@@ -569,6 +628,40 @@ function start(config) {
       );
     }
 
+    // ¿Pagó el resumen? Va antes de todo lo que mira números: si no, "pagué
+    // la tarjeta 300000" se guardaba como un gasto de $300.000 arriba de las
+    // compras que ya estaban cargadas.
+    var pagoTarjeta = intencionDePagarTarjeta(msg.text);
+    if (pagoTarjeta) {
+      var misTarjetas = tarjetasMod.listar(user.id).filter(function (t) {
+        return t.pendientes.length > 0;
+      });
+
+      if (misTarjetas.length === 0) {
+        return bot.sendMessage(msg.chat.id,
+          'No tengo ningún resumen pendiente para marcar como pagado 🤔\n\n' +
+          'Si querés llevar la cuenta de la tarjeta, cargala en la app, en Tarjetas.'
+        );
+      }
+
+      // Si nombró la tarjeta, esa; si no y hay una sola, esa.
+      var elegida = misTarjetas.find(function (t) {
+        return pagoTarjeta.texto.indexOf(t.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')) !== -1;
+      }) || (misTarjetas.length === 1 ? misTarjetas[0] : null);
+
+      if (!elegida) {
+        return bot.sendMessage(msg.chat.id, '¿Cuál de estas pagaste?', {
+          reply_markup: {
+            inline_keyboard: misTarjetas.map(function (t) {
+              return [{ text: t.name + ' · ' + money(t.aPagar.monto), callback_data: 'pagar:' + t.id }];
+            })
+          }
+        });
+      }
+
+      return pagarYAvisar(bot, msg.chat.id, user.id, elegida.id);
+    }
+
     // ¿Me está corrigiendo lo último? Va antes de parsear como gasto nuevo:
     // si no, "perdón eran 22" se guardaba como un gasto de $22.
     var correc = correccion.intencionDeCorregir(msg.text);
@@ -614,6 +707,28 @@ function start(config) {
 
     try {
       var categorized = await categorizarPara(user.id, parsed);
+
+      // "Lavarropas 600000 en 6 cuotas": una fila por cuota, cada una en su
+      // mes. Se parte DESPUÉS de categorizar para que todas queden igual.
+      var enCuotas = cuotas.detectar(msg.text);
+      if (enCuotas) {
+        categorized.description = cuotas.detectar(categorized.description)
+          ? cuotas.detectar(categorized.description).resto
+          : categorized.description;
+        var partes = cuotas.partir(categorized, enCuotas.cantidad);
+        partes.forEach(function (p) { saveTransaction(user.id, p); });
+        var premioC = arbol.alAnotarMovimiento(user.id, { conFoto: false });
+        return bot.sendMessage(msg.chat.id,
+          'Anotado ✅\n' +
+          categorized.description + ' · ' + money(categorized.amount) +
+          ' en ' + enCuotas.cantidad + ' cuotas\n' +
+          emojiDe(categorized.category) + ' ' + categorized.category + '\n\n' +
+          'Te queda ' + money(partes[0].amount) + ' por mes hasta ' +
+          mesDe(partes[partes.length - 1].date) + '.' +
+          novedades(premioC)
+        );
+      }
+
       saveTransaction(user.id, categorized);
       var premio = arbol.alAnotarMovimiento(user.id, { conFoto: false });
       bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, 0) + novedades(premio));
@@ -629,6 +744,14 @@ function start(config) {
       if (!user) return bot.answerCallbackQuery(q.id, { text: 'Vinculá tu cuenta primero' });
 
       var partes = String(q.data || '').split(':');
+
+      if (partes[0] === 'pagar') {
+        bot.answerCallbackQuery(q.id);
+        bot.editMessageReplyMarkup({ inline_keyboard: [] },
+          { chat_id: q.message.chat.id, message_id: q.message.message_id }).catch(function () {});
+        return pagarYAvisar(bot, q.message.chat.id, user.id, Number(partes[1]));
+      }
+
       if (partes[0] !== 'fix') return bot.answerCallbackQuery(q.id);
 
       var txId = Number(partes[1]);

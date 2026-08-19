@@ -848,3 +848,76 @@
   border-color: var(--text-primary);
   box-shadow: 0 0 0 2px var(--surface-1) inset;
 }
+
+/* Lo que cerró y falta pagar */
+.a-pagar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 13px 15px;
+  background: var(--accent-soft);
+}
+
+.a-pagar.vencido {
+  border-color: var(--critical);
+  background: var(--critical-soft);
+}
+
+.a-pagar-txt { flex: 1; min-width: 0; }
+
+.a-pagar-label {
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.a-pagar.vencido .a-pagar-label { color: var(--critical); }
+
+.a-pagar-monto {
+  font-family: var(--fuente-titulo);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0;
+}
+
+.a-pagar-sub { font-size: 11px; color: var(--text-tertiary); }
+
+/* Cuotas comprometidas */
+.cuotas-meses { display: flex; flex-direction: column; }
+
+.cuota-mes {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cuota-mes:last-child { border-bottom: none; }
+
+.cuota-mes-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cuota-mes-nombre { font-weight: 540; text-transform: capitalize; }
+
+.cuota-mes-total {
+  font-family: var(--fuente-titulo);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cuota-detalle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}

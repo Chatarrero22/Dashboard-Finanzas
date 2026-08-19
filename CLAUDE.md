@@ -82,7 +82,8 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
 | `aprendido.js` | Memoria de categorías: lo que corregís a mano queda para la próxima |
 | `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
-| `tarjetas.js` | Tarjetas de crédito: período de resumen, cierre y vencimiento |
+| `tarjetas.js` | Tarjetas: período de resumen, cierre, vencimiento y deuda pendiente |
+| `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -98,7 +99,7 @@ Estilos: `index.css` (tokens + base) y `pantallas.css` (KPIs, P&L, tablas, menú
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
-`alerts_sent`, `learned_categories`, `cards`.
+`alerts_sent`, `learned_categories`, `cards`, `card_payments`.
 
 ---
 
@@ -160,6 +161,24 @@ verificá después con grep.
 `transform="rotate(...)"` y además una animación CSS que usa `transform`, el CSS
 gana y el dibujo se va volando. La rotación va en un `<g>` y la animación en el
 hijo.
+
+**El pago del resumen NO es un movimiento.** Las compras de la tarjeta ya
+están cargadas una por una, así que si además anotáramos el pago del resumen
+como un gasto, el mes contaría el doble. Por eso existe la tabla
+`card_payments`: solo marca "el resumen que cerró tal día está pagado", sin
+tocar `transactions`. Si alguna vez parece más simple guardarlo como un
+movimiento, no lo es.
+
+**Los heredocs también se comen ``.** Además de romper los backticks del
+JSX, un `<<'PY'` puede convertir `` dentro de un regex en el **carácter de
+retroceso** (byte 0x08). El archivo compila, el regex nunca coincide, y no se
+ve mirando el código. Para detectarlo:
+
+```bash
+python -c "import io,glob; print([p for p in glob.glob('server/*.js') if b'' in io.open(p,'rb').read()])"
+```
+
+Para strings con escapes, usá la herramienta Edit, no heredocs.
 
 **Una acción pendiente que no se limpia abre modales solos.** Los botones del
 encabezado (`+ Nuevo…`) viven en `App` y las pantallas los reciben por props.

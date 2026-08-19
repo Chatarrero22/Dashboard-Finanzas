@@ -199,6 +199,7 @@ function AddForm({ categories, onSaved, onError }) {
   const [kind, setKind] = useState('gasto')
   const [category, setCategory] = useState('')
   const [date, setDate] = useState(todayISO())
+  const [enCuotas, setEnCuotas] = useState('1')
   const [saving, setSaving] = useState(false)
 
   async function submit(e) {
@@ -220,12 +221,14 @@ function AddForm({ categories, onSaved, onError }) {
             amount: kind === 'ingreso' ? Math.abs(value) : -Math.abs(value),
           }],
           category: category || undefined,
+          cuotas: Number(enCuotas) > 1 ? Number(enCuotas) : undefined,
           platform: 'Web',
         }),
       })
       setAmount('')
       setDescription('')
       setCategory('')
+      setEnCuotas('1')
       setDate(todayISO())
       var extra = ''
       if (r?.premio?.subioDeEtapa) extra = ` · 🌱 ¡Tu árbol creció! Ahora es ${r.premio.etapa.nombre}`
@@ -285,6 +288,26 @@ function AddForm({ categories, onSaved, onError }) {
         </label>
       </div>
 
+      {/* Cuotas: solo tiene sentido en un gasto. Un sueldo en 6 cuotas no
+          existe, y ofrecerlo confunde. */}
+      {kind === 'gasto' && (
+        <label className="field">
+          <span className="field-label">¿En cuántas cuotas?</span>
+          <select value={enCuotas} onChange={(e) => setEnCuotas(e.target.value)}>
+            <option value="1">Un solo pago</option>
+            {[2, 3, 6, 9, 12, 18, 24].map((n) => (
+              <option key={n} value={n}>{n} cuotas</option>
+            ))}
+          </select>
+          {Number(enCuotas) > 1 && Number(amount) > 0 && (
+            <span className="hint" style={{ marginTop: 6 }}>
+              Te queda {money(Number(amount) / Number(enCuotas))} por mes durante
+              {' '}{enCuotas} meses.
+            </span>
+          )}
+        </label>
+      )}
+
       <button className="primary" type="submit" disabled={saving}>
         {saving ? 'Guardando…' : 'Guardar'}
       </button>
@@ -320,6 +343,7 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
   const [editando, setEditando] = useState(null)
   // El movimiento al que le estamos poniendo tarjeta, si hay alguno.
   const [tarjetaDe, setTarjetaDe] = useState(null)
+  const hoy = todayISO()
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -347,11 +371,14 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
         ) : (
           <div className="list">
             {filtered.map((t) => (
-              <div className="item" key={t.id}>
+              <div className={`item ${t.date > hoy ? 'futuro' : ''}`} key={t.id}>
                 <div className="item-main">
                   <div className="item-desc">{t.description}</div>
                   <div className="item-meta">
                     <span>{dayLabel(t.date)}</span>
+                    {/* Una cuota de un mes que todavia no llego no es un gasto
+                        que ya hiciste: se avisa para no confundir. */}
+                    {t.date > hoy && <span className="tag">se viene</span>}
                     {/* La categoría es un botón: si Manguito se equivocó,
                         se toca y se corrige ahí mismo. */}
                     <button
@@ -1307,6 +1334,7 @@ export default function App() {
   const { confirmar } = useDialogos()
   const [alertas, setAlertas] = useState(null)
   const [cards, setCards] = useState([])
+  const [proximasCuotas, setProximasCuotas] = useState([])
   // Los botones del encabezado viven acá (el encabezado es de App), pero los
   // formularios viven en cada pantalla. Guardamos la última acción pedida;
   // cambia de identidad en cada click para que la pantalla la note.
@@ -1453,6 +1481,7 @@ export default function App() {
     if (tab === 'invest' && !config.simple) api('/portfolio').then(setPortfolio).catch(() => {})
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
     if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
+    if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
   }, [tab, config, loadMetas])
 
   // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
@@ -1535,14 +1564,18 @@ export default function App() {
   }
 
   async function handleDelete(tx) {
+    // Si es una cuota, borrar solo esa dejaría el plan cojo: preguntamos.
+    const esCuota = tx.installment_total > 1
     const ok = await confirmar({
-      titulo: '¿Borrar este movimiento?',
-      detalle: `${tx.description} · ${money(tx.amount)}`,
+      titulo: esCuota ? '¿Borrar todo el plan de cuotas?' : '¿Borrar este movimiento?',
+      detalle: esCuota
+        ? `${tx.description} · se borran las ${tx.installment_total} cuotas, no solo esta.`
+        : `${tx.description} · ${money(tx.amount)}`,
       aceptar: 'Borrar', peligro: true,
     })
     if (!ok) return
     try {
-      await api(`/transactions/${tx.id}`, { method: 'DELETE' })
+      await api(`/transactions/${tx.id}${tx.installment_total > 1 ? '?plan=1' : ''}`, { method: 'DELETE' })
       notify('Borrado')
       await loadCore()
     } catch (err) {
@@ -1712,8 +1745,13 @@ export default function App() {
           {tab === 'tarjetas' && (
             <TarjetasScreen
               cards={cards}
+              proximas={proximasCuotas}
               accion={accionDe('tarjetas')}
-              onReload={() => api('/cards').then(setCards).catch(() => {})}
+              onReload={() => {
+                api('/cards').then(setCards).catch(() => {})
+                api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
+                loadCore().catch(() => {})
+              }}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
             />
