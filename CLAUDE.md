@@ -81,6 +81,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
 | `texto.js` | Deja prolijas las descripciones (marcas, mayúsculas, espacios) |
 | `aprendido.js` | Memoria de categorías: lo que corregís a mano queda para la próxima |
+| `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`

@@ -12,6 +12,7 @@ var auth = require('./auth.js');
 var cat = require('./categorizer.js');
 var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
+var correccion = require('./correccion.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
@@ -198,6 +199,38 @@ async function categorizarPara(userId, tx) {
   return (await cat.categorizeTransactions([tx]))[0];
 }
 
+/**
+ * Cambia el monto del movimiento y avisa qué quedó.
+ * La usan el camino de texto y el de los botones.
+ */
+function aplicarCorreccion(bot, chatId, userId, txId, montoNuevo) {
+  var tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(txId, userId);
+  if (!tx) return bot.sendMessage(chatId, 'Ese movimiento ya no está 🤷');
+
+  var antes = tx.amount;
+  db.prepare('UPDATE transactions SET amount = ? WHERE id = ? AND user_id = ?')
+    .run(montoNuevo, txId, userId);
+
+  // comoVaElMes() ya trae sus dos saltos de línea adelante: si sumamos otros
+  // dos, quedan cuatro renglones en blanco en el chat.
+  bot.sendMessage(chatId,
+    'Corregido ✏️\n' +
+    tx.description + ' · ' + money(antes) + ' → ' + money(montoNuevo) +
+    comoVaElMes(userId)
+  );
+}
+
+/* Un emoji por categoría, los mismos que muestra la app. */
+var EMOJIS = {
+  Supermercado: '🛒', Delivery: '🍔', Transporte: '🚗', Servicios: '⚡',
+  Entretenimiento: '🎬', Salud: '💊', Ropa: '👕', Educacion: '📚',
+  Sueldo: '💰', Transferencia: '🔁', Otros: '📌'
+};
+
+function emojiDe(categoria) {
+  return EMOJIS[categoria] || '📌';
+}
+
 /** Elige uno al azar, para que no conteste siempre igual. */
 function alAzar(opciones) {
   return opciones[Math.floor(Math.random() * opciones.length)];
@@ -263,10 +296,17 @@ function confirmation(userId, tx, itemCount) {
     ? alAzar(['Entró plata 💰', 'Buenííísimo 💰', 'Grande 💰'])
     : alAzar(['Anotado ✅', 'Listo ✅', 'Ya está ✅', 'Guardado ✅']);
 
-  // "Anotado ✅  Disco · $15.400" — todo lo importante en el primer renglon
+  // "Anotado ✅  Disco · $15.400" — todo lo importante en el primer renglon.
+  // La categoría lleva su emoji: se reconoce de un vistazo sin leerla, y un
+  // "Otros" suelto en un renglón quedaba raro.
   var msg = arranque + '\n' + tx.description + ' · ' + money(tx.amount);
-  msg += '\n' + tx.category;
+  msg += '\n' + emojiDe(tx.category) + ' ' + tx.category;
   if (itemCount) msg += ' · ' + itemCount + ' productos';
+  // Si el gasto salió de algo que nos enseñaste, lo decimos: así se entiende
+  // por qué eligió esa categoría y no otra.
+  if (tx.ai_categorized === 0 && aprendido.buscar(userId, tx.description)) {
+    msg += ' (como me enseñaste)';
+  }
 
   if (tx.amount < 0) {
     var aviso = comoVaElPresupuesto(userId, tx.category);
@@ -529,6 +569,40 @@ function start(config) {
       );
     }
 
+    // ¿Me está corrigiendo lo último? Va antes de parsear como gasto nuevo:
+    // si no, "perdón eran 22" se guardaba como un gasto de $22.
+    var correc = correccion.intencionDeCorregir(msg.text);
+    if (correc) {
+      var ultimo = db.prepare(
+        'SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 1'
+      ).get(user.id);
+
+      if (!ultimo) {
+        return bot.sendMessage(msg.chat.id, 'No tengo nada cargado para corregir 🤷');
+      }
+
+      var signo = ultimo.amount < 0 ? -1 : 1;
+      var dudoso = correccion.esAmbiguo(correc.monto, ultimo.amount);
+
+      if (dudoso) {
+        // Adivinar plata está mal: preguntamos con dos botones.
+        return bot.sendMessage(msg.chat.id,
+          '¿' + ultimo.description + ' de cuánto era?',
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: money(dudoso.tal_cual), callback_data: 'fix:' + ultimo.id + ':' + dudoso.tal_cual },
+                { text: money(dudoso.en_miles), callback_data: 'fix:' + ultimo.id + ':' + dudoso.en_miles }
+              ]]
+            }
+          }
+        );
+      }
+
+      aplicarCorreccion(bot, msg.chat.id, user.id, ultimo.id, correc.monto * signo);
+      return;
+    }
+
     var parsed = parseTextMessage(msg.text);
     if (!parsed) {
       return bot.sendMessage(msg.chat.id, alAzar([
@@ -545,6 +619,33 @@ function start(config) {
       bot.sendMessage(msg.chat.id, confirmation(user.id, categorized, 0) + novedades(premio));
     } catch (err) {
       bot.sendMessage(msg.chat.id, 'Se me complicó guardarlo 😕 (' + err.message + '). Probá de nuevo en un rato.');
+    }
+  });
+
+  /* Los botones de "¿de cuánto era?" cuando el monto quedó ambiguo. */
+  bot.on('callback_query', function (q) {
+    try {
+      var user = auth.usuarioPorChatId(q.message.chat.id);
+      if (!user) return bot.answerCallbackQuery(q.id, { text: 'Vinculá tu cuenta primero' });
+
+      var partes = String(q.data || '').split(':');
+      if (partes[0] !== 'fix') return bot.answerCallbackQuery(q.id);
+
+      var txId = Number(partes[1]);
+      var monto = Number(partes[2]);
+      var tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(txId, user.id);
+      if (!tx) return bot.answerCallbackQuery(q.id, { text: 'Ese movimiento ya no está' });
+
+      // El signo lo manda el movimiento original: si era un gasto sigue siéndolo.
+      var signo = tx.amount < 0 ? -1 : 1;
+      bot.answerCallbackQuery(q.id);
+      // Sacamos los botones para que no se pueda tocar dos veces.
+      bot.editMessageReplyMarkup({ inline_keyboard: [] },
+        { chat_id: q.message.chat.id, message_id: q.message.message_id }).catch(function () {});
+
+      aplicarCorreccion(bot, q.message.chat.id, user.id, txId, Math.abs(monto) * signo);
+    } catch (err) {
+      console.error('  Telegram (boton): ' + err.message);
     }
   });
 
@@ -566,4 +667,14 @@ function start(config) {
   return bot;
 }
 
-module.exports = { start: start, parseTextMessage: parseTextMessage };
+module.exports = {
+  start: start,
+  parseTextMessage: parseTextMessage,
+  // Exportadas para poder probarlas sin levantar el bot
+  aplicarCorreccion: aplicarCorreccion,
+  confirmation: confirmation,
+  categorizarPara: categorizarPara,
+  intencionDeBorrar: intencionDeBorrar,
+  intencionDeMeta: intencionDeMeta,
+  pareceUnPedido: pareceUnPedido
+};
