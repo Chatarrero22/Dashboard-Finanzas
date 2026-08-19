@@ -16,6 +16,8 @@ var correccion = require('./correccion.js');
 var cuotas = require('./cuotas.js');
 var tarjetasMod = require('./tarjetas.js');
 var medioDePago = require('./medio-de-pago.js');
+var dolares = require('./dolares.js');
+var prices = require('./prices.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
@@ -33,8 +35,9 @@ function money(n) {
 function saveTransaction(userId, tx) {
   var insert = db.prepare(
     'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
-    ' ai_categorized, card_id, installment_group, installment_num, installment_total)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ' ai_categorized, card_id, installment_group, installment_num, installment_total,' +
+    ' amount_usd, usd_rate)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -47,7 +50,8 @@ function saveTransaction(userId, tx) {
     var info = insert.run(
       userId, t.date, desc, t.amount, t.category, PLATFORM, t.ai_categorized ? 1 : 0,
       t.card_id || null, t.installment_group || null,
-      t.installment_num || null, t.installment_total || null
+      t.installment_num || null, t.installment_total || null,
+      t.amount_usd || null, t.usd_rate || null
     );
     (t.items || []).forEach(function (item) {
       insertItem.run(info.lastInsertRowid, item.description, Number(item.amount) || 0, Number(item.quantity) || 1);
@@ -373,6 +377,12 @@ function confirmation(userId, tx, itemCount) {
   // La categoría lleva su emoji: se reconoce de un vistazo sin leerla, y un
   // "Otros" suelto en un renglón quedaba raro.
   var msg = arranque + '\n' + tx.description + ' · ' + money(tx.amount);
+  // Si lo cargaste en dolares, decimos a cuanto lo pasamos: si no, el monto
+  // en pesos parece salido de la nada.
+  if (tx.amount_usd) {
+    msg += '\n(US$' + Math.abs(tx.amount_usd).toLocaleString('es-AR') +
+      ' al dólar de ' + money(tx.usd_rate) + ')';
+  }
   msg += '\n' + emojiDe(tx.category) + ' ' + tx.category;
   if (itemCount) msg += ' · ' + itemCount + ' productos';
   // Si el gasto salió de algo que nos enseñaste, lo decimos: así se entiende
@@ -710,7 +720,12 @@ function start(config) {
       return;
     }
 
-    var parsed = parseTextMessage(msg.text);
+    // ¿Lo dijo en dólares? Sacamos la palabra antes de buscar el monto, y
+    // después lo pasamos a pesos al cambio de hoy.
+    var enDolares = dolares.detectar(msg.text);
+    var textoMonto = enDolares ? enDolares.resto : msg.text;
+
+    var parsed = parseTextMessage(textoMonto);
     if (!parsed) {
       return bot.sendMessage(msg.chat.id, alAzar([
         'No le encontré el monto 🤔 Probá así: Disco 15400',
@@ -719,8 +734,24 @@ function start(config) {
       ]));
     }
 
+    if (enDolares) {
+      var cotiz = await prices.getDolar();
+      var mep = (cotiz.bolsa && cotiz.bolsa.venta) || (cotiz.blue && cotiz.blue.venta) || 0;
+      if (!mep) {
+        return bot.sendMessage(msg.chat.id,
+          'No pude traer la cotización del dólar ahora 😕 Cargalo en pesos y después lo corregimos.');
+      }
+      var conv = dolares.aPesos(Math.abs(parsed.amount), mep);
+      var signo = parsed.amount < 0 ? -1 : 1;
+      parsed.amount_usd = signo * conv.usd;
+      parsed.usd_rate = conv.cambio;
+      parsed.amount = signo * conv.pesos;
+    }
+
     try {
       var categorized = await categorizarPara(user.id, parsed, msg.text);
+      categorized.amount_usd = parsed.amount_usd;
+      categorized.usd_rate = parsed.usd_rate;
 
       // "Lavarropas 600000 en 6 cuotas": una fila por cuota, cada una en su
       // mes. Se parte DESPUÉS de categorizar para que todas queden igual.

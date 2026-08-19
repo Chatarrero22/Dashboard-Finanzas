@@ -85,6 +85,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `tarjetas.js` | Tarjetas: período de resumen, cierre, vencimiento y deuda pendiente |
 | `cuotas.js` | Parte una compra en N cuotas, una fila por mes |
 | `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
+| `dolares.js` | Gastos en dólares: los pasa a pesos al cambio del día |
 | `telegram-bot.js` | El bot: parseo, tickets por foto, comandos, intenciones |
 
 ### `client/src/`
@@ -172,6 +173,15 @@ centra con flex; si el formulario no entra, el botón de guardar queda fuera de
 la vista y no hay forma de llegar. En el celular pasó con el alta de un
 movimiento. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
 `overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
+
+**Los gastos en dólares se guardan en PESOS.** `amount` siempre está en pesos,
+convertido al cambio del día en que se cargó, y queda congelado: que el dólar
+suba después no cambia lo que te salió ese día. `amount_usd` y `usd_rate`
+guardan el original para poder mostrarlo. Si se recalculara al cambio de hoy,
+todos los meses viejos se moverían solos cada vez que salta el dólar.
+
+No confundirlo con el botón ARS/US$ de la barra de arriba: ese es una forma
+de **mirar** lo mismo y sí usa la cotización de hoy (`moneda.js`).
 
 **El pago del resumen NO es un movimiento.** Las compras de la tarjeta ya
 están cargadas una por una, así que si además anotáramos el pago del resumen

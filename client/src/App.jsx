@@ -193,13 +193,16 @@ function Upcoming({ items }) {
 
 /* ------------------------------------------------------------ agregar gasto */
 
-function AddForm({ categories, onSaved, onError, onCerrar }) {
+function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerrar }) {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [kind, setKind] = useState('gasto')
   const [category, setCategory] = useState('')
   const [date, setDate] = useState(todayISO())
   const [enCuotas, setEnCuotas] = useState('1')
+  // Arranca en la moneda que estás mirando arriba: si tenés puesto US$,
+  // probablemente estés pensando en dólares.
+  const [moneda, setMoneda] = useState(monedaPorDefecto || 'ars')
   const [saving, setSaving] = useState(false)
 
   async function submit(e) {
@@ -221,6 +224,7 @@ function AddForm({ categories, onSaved, onError, onCerrar }) {
             amount: kind === 'ingreso' ? Math.abs(value) : -Math.abs(value),
           }],
           category: category || undefined,
+          moneda: moneda,
           cuotas: Number(enCuotas) > 1 ? Number(enCuotas) : undefined,
           platform: 'Web',
         }),
@@ -254,14 +258,37 @@ function AddForm({ categories, onSaved, onError, onCerrar }) {
 
       <label className="field">
         <span className="field-label">¿Cuánto?</span>
-        <input
-          className="amount-input"
-          type="text"
-          inputMode="decimal"
-          placeholder="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
-        />
+        <div className="monto-fila">
+          <input
+            className="amount-input"
+            type="text"
+            inputMode="decimal"
+            placeholder="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
+          />
+          <div className="grupo-pill monto-moneda">
+            <button
+              type="button"
+              className={moneda === 'ars' ? 'on' : ''}
+              onClick={() => setMoneda('ars')}
+            >$</button>
+            <button
+              type="button"
+              className={moneda === 'usd' ? 'on' : ''}
+              onClick={() => setMoneda('usd')}
+              disabled={!dolar}
+              title={dolar ? 'Cargarlo en dólares' : 'No tengo la cotización del dólar ahora'}
+            >US$</button>
+          </div>
+        </div>
+        {moneda === 'usd' && dolar > 0 && (
+          <span className="hint" style={{ marginTop: 6 }}>
+            {Number(amount) > 0
+              ? `Son ${money(Number(String(amount).replace(',', '.')) * dolar)} al dólar de hoy (${money(dolar)}). Se guarda ese valor.`
+              : `Se pasa a pesos al dólar de hoy (${money(dolar)}) y queda fijo.`}
+          </span>
+        )}
       </label>
 
       <label className="field">
@@ -329,7 +356,7 @@ function AddForm({ categories, onSaved, onError, onCerrar }) {
 /* -------------------------------------------------------------- pantallas */
 
 /** El alta de un movimiento, en un pop-up. */
-function NuevoMovimiento({ config, categories, onSaved, onError, onCerrar }) {
+function NuevoMovimiento({ config, categories, monedaPorDefecto, dolar, onSaved, onError, onCerrar }) {
   return (
     <Modal
       titulo="Nuevo movimiento"
@@ -340,6 +367,8 @@ function NuevoMovimiento({ config, categories, onSaved, onError, onCerrar }) {
     >
       <AddForm
         categories={categories}
+        monedaPorDefecto={monedaPorDefecto}
+        dolar={dolar}
         onSaved={onSaved}
         onError={onError}
         onCerrar={onCerrar}
@@ -416,6 +445,13 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
                         })()} ▾
                       </button>
                     )}
+                    {/* Si lo cargaste en dolares, se ve: el monto en pesos
+                        quedo congelado al cambio de ese dia. */}
+                    {t.amount_usd ? (
+                      <span className="tag" title={`Al dólar de ${money(t.usd_rate)}`}>
+                        US${Math.abs(t.amount_usd).toLocaleString('es-AR')}
+                      </span>
+                    ) : null}
                     {t.items?.length > 0 && <span>{t.items.length} productos</span>}
                   </div>
                 </div>
@@ -1886,6 +1922,8 @@ export default function App() {
         <NuevoMovimiento
           config={config}
           categories={config.categories}
+          monedaPorDefecto={moneda}
+          dolar={networth ? networth.dolar : 0}
           onSaved={handleSaved}
           onError={(m) => notify(m, 'error')}
           onCerrar={() => setNuevoAbierto(false)}

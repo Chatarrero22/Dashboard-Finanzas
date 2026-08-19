@@ -214,6 +214,17 @@ function initDB() {
     db.exec('UPDATE users SET simple_ui = 0 WHERE simple_ui = 1');
   }
 
+  // Gastos en dólares.
+  //
+  // El monto SIEMPRE se guarda en pesos, convertido al cambio del día en que
+  // lo cargaste. Es el valor real de lo que pagaste: que el dólar suba después
+  // no cambia lo que te salió ese día. Guardamos además cuántos dólares eran y
+  // a qué cambio, para poder mostrarlo y para que se pueda auditar.
+  if (!tieneColumna('transactions', 'amount_usd')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN amount_usd REAL');
+    db.exec('ALTER TABLE transactions ADD COLUMN usd_rate REAL');
+  }
+
   // La tarjeta con la que pagás casi todo: los movimientos nuevos van ahí
   // solos y vos marcás las excepciones (efectivo, débito, transferencia).
   if (!tieneColumna('cards', 'es_default')) {

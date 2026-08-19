@@ -958,3 +958,27 @@
    más apagado: todavía no pasó. */
 .item.futuro { opacity: 0.62; }
 .item.futuro .item-amount { font-weight: 540; }
+
+/* El monto con su moneda al lado */
+.monto-fila {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.monto-fila .amount-input { flex: 1; min-width: 0; }
+
+.monto-moneda {
+  flex: none;
+  flex-direction: column;
+  padding: 3px;
+}
+
+.monto-moneda button {
+  flex: 1;
+  padding: 0 12px;
+  height: auto;
+  min-height: 26px;
+}
+
+.monto-moneda button:disabled { opacity: 0.35; cursor: default; }

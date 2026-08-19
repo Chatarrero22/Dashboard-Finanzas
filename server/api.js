@@ -18,6 +18,7 @@ var aprendido = require('./aprendido.js');
 var tarjetas = require('./tarjetas.js');
 var cuotas = require('./cuotas.js');
 var medioDePago = require('./medio-de-pago.js');
+var dolares = require('./dolares.js');
 
 var router = express.Router();
 
@@ -134,8 +135,9 @@ router.use(auth.requerido);
 function insertTransactions(userId, transactions, platform) {
   var insert = db.prepare(
     'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
-    ' ai_categorized, card_id, installment_group, installment_num, installment_total)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ' ai_categorized, card_id, installment_group, installment_num, installment_total,' +
+    ' amount_usd, usd_rate)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   var insertItem = db.prepare(
     'INSERT INTO transaction_items (transaction_id, description, amount, quantity) VALUES (?, ?, ?, ?)'
@@ -150,7 +152,8 @@ function insertTransactions(userId, transactions, platform) {
       var info = insert.run(
         userId, t.date, desc, t.amount, t.category, platform,
         t.ai_categorized ? 1 : 0, t.card_id || null,
-        t.installment_group || null, t.installment_num || null, t.installment_total || null
+        t.installment_group || null, t.installment_num || null, t.installment_total || null,
+        t.amount_usd || null, t.usd_rate || null
       );
       ids.push(info.lastInsertRowid);
       (t.items || []).forEach(function (item) {
@@ -239,6 +242,26 @@ router.post('/transactions', async function (req, res) {
       });
     }
 
+    // Si el monto vino en dólares, lo pasamos a pesos al cambio de HOY y
+    // guardamos los dos. El valor en pesos queda congelado: que el dólar suba
+    // mañana no cambia lo que te salió hoy.
+    if (req.body.moneda === 'usd') {
+      var cotiz = await prices.getDolar();
+      var mep = (cotiz.bolsa && cotiz.bolsa.venta) || (cotiz.blue && cotiz.blue.venta) || 0;
+      if (!mep) {
+        return res.status(503).json({
+          error: 'No puedo traer la cotización del dólar ahora. Probá en un rato o cargalo en pesos.'
+        });
+      }
+      categorized.forEach(function (t) {
+        var conv = dolares.aPesos(Math.abs(t.amount), mep);
+        var signo = t.amount < 0 ? -1 : 1;
+        t.amount_usd = signo * conv.usd;
+        t.usd_rate = conv.cambio;
+        t.amount = signo * conv.pesos;
+      });
+    }
+
     // Con qué tarjeta se pagó. Si no viene dicho, manda la predeterminada:
     // marcar una por una es imposible cuando pagás casi todo con la misma.
     var porDefecto = tarjetas.porDefecto(req.user.id);
@@ -258,7 +281,15 @@ router.post('/transactions', async function (req, res) {
     var enCuotas = Number(req.body.cuotas) || 0;
     if (enCuotas > 1) {
       categorized = categorized.reduce(function (acc, t) {
-        return acc.concat(cuotas.partir(t, enCuotas));
+        var partes = cuotas.partir(t, enCuotas);
+        // Si la compra fue en dólares, cada cuota se lleva su parte también
+        // en dólares: si no, la primera diría US$600 y las otras nada.
+        if (t.amount_usd) {
+          partes.forEach(function (parte) {
+            parte.amount_usd = Math.round((t.amount_usd / enCuotas) * 100) / 100;
+          });
+        }
+        return acc.concat(partes);
       }, []);
     }
 
