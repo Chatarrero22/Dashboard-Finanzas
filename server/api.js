@@ -1058,10 +1058,15 @@ router.post('/cuentas', function (req, res) {
   cuentas.asegurarPrincipal(req.user.id);
   var tipo = cuentas.TIPOS[req.body.tipo] ? req.body.tipo : 'gasto';
 
-  db.prepare('INSERT INTO accounts (user_id, name, tipo, color) VALUES (?, ?, ?, ?)')
+  var info = db.prepare('INSERT INTO accounts (user_id, name, tipo, color) VALUES (?, ?, ?, ?)')
     .run(req.user.id, String(req.body.name).trim(), tipo, req.body.color || '#EE8A17');
 
-  res.json(cuentas.listar(req.user.id));
+  // Devolvemos la cuenta creada, como el resto de los POST. Antes devolvía la
+  // lista entera y quien la creaba para usarla enseguida —mover plata a una
+  // cuenta nueva— se quedaba sin el id y el traspaso salía sin destino.
+  var lista = cuentas.listar(req.user.id);
+  var creada = lista.find(function (c) { return c.id === Number(info.lastInsertRowid); });
+  res.json(creada || lista[lista.length - 1]);
 });
 
 router.patch('/cuentas/:id', function (req, res) {

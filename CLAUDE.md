@@ -348,6 +348,19 @@ a `esNuevo()`, que marca el aviso como enviado. Si una pantalla las usa, abrirla
 apaga el aviso de Telegram del día. Por eso existe `alertas-pantalla.js`, que
 calcula lo mismo sin escribir nada.
 
+**Una acción que aparece sola cuando "ya tenés lo necesario" no existe.**
+El botón «Mover plata» de Ahorro estaba detrás de `lista.length > 1`: con una
+sola cuenta —que es como empezás— no había **ningún** botón para mover plata,
+y el texto de abajo te hablaba igual de mover plata entre cuentas. Emanuel
+concluyó, con razón, que la app solo le dejaba mover el total. Si una acción
+necesita algo previo, mostrala igual y ofrecé crear ese algo ahí mismo.
+
+**Ojo con lo que devuelve cada POST.** `POST /cuentas` devolvía la **lista
+entera** en vez de la cuenta creada. Nadie lo usaba, así que no molestaba,
+hasta que hubo que crear una cuenta para usarla enseguida: el id venía
+`undefined` y el traspaso salía sin destino. Ahora devuelve la creada, como el
+resto de los POST.
+
 **Deduplicar contando, no preguntando.** El importador usaba "¿existe uno
 igual?" y perdía movimientos legítimamente repetidos (dos cafés iguales el mismo
 día). Hay que contar cuántos hay y cuántos trae el archivo.

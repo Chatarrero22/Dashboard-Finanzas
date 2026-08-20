@@ -97,8 +97,13 @@ export default function AhorroScreen({ cuentas, accion, onReload, onError, onSav
       <section className="card">
         <div className="card-title-row">
           <h2>Tus cuentas</h2>
-          {lista.length > 1 && (
-            <button className="chip" onClick={() => setMoviendo({ desde: '', hasta: '', monto: '' })}>
+          {/* Este botón antes aparecía solo si tenías DOS cuentas o más. Con
+              una sola —que es como empezás— no había ninguna forma visible de
+              mover plata: solo veías tu saldo total. Y el texto de abajo te
+              hablaba de mover plata entre cuentas igual. Ahora está siempre y
+              la cuenta de destino se puede crear desde el mismo pop-up. */}
+          {lista.length > 0 && (
+            <button className="chip" onClick={() => setMoviendo({ desde: '' })}>
               Mover plata
             </button>
           )}
@@ -121,6 +126,11 @@ export default function AhorroScreen({ cuentas, accion, onReload, onError, onSav
                 <div className={`cuenta-saldo monto-sensible ${c.saldo < 0 ? 'negativo' : ''}`}>
                   {money(c.saldo)}
                 </div>
+                {/* «Mover» al lado de cada cuenta: es donde lo buscás, no en
+                    un chip chiquito arriba del todo. */}
+                <button className="chip" onClick={() => setMoviendo({ desde: c.id })}>
+                  Mover
+                </button>
                 <button
                   className="chip"
                   onClick={() => {
@@ -146,6 +156,7 @@ export default function AhorroScreen({ cuentas, accion, onReload, onError, onSav
       {moviendo && (
         <MoverPlata
           cuentas={lista}
+          desdeInicial={moviendo.desde}
           onCerrar={() => setMoviendo(null)}
           onHecho={(msg) => { setMoviendo(null); onSaved(msg); onReload() }}
           onError={onError}
@@ -220,35 +231,75 @@ export default function AhorroScreen({ cuentas, accion, onReload, onError, onSav
 }
 
 /** El pop-up para pasar plata de una cuenta a otra. */
-function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
-  const [desde, setDesde] = useState(cuentas[0]?.id || '')
-  const [hasta, setHasta] = useState(cuentas[1]?.id || '')
+/**
+ * El pop-up para pasar plata de una cuenta a otra.
+ *
+ * Podés mover LA PARTE QUE QUIERAS: escribís el monto y listo. No hay ninguna
+ * opción de "mover todo" porque mover todo es simplemente escribir el saldo.
+ *
+ * Lo importante: la cuenta de destino se puede crear acá mismo. Antes había
+ * que adivinar que primero tenías que ir a «+ Nueva cuenta», crearla, y recién
+ * ahí aparecía el botón de mover. Si tenías una sola cuenta, no había ningún
+ * botón y parecía que la app no dejaba mover nada.
+ */
+function MoverPlata({ cuentas, desdeInicial, onCerrar, onHecho, onError }) {
+  const NUEVA = '__nueva__'
+
+  const [desde, setDesde] = useState(desdeInicial || cuentas[0]?.id || '')
+  // Si hay una sola cuenta, el destino arranca en «crear una nueva», que es
+  // lo único que se puede hacer.
+  const otra = cuentas.find((c) => String(c.id) !== String(desdeInicial || cuentas[0]?.id))
+  const [hasta, setHasta] = useState(otra ? otra.id : NUEVA)
   const [monto, setMonto] = useState('')
   const [nota, setNota] = useState('')
+  const [nueva, setNueva] = useState({ name: '', tipo: 'ahorro' })
+  const [guardando, setGuardando] = useState(false)
 
   const origen = cuentas.find((c) => String(c.id) === String(desde))
   const importe = montoDesde(monto)
+  const creando = String(hasta) === NUEVA
+
   // Avisamos, pero no lo impedimos: puede que la cuenta esté en rojo a
   // propósito y el traspaso sea justamente para cubrirla.
   const noAlcanza = origen && importe > origen.saldo
 
+  const puedeMover = Boolean(
+    importe &&
+    desde &&
+    (creando ? nueva.name.trim() : String(desde) !== String(hasta))
+  )
+
   async function mover(e) {
     e.preventDefault()
+    if (guardando) return
+    setGuardando(true)
     try {
+      let destino = hasta
+
+      // Crear la cuenta de destino sobre la marcha.
+      if (creando) {
+        const c = await api('/cuentas', {
+          method: 'POST',
+          body: JSON.stringify({ name: nueva.name.trim(), tipo: nueva.tipo, color: COLORES[2] }),
+        })
+        destino = c.id
+      }
+
       const r = await api('/cuentas/traspaso', {
         method: 'POST',
-        body: JSON.stringify({ desde, hasta, monto: importe, nota }),
+        body: JSON.stringify({ desde, hasta: destino, monto: importe, nota }),
       })
       onHecho(`${money(r.traspaso.monto)} de ${r.traspaso.desde} a ${r.traspaso.hasta}`)
     } catch (err) {
       onError(err.message)
+      setGuardando(false)
     }
   }
 
   return (
     <Modal
       titulo="Mover plata"
-      detalle="No cuenta como gasto: la plata sigue siendo tuya, cambia de lugar."
+      detalle="Movés la parte que quieras, no hace falta que sea todo. No cuenta como gasto: la plata sigue siendo tuya, cambia de lugar."
       onCerrar={onCerrar}
     >
       <form onSubmit={mover}>
@@ -262,13 +313,48 @@ function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
           <label className="field">
             <span className="field-label">Hacia</span>
             <select value={hasta} onChange={(e) => setHasta(e.target.value)}>
-              {cuentas.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {cuentas
+                .filter((c) => String(c.id) !== String(desde))
+                .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value={NUEVA}>＋ Una cuenta nueva…</option>
             </select>
           </label>
         </div>
 
+        {creando && (
+          <>
+            <label className="field">
+              <span className="field-label">¿Cómo se llama la cuenta nueva?</span>
+              <input
+                placeholder="Ej: Plazo fijo, Inversiones, La cuenta de Cami"
+                value={nueva.name}
+                onChange={(e) => setNueva({ ...nueva, name: e.target.value })}
+              />
+            </label>
+            <div className="field">
+              <span className="field-label">¿Qué es?</span>
+              <div className="tipos tipos-chicos">
+                {TIPOS.map((t) => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    className={`tipo ${nueva.tipo === t.id ? 'elegido' : ''}`}
+                    onClick={() => setNueva({ ...nueva, tipo: t.id })}
+                  >
+                    <span className="tipo-ico">{t.icono}</span>
+                    <span className="tipo-txt">
+                      <span className="tipo-nombre">{t.nombre}</span>
+                      <small>{t.ayuda}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
         <label className="field">
-          <span className="field-label">¿Cuánto?</span>
+          <span className="field-label">¿Cuánto querés mover?</span>
           <input
             inputMode="decimal"
             placeholder="0"
@@ -278,7 +364,8 @@ function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
           {origen && (
             <span className="hint" style={{ marginTop: 6 }}>
               En {origen.name} hay <span className="monto-sensible">{money(origen.saldo)}</span>.
-              {noAlcanza && ' Vas a dejarla en rojo.'}
+              Podés mover una parte: escribí cuánto.
+              {noAlcanza && ' Ojo, con eso la dejás en rojo.'}
             </span>
           )}
         </label>
@@ -294,11 +381,9 @@ function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
 
         <div className="dialogo-botones">
           <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
-          <button
-            type="submit"
-            className="dialogo-btn principal"
-            disabled={!importe || String(desde) === String(hasta)}
-          >Mover</button>
+          <button type="submit" className="dialogo-btn principal" disabled={!puedeMover || guardando}>
+            {guardando ? 'Moviendo…' : 'Mover'}
+          </button>
         </div>
       </form>
     </Modal>
