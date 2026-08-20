@@ -27,6 +27,62 @@ export function money(n, opciones) {
   return formatear(n, opciones)
 }
 
+/**
+ * Lo que se puede tipear en un campo de plata.
+ *
+ * Dejamos pasar los puntos y las comas mientras escribís, porque la gente
+ * escribe los montos como los lee: 1.000.000, no 1000000. Interpretarlos es
+ * trabajo de montoDesde().
+ */
+export function soloPlata(texto, { negativos = false } = {}) {
+  const limpio = String(texto).replace(negativos ? /[^\d.,-]/g : /[^\d.,]/g, '')
+  if (!negativos) return limpio
+  // El menos solo tiene sentido adelante: "-300", no "30-0".
+  return (limpio.startsWith('-') ? '-' : '') + limpio.replace(/-/g, '')
+}
+
+/**
+ * Un monto escrito a la argentina, en número.
+ *
+ *   "300.000"    -> 300000
+ *   "1.000.000"  -> 1000000
+ *   "2.500,50"   -> 2500.5
+ *   "300,50"     -> 300.5
+ *
+ * Es la misma regla que usa `plata.js` en el server, y tiene que seguir
+ * siéndolo: si los dos lados leen distinto, un gasto que cargás por la web
+ * vale otra cosa que el mismo gasto por Telegram.
+ *
+ * Antes acá se hacía `Number(texto.replace(/[^\d.]/g, ''))` y estaba mal de
+ * dos formas: "300.000" daba 300 —movía trescientos pesos sin avisar— y
+ * "1.000.000" daba NaN, que apagaba el botón de guardar y parecía que la app
+ * "no dejaba" con ciertos montos.
+ */
+export function montoDesde(texto) {
+  const crudo = String(texto == null ? '' : texto).trim()
+  // El menos importa para el ajuste de saldo: podés tener plata en contra.
+  const signo = crudo.startsWith('-') ? -1 : 1
+
+  let s = crudo.replace(/[^\d.,]/g, '')
+  if (!s) return 0
+
+  if (s.includes(',') && s.lastIndexOf(',') > s.lastIndexOf('.')) {
+    // 1.234,56 -> la coma son los centavos
+    s = s.replace(/\./g, '').replace(',', '.')
+  } else if ((s.match(/\./g) || []).length > 1) {
+    // 1.000.000 -> los puntos son miles
+    s = s.replace(/\./g, '')
+  } else if (/^\d{1,3}\.\d{3}$/.test(s)) {
+    // 15.400 son quince mil cuatrocientos, no quince con cuatro
+    s = s.replace('.', '')
+  } else {
+    s = s.replace(/,/g, '')
+  }
+
+  const n = parseFloat(s)
+  return isNaN(n) ? 0 : n * signo
+}
+
 export function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }

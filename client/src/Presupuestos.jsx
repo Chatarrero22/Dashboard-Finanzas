@@ -6,7 +6,7 @@
  * encabezado de la pantalla, así que App los dispara pasando `accion`.
  */
 import { useEffect, useState } from 'react'
-import { api, money, mesNombre, icono, Empty } from './comunes.jsx'
+import { api, money, mesNombre, icono, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 
 /** Una tarjeta de presupuesto. */
@@ -100,7 +100,7 @@ export default function PresupuestosScreen({
     try {
       await api('/budgets', {
         method: 'POST',
-        body: JSON.stringify({ category: form.category, monthly_limit: Number(form.monthly_limit) }),
+        body: JSON.stringify({ category: form.category, monthly_limit: montoDesde(form.monthly_limit) }),
       })
       setForm({ category: '', monthly_limit: '' })
       setAbierto(false)
@@ -165,7 +165,7 @@ export default function PresupuestosScreen({
                 inputMode="decimal"
                 placeholder="0"
                 value={form.monthly_limit}
-                onChange={(e) => setForm({ ...form, monthly_limit: e.target.value.replace(/[^\d.]/g, '') })}
+                onChange={(e) => setForm({ ...form, monthly_limit: soloPlata(e.target.value) })}
               />
             </label>
             <div className="dialogo-botones">

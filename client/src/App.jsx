@@ -13,7 +13,7 @@ import AhorroScreen from './Ahorro.jsx'
 import InversionesScreen from './Inversiones.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
-import { icono } from './comunes.jsx'
+import { icono, montoDesde, soloPlata } from './comunes.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
 
@@ -209,7 +209,7 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
 
   async function submit(e) {
     e.preventDefault()
-    const value = Number(String(amount).replace(',', '.'))
+    const value = montoDesde(amount)
     if (!value || !description.trim()) {
       onError('Escribí un monto y en qué lo gastaste')
       return
@@ -267,7 +267,7 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
             inputMode="decimal"
             placeholder="0"
             value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
+            onChange={(e) => setAmount(soloPlata(e.target.value))}
           />
           <div className="grupo-pill monto-moneda">
             <button
@@ -286,8 +286,8 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
         </div>
         {moneda === 'usd' && dolar > 0 && (
           <span className="hint" style={{ marginTop: 6 }}>
-            {Number(amount) > 0
-              ? `Son ${money(Number(String(amount).replace(',', '.')) * dolar)} al dólar de hoy (${money(dolar)}). Se guarda ese valor.`
+            {montoDesde(amount) > 0
+              ? `Son ${money(montoDesde(amount) * dolar)} al dólar de hoy (${money(dolar)}). Se guarda ese valor.`
               : `Se pasa a pesos al dólar de hoy (${money(dolar)}) y queda fijo.`}
           </span>
         )}
@@ -328,9 +328,9 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
               <option key={n} value={n}>{n} cuotas</option>
             ))}
           </select>
-          {Number(enCuotas) > 1 && Number(amount) > 0 && (
+          {Number(enCuotas) > 1 && montoDesde(amount) > 0 && (
             <span className="hint" style={{ marginTop: 6 }}>
-              Te queda {money(Number(amount) / Number(enCuotas))} por mes durante
+              Te queda {money(montoDesde(amount) / Number(enCuotas))} por mes durante
               {' '}{enCuotas} meses.
             </span>
           )}
@@ -555,7 +555,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
         method: 'POST',
         body: JSON.stringify({
           name: form.name.trim(),
-          amount: Number(form.amount),
+          amount: montoDesde(form.amount),
           billing_day: Number(form.billing_day) || 1,
           moneda: form.moneda,
         }),
@@ -611,7 +611,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
                     inputMode="decimal"
                     placeholder="0"
                     value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })}
+                    onChange={(e) => setForm({ ...form, amount: soloPlata(e.target.value) })}
                   />
                   <div className="grupo-pill monto-moneda">
                     <button
@@ -641,7 +641,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
             {form.moneda === 'usd' && dolar > 0 && (
               <p className="hint">
                 Se guarda en dólares y cada mes se pasa a pesos al cambio de ese
-                día. Hoy serían {money((Number(form.amount) || 0) * dolar)} por mes.
+                día. Hoy serían {money(montoDesde(form.amount) * dolar)} por mes.
               </p>
             )}
 
@@ -801,7 +801,7 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
     try {
       await api('/goals', {
         method: 'POST',
-        body: JSON.stringify({ name: goalForm.name.trim(), target: Number(goalForm.target) }),
+        body: JSON.stringify({ name: goalForm.name.trim(), target: montoDesde(goalForm.target) }),
       })
       setGoalForm({ name: '', target: '' })
       setAbierto(false)
@@ -820,7 +820,7 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
       aceptar: signo > 0 ? 'Sumar' : 'Sacar',
     })
     if (!texto) return
-    const monto = Number(String(texto).replace(/[^\d.]/g, ''))
+    const monto = montoDesde(texto)
     if (!monto) return
     try {
       const actualizada = await api(`/goals/${goal.id}/add`, {
@@ -889,7 +889,7 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
                 inputMode="decimal"
                 placeholder="0"
                 value={goalForm.target}
-                onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value.replace(/[^\d.]/g, '') })}
+                onChange={(e) => setGoalForm({ ...goalForm, target: soloPlata(e.target.value) })}
               />
             </label>
             <div className="dialogo-botones">
@@ -919,8 +919,10 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
 
   async function ajustarSaldo(e) {
     e.preventDefault()
-    const real = Number(saldoReal)
-    if (!saldoReal || isNaN(real)) return onError('Escribí cuánta plata tenés de verdad')
+    const real = montoDesde(saldoReal)
+    // Pedimos un dígito, no un valor distinto de cero: poner el saldo en cero
+    // es algo que podés querer hacer. Lo que no vale es un "-" solo.
+    if (!/\d/.test(saldoReal)) return onError('Escribí cuánta plata tenés de verdad')
 
     const dif = real - (saldo || 0)
     const ok = await confirmar({
@@ -1182,7 +1184,7 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
             inputMode="decimal"
             placeholder="0"
             value={saldoReal}
-            onChange={(e) => setSaldoReal(e.target.value.replace(/[^\d.-]/g, ''))}
+            onChange={(e) => setSaldoReal(soloPlata(e.target.value, { negativos: true }))}
           />
         </label>
         <button className="primary" type="submit" disabled={!saldoReal}>Ajustar</button>

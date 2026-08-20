@@ -8,7 +8,7 @@
  * cambiaste la plata de lugar. Por eso no aparece en tus gastos del mes.
  */
 import { useEffect, useState } from 'react'
-import { api, money, Empty } from './comunes.jsx'
+import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
@@ -227,7 +227,7 @@ function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
   const [nota, setNota] = useState('')
 
   const origen = cuentas.find((c) => String(c.id) === String(desde))
-  const importe = Number(monto) || 0
+  const importe = montoDesde(monto)
   // Avisamos, pero no lo impedimos: puede que la cuenta esté en rojo a
   // propósito y el traspaso sea justamente para cubrirla.
   const noAlcanza = origen && importe > origen.saldo
@@ -273,7 +273,7 @@ function MoverPlata({ cuentas, onCerrar, onHecho, onError }) {
             inputMode="decimal"
             placeholder="0"
             value={monto}
-            onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))}
+            onChange={(e) => setMonto(soloPlata(e.target.value))}
           />
           {origen && (
             <span className="hint" style={{ marginTop: 6 }}>

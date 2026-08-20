@@ -6,7 +6,7 @@
  * es como funciona una tarjeta de verdad. El cálculo está en server/tarjetas.js.
  */
 import { useEffect, useState } from 'react'
-import { api, money, Empty } from './comunes.jsx'
+import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { mesLargo } from './Shell.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
@@ -145,7 +145,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
       name: form.name.trim(),
       last4: form.last4,
       color: form.color,
-      limit_amount: Number(form.limit_amount) || 0,
+      limit_amount: montoDesde(form.limit_amount),
       close_day: Number(form.close_day) || 1,
       due_day: Number(form.due_day) || 10,
       es_default: form.es_default,
@@ -298,7 +298,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
                 inputMode="decimal"
                 placeholder="0"
                 value={form.limit_amount}
-                onChange={(e) => setForm({ ...form, limit_amount: e.target.value.replace(/[^\d.]/g, '') })}
+                onChange={(e) => setForm({ ...form, limit_amount: soloPlata(e.target.value) })}
               />
             </label>
 

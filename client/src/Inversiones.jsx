@@ -17,7 +17,7 @@
  *   cotizan por cada 100 nominales. Está explicado en el formulario.
  */
 import { useEffect, useRef, useState } from 'react'
-import { api, money, Empty } from './comunes.jsx'
+import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
@@ -265,15 +265,15 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
   async function guardar(e) {
     e.preventDefault()
     if (!simbolo) return onError('Elegí qué compraste')
-    if (!Number(cantidad)) return onError(`Poné cuántos ${t.unidad} tenés`)
+    if (!montoDesde(cantidad)) return onError(`Poné cuántos ${t.unidad} tenés`)
     try {
       await api('/portfolio', {
         method: 'POST',
         body: JSON.stringify({
           symbol: simbolo,
           asset_type: tipo,
-          quantity: Number(cantidad),
-          avg_price: compra ? Number(compra) : 0,
+          quantity: montoDesde(cantidad),
+          avg_price: montoDesde(compra),
           currency: esCripto ? 'USD' : moneda,
         }),
       })
@@ -380,7 +380,7 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
               inputMode="decimal"
               placeholder="0"
               value={cantidad}
-              onChange={(e) => setCantidad(e.target.value.replace(/[^\d.]/g, ''))}
+              onChange={(e) => setCantidad(soloPlata(e.target.value))}
             />
           </label>
           <label className="field">
@@ -389,7 +389,7 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
               inputMode="decimal"
               placeholder="0"
               value={compra}
-              onChange={(e) => setCompra(e.target.value.replace(/[^\d.]/g, ''))}
+              onChange={(e) => setCompra(soloPlata(e.target.value))}
             />
           </label>
         </div>
@@ -408,7 +408,7 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
           <button
             type="submit"
             className="dialogo-btn principal"
-            disabled={!simbolo || !Number(cantidad)}
+            disabled={!simbolo || !montoDesde(cantidad)}
           >Agregar</button>
         </div>
       </form>
