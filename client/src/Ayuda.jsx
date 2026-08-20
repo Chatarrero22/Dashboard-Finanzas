@@ -75,7 +75,11 @@ export const GUIAS = {
     },
     {
       titulo: 'También por Telegram',
-      texto: 'No hace falta entrar acá para anotar. Le escribís al bot «2500 café» y listo. Se vincula desde Ajustes.',
+      texto: 'No hace falta entrar acá para anotar: le escribís al bot «2500 café» y queda cargado. Tocá «Conectar» y te guío paso a paso. Si ya lo conectaste, esto no aparece.',
+      // Solo existe mientras no lo conectaste. Si ya está, el paso se muestra
+      // igual pero centrado, que es lo correcto: la explicación sigue siendo
+      // cierta aunque no haya nada que señalar.
+      apunta: '.tg-invita',
     },
   ],
 

@@ -1482,3 +1482,151 @@
   grid-column: auto;
   max-width: none;
 }
+
+/* ============================================ Conectar Telegram ========= */
+
+.tg-pasos { display: flex; gap: 6px; margin-bottom: 4px; }
+
+.tg-pasos span {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.2s ease;
+}
+
+.tg-pasos span.hecho { background: var(--accent-soft); }
+.tg-pasos span.ahora { background: var(--accent); }
+
+.tg-paso { display: flex; flex-direction: column; gap: 12px; }
+
+.tg-paso h3 {
+  margin: 0;
+  font-family: var(--fuente-titulo);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.tg-paso p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+
+.tg-lista {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* El comando para copiar. Va grande y en monoespaciada: se tiene que poder
+   leer para escribirlo a mano si no anda el portapapeles. */
+.tg-comando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 13px;
+  background: var(--accent-soft);
+}
+
+.tg-comando code {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.tg-abrir {
+  display: block;
+  text-align: center;
+  min-height: 46px;
+  line-height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+/* Mientras espera que le escribas al bot. */
+.tg-esperando {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.tg-punto {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--good);
+  animation: latir 1.4s ease-in-out infinite;
+}
+
+@keyframes latir {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-punto { animation: none; }
+}
+
+.tg-listo {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--good-soft);
+  color: var(--good);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+/* --- La invitacion del Resumen ----------------------------------------- */
+
+.tg-invita {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tg-invita-txt { flex: 1; min-width: 200px; }
+
+.tg-invita-titulo {
+  font-family: var(--fuente-titulo);
+  font-size: 15.5px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.tg-invita-botones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.tg-invita .primary { width: auto; padding: 0 22px; }
+
+@media (max-width: 560px) {
+  .tg-invita-botones { width: 100%; }
+  .tg-invita .primary { flex: 1; }
+}

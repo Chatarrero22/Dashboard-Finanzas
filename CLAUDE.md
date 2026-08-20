@@ -120,6 +120,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `Tarjetas.jsx` `Ahorro.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
 | `Inversiones.jsx` | Pantalla: la cartera a precio de mercado |
 | `Ayuda.jsx` | El tutorial paso a paso de cada sección |
+| `Telegram.jsx` | El asistente para conectar el bot, paso a paso |
 | `Arbol.jsx` | Dibuja el árbol en SVG |
 | `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
@@ -256,6 +257,33 @@ igual pero sin marcar nada.
 
 Las dos cosas se chequean solas recorriendo la app: los ids contra los de
 `App.jsx` y cada selector contra la pantalla de verdad.
+
+---
+
+## Conectar Telegram
+
+`Telegram.jsx` guía la conexión en tres pasos: para qué sirve, el comando
+`/vincular NNNNNN` listo para copiar con el link que abre el bot, y la
+confirmación.
+
+Lo que lo hace usable: **mientras esperás, pregunta cada 3 segundos a
+`/api/telegram/estado` si ya te vinculaste** y se cierra solo. Antes mandabas
+el código y te quedabas sin saber si había funcionado.
+
+- El `@usuario` del bot no se puede escribir a mano en el código: cada
+  instalación tiene el suyo. Se lo preguntamos a Telegram con `getMe()` al
+  arrancar (`telegram-bot.js`, `quienEsElBot()`). Si falla, el asistente sigue
+  andando: en vez del botón «Abrir Telegram» muestra cómo buscarlo a mano.
+- La invitación del Resumen aparece solo si hay bot configurado y **esta
+  persona** no lo conectó (`/me` devuelve `telegramVinculado`). Se puede sacar
+  y no vuelve; queda en Ajustes.
+
+**Para probar esto NO se levanta el bot de verdad.** Telegram admite un solo
+lector por token: el bot local le robaría los mensajes al de producción y un
+gasto podría terminar en la base equivocada. Se prueba con un token falso
+—alcanza para que la app crea que hay bot— y simulando al bot con
+`auth.vincularTelegram(codigo, chatId)`, que es exactamente lo que hace al
+recibir `/vincular`.
 
 ---
 

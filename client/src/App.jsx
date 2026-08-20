@@ -13,6 +13,7 @@ import AhorroScreen from './Ahorro.jsx'
 import InversionesScreen from './Inversiones.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import Guia, { hayGuia, yaLoVio, olvidarTutoriales } from './Ayuda.jsx'
+import ConectarTelegram, { InvitacionTelegram } from './Telegram.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import { icono, montoDesde, soloPlata } from './comunes.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
@@ -908,7 +909,7 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
   )
 }
 
-function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados }) {
+function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, onConectarTelegram }) {
   const { confirmar } = useDialogos()
   const [orden, setOrden] = useState(null)
   const [ordenando, setOrdenando] = useState(false)
@@ -995,7 +996,6 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
     }
   }
 
-  const [code, setCode] = useState(null)
   const [pass, setPass] = useState('')
   const [users, setUsers] = useState(null)
   const [nuevo, setNuevo] = useState({ username: '', display_name: '', password: '' })
@@ -1006,13 +1006,6 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   }, [config.isAdmin])
 
   useEffect(() => { cargarUsuarios() }, [cargarUsuarios])
-
-  async function pedirCodigo() {
-    try {
-      const r = await api('/telegram/code', { method: 'POST' })
-      setCode(r.code)
-    } catch (err) { onError(err.message) }
-  }
 
   async function cambiarPass(e) {
     e.preventDefault()
@@ -1115,15 +1108,28 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
 
       {config.telegram && (
         <section className="card">
-          <h2>Conectar Telegram</h2>
-          <p style={{ margin: '0 0 4px', color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-            Pedí un código y mandale al bot <strong>/vincular</strong> seguido del número.
-            Así sabe que los gastos son tuyos.
-          </p>
-          {code && <div className="code-box">{code}</div>}
-          <button className="primary" onClick={pedirCodigo}>
-            {code ? 'Pedir otro código' : 'Pedir código'}
-          </button>
+          <h2>Telegram</h2>
+          {config.telegramVinculado ? (
+            <>
+              <p className="hint">
+                Ya está conectado. Escribile «2500 café» al bot y queda anotado
+                acá, sin entrar a la app.
+              </p>
+              <button className="ghost" onClick={onConectarTelegram}>
+                Conectar otro Telegram
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="hint">
+                Anotá tus gastos mandando un mensaje. Te vamos guiando paso a
+                paso: son dos pasos y tarda menos de un minuto.
+              </p>
+              <button className="primary" onClick={onConectarTelegram}>
+                Conectar Telegram
+              </button>
+            </>
+          )}
         </section>
       )}
 
@@ -1359,6 +1365,7 @@ export default function App() {
   const [config, setConfig] = useState(null)
   const [tab, setTab] = useState('home')
   const [guiaAbierta, setGuiaAbierta] = useState(false)
+  const [tgAbierto, setTgAbierto] = useState(false)
   const [dashboard, setDashboard] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [subs, setSubs] = useState([])
@@ -1482,6 +1489,8 @@ export default function App() {
       ai: me.ai,
       prices: me.prices,
       telegram: me.telegram,
+      telegramVinculado: me.telegramVinculado,
+      telegramBot: me.telegramBot,
       version: me.version,
     })
   }, [])
@@ -1827,6 +1836,12 @@ export default function App() {
             ayuda={hayGuia(tab) ? () => setGuiaAbierta(true) : null}
           />
 
+          {/* Conectar Telegram es lo que mas cambia como se usa la app, y
+              estaba escondido en Ajustes. A quien no lo conecto todavia se lo
+              ofrecemos en el Resumen, que es lo primero que ve. */}
+          {tab === 'home' && config.telegram && !config.telegramVinculado && (
+            <InvitacionTelegram onConectar={() => setTgAbierto(true)} />
+          )}
           {tab === 'home' && (
             <ResumenScreen
               dashboard={dashboard}
@@ -1916,6 +1931,7 @@ export default function App() {
           {tab === 'ajustes' && (
             <AjustesScreen
               config={config}
+              onConectarTelegram={() => setTgAbierto(true)}
               onDatosCambiados={() => loadCore().catch(() => {})}
               onSaved={notify}
               onError={(m) => notify(m, 'error')}
@@ -1947,6 +1963,15 @@ export default function App() {
       </nav>
 
       {guiaAbierta && <Guia tab={tab} onCerrar={() => setGuiaAbierta(false)} />}
+
+      {tgAbierto && (
+        <ConectarTelegram
+          bot={config.telegramBot}
+          onCerrar={() => setTgAbierto(false)}
+          onListo={() => api('/me').then(aplicarSesion).catch(() => {})}
+          onError={(m) => notify(m, 'error')}
+        />
+      )}
 
       {nuevoAbierto && (
         <NuevoMovimiento

@@ -84,7 +84,8 @@ function crearSesion(userId) {
 function usuarioDeSesion(token) {
   if (!token) return null;
   var fila = db.prepare(
-    'SELECT s.token, s.expires_at, u.id, u.username, u.display_name, u.is_admin, u.simple_ui' +
+    'SELECT s.token, s.expires_at, u.id, u.username, u.display_name, u.is_admin, u.simple_ui,' +
+    ' u.telegram_chat_id' +
     ' FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
   ).get(token);
 
@@ -97,6 +98,10 @@ function usuarioDeSesion(token) {
   return {
     id: fila.id,
     username: fila.username,
+    // Si ya conectó Telegram. Sirve para no ofrecerle conectarlo a quien ya
+    // lo tiene, y para que el asistente de conexión se dé cuenta solo de
+    // cuándo terminó.
+    telegramVinculado: Boolean(fila.telegram_chat_id),
     displayName: fila.display_name,
     isAdmin: Boolean(fila.is_admin),
     simpleUi: Boolean(fila.simple_ui)

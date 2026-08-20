@@ -22,6 +22,7 @@ var dolares = require('./dolares.js');
 var version = require('./version.js');
 var cuentas = require('./cuentas.js');
 var mercado = require('./mercado-arg.js');
+var bot = require('./telegram-bot.js');
 
 var router = express.Router();
 
@@ -83,6 +84,9 @@ router.get('/me', auth.opcional, function (req, res) {
     ai: Boolean(process.env.ANTHROPIC_API_KEY),
     prices: Boolean(process.env.CMC_API_KEY),
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    // Si esta persona ya conectó su Telegram, y con qué bot tiene que hablar.
+    telegramVinculado: Boolean(req.user.telegramVinculado),
+    telegramBot: bot.quienEsElBot(),
     version: version.actual()
   });
 });
@@ -127,7 +131,24 @@ router.delete('/users/:id', auth.requerido, auth.soloAdmin, function (req, res) 
 
 /** Código para vincular Telegram con esta cuenta. */
 router.post('/telegram/code', auth.requerido, function (req, res) {
-  res.json({ code: auth.generarCodigoVinculo(req.user.id) });
+  res.json({
+    code: auth.generarCodigoVinculo(req.user.id),
+    bot: bot.quienEsElBot()
+  });
+});
+
+/**
+ * ¿Ya se vinculó?
+ *
+ * El asistente de conexión pregunta esto cada tanto mientras esperás. Así se
+ * da cuenta solo de que le mandaste el código al bot y te lo confirma, en vez
+ * de dejarte adivinando si funcionó.
+ */
+router.get('/telegram/estado', auth.requerido, function (req, res) {
+  res.json({
+    vinculado: Boolean(req.user.telegramVinculado),
+    bot: bot.quienEsElBot()
+  });
 });
 
 /* ===================== de acá para abajo, todo pide sesión ================ */

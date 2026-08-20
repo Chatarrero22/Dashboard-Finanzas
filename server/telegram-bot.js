@@ -404,10 +404,30 @@ var PEDIR_VINCULO =
   '   /vincular 123456\n\n' +
   'Y ya quedamos presentados.';
 
+/**
+ * El @usuario del bot, para poder armar el link que lo abre.
+ *
+ * No se puede poner a mano en el codigo: cada instalacion tiene su bot. Se lo
+ * preguntamos a Telegram al arrancar. Si falla, el asistente de conexion
+ * igual funciona, solo que en vez del boton "Abrir Telegram" muestra las
+ * instrucciones para buscarlo a mano.
+ */
+var usuarioDelBot = null;
+
+function quienEsElBot() {
+  return usuarioDelBot;
+}
+
 function start(config) {
   if (!config.botToken) return null;
 
   var bot = new TelegramBot(config.botToken, { polling: true });
+
+  bot.getMe().then(function (yo) {
+    usuarioDelBot = yo.username || null;
+  }, function (err) {
+    console.error('No pude preguntarle su nombre al bot:', err.message);
+  });
 
   /** Devuelve el usuario dueño de este chat, o avisa y devuelve null. */
   function quienEs(msg) {
@@ -837,6 +857,7 @@ function start(config) {
 
 module.exports = {
   start: start,
+  quienEsElBot: quienEsElBot,
   parseTextMessage: parseTextMessage,
   // Exportadas para poder probarlas sin levantar el bot
   aplicarCorreccion: aplicarCorreccion,
