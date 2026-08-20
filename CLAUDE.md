@@ -179,6 +179,19 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
+**«Toda tu plata» y «Ahorro del mes» son cosas distintas.** Un saldo y un
+flujo, y se confunden fácil porque los dos son un peso con signo:
+
+- **Toda tu plata** = `SUM(amount)` de **todos** los movimientos, de siempre,
+  sin filtrar categoría. Es cuánta plata tenés.
+- **Ahorro del mes** = ingresos menos gastos **de ese mes**, excluyendo
+  `Traspaso`. Es cómo te fue este mes.
+
+La diferencia entre los dos es exactamente lo que arrastrás de los meses
+anteriores (los traspasos no cuentan porque se anulan entre sí). Emanuel vio
+$1.157.159 y $1.097.792 y preguntó por qué; la pantalla ahora lo explica sola
+en vez de dejarte hacer la cuenta.
+
 **Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
 saldo en rojo se lee igual que uno a favor.
 
@@ -342,6 +355,13 @@ tarjeta por defecto) hay que ponerlo en los dos lados o Telegram queda afuera.
 **Ojo con tapar variables del módulo.** `var cat = ...` adentro de una función
 tapa al `var cat = require('./categorizer.js')` de arriba, y como `var` se
 eleva, la llamada explota con "Cannot read properties of undefined".
+
+**Dos listas de recarga que se van separando.** Había una lista de qué
+volver a pedir al cambiar de pestaña y otra al volver a la pestaña del
+navegador, parecidas pero distintas: la segunda se olvidaba de Gastos fijos,
+Inversiones y las cuotas, así que esas pantallas se quedaban con datos viejos
+y no había forma de darse cuenta. Ahora hay una sola, `refrescar()`, que usan
+el botón de actualizar y el regreso a la pestaña.
 
 **Los avisos se consumen al calcularlos.** Las funciones de `alertas.js` llaman
 a `esNuevo()`, que marca el aviso como enviado. Si una pantalla las usa, abrirla

@@ -25,7 +25,16 @@ function tipoDe(id) {
   return TIPOS.find((t) => t.id === id) || TIPOS[0]
 }
 
-export default function AhorroScreen({ cuentas, accion, onReload, onError, onSaved }) {
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
+function mesActual() {
+  return MESES[new Date().getMonth()]
+}
+
+export default function AhorroScreen({ cuentas, accion, ahorroDelMes, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [form, setForm] = useState(VACIA)
   const [editando, setEditando] = useState(null)
@@ -83,6 +92,24 @@ export default function AhorroScreen({ cuentas, accion, onReload, onError, onSav
           repartida en {lista.length} {lista.length === 1 ? 'cuenta' : 'cuentas'}
         </div>
       </div>
+
+      {/* «Toda tu plata» y «Ahorro del mes» son dos cosas distintas y es fácil
+          confundirlas: una es CUÁNTA PLATA TENÉS (la suma de todo lo que
+          anotaste, desde siempre) y la otra es CÓMO TE FUE ESTE MES (lo que
+          entró menos lo que salió, solo de este mes). La diferencia entre las
+          dos es lo que arrastrás de los meses anteriores. Lo decimos acá
+          porque si no hay que sentarse a hacer la cuenta para entenderlo. */}
+      {ahorroDelMes != null && Math.round(ahorroDelMes) !== Math.round(total) && (
+        <p className="hint">
+          Esto es <b>cuánta plata tenés</b>, sumando todo lo que anotaste desde
+          siempre. No es lo mismo que el <b>ahorro del mes</b>
+          {' '}(<span className="monto-sensible">{money(ahorroDelMes)}</span>),
+          que es solo lo que entró menos lo que salió en {mesActual()}.
+          {' '}La diferencia de <span className="monto-sensible">{money(Math.abs(total - ahorroDelMes))}</span>
+          {' '}es lo que {total - ahorroDelMes < 0 ? 'venías debiendo' : 'traías'} de los meses
+          anteriores.
+        </p>
+      )}
 
       <div className="kpis kpis-3">
         {TIPOS.map((t) => (

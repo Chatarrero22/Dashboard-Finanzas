@@ -1204,3 +1204,41 @@
     width: auto;
   }
 }
+
+/* ---------------------------------------------- Boton de refrescar ------ */
+
+.btn-refrescar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.refrescar-ico {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Gira mientras pide los datos. La animacion va en el icono y no en el
+   boton: si girara el boton entero, el texto giraria con el. */
+.btn-refrescar.girando .refrescar-ico {
+  animation: girar 0.9s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+.btn-refrescar:disabled { opacity: 0.75; cursor: default; }
+
+/* Si alguien puso "menos movimiento" en su sistema, no le hacemos girar
+   nada: el texto ya dice que esta actualizando. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-refrescar.girando .refrescar-ico { animation: none; }
+}
+
+/* En pantallas angostas la barra ya va apretada: queda solo la flechita. */
+@media (max-width: 620px) {
+  .refrescar-txt { display: none; }
+  .btn-refrescar { padding-left: 12px; padding-right: 12px; }
+}

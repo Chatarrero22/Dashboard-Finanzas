@@ -97,7 +97,7 @@ export function correrMes(ym, delta) {
 
 export function Topbar({
   moneda, onMoneda, mes, onMes, mesTope, dolar, dolarNombre,
-  tema, onTema, oculto, onOculto,
+  tema, onTema, oculto, onOculto, onRefrescar, refrescando,
 }) {
   return (
     <header className="topbar">
@@ -129,6 +129,23 @@ export function Topbar({
           <span className="punto-vivo" />
           Dólar {dolarNombre || 'MEP'} <strong className="monto-sensible">{money(dolar)}</strong>
         </div>
+      )}
+
+      {/* Los datos cambian por fuera del navegador: si le pedís algo al bot
+          por Telegram, esta pantalla no se entera hasta que vuelve a pedirlos.
+          Se refresca sola al volver a la pestaña, pero si estás mirando la
+          pantalla no pasa nada y no había forma de pedirlo a mano. */}
+      {onRefrescar && (
+        <button
+          className={`btn-topbar btn-refrescar ${refrescando ? 'girando' : ''}`}
+          onClick={onRefrescar}
+          disabled={refrescando}
+          title="Volver a pedir los datos"
+          aria-label="Refrescar"
+        >
+          <span className="refrescar-ico" aria-hidden="true">↻</span>
+          <span className="refrescar-txt">{refrescando ? 'Actualizando…' : 'Actualizar'}</span>
+        </button>
       )}
 
       <button className="btn-topbar" onClick={onTema}>

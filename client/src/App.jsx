@@ -1445,6 +1445,11 @@ export default function App() {
   const mesRef = useRef(mes)
   useEffect(() => { mesRef.current = mes }, [mes])
 
+  // La pestaña también, por lo mismo: refrescar() necesita saber dónde estás
+  // sin volver a crearse cada vez que cambiás de sección.
+  const tabRef = useRef(tab)
+  useEffect(() => { tabRef.current = tab }, [tab])
+
   // El mes elegido en la barra de arriba manda: el dashboard se pide por mes.
   const loadCore = useCallback(async () => {
     const [d, t, u] = await Promise.all([
@@ -1559,19 +1564,38 @@ export default function App() {
    *
    * Cada vez que la pestaña vuelve a estar visible volvemos a pedir los datos.
    */
+  /**
+   * Volver a pedir TODO lo que se ve ahora mismo.
+   *
+   * Una sola lista, usada por el botón de refrescar y por el regreso a la
+   * pestaña. Antes había dos listas parecidas pero distintas: la de volver a
+   * la pestaña se olvidaba de Gastos fijos, Inversiones y las cuotas, así que
+   * esas pantallas se quedaban con datos viejos y no había forma de saberlo.
+   */
+  const refrescar = useCallback(async () => {
+    const t = tabRef.current
+    const pendientes = [loadCore()]
+
+    if (t === 'metas' || t === 'presu') pendientes.push(loadMetas())
+    if (t === 'arbol') pendientes.push(api('/progreso').then(setProgreso))
+    if (t === 'alertas') pendientes.push(api('/alertas').then((r) => setAlertas(r.alertas)))
+    if (t === 'pnl') pendientes.push(api('/pnl').then(setPnl))
+    if (t === 'subs') pendientes.push(api('/subscriptions').then(setSubs))
+    if (t === 'invest') pendientes.push(api('/portfolio').then(setPortfolio))
+    if (t === 'ahorro') pendientes.push(api('/cuentas').then(setCuentas))
+    if (t === 'tarjetas' || t === 'movs') pendientes.push(api('/cards').then(setCards))
+    if (t === 'tarjetas') pendientes.push(api('/cuotas').then((r) => setProximasCuotas(r.meses)))
+
+    // Que falle uno no puede dejar al resto sin recargar.
+    await Promise.allSettled(pendientes)
+  }, [loadCore, loadMetas])
+
   useEffect(() => {
     if (!config) return
 
     function alVolver() {
       if (document.visibilityState !== 'visible') return
-      loadCore().catch(() => {})
-      // Lo que se carga por pantalla también puede haber cambiado.
-      if (tab === 'metas' || tab === 'presu') loadMetas().catch(() => {})
-      if (tab === 'arbol') api('/progreso').then(setProgreso).catch(() => {})
-      if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
-      if (tab === 'pnl') api('/pnl').then(setPnl).catch(() => {})
-      if (tab === 'tarjetas') api('/cards').then(setCards).catch(() => {})
-      if (tab === 'ahorro') api('/cuentas').then(setCuentas).catch(() => {})
+      refrescar()
     }
 
     document.addEventListener('visibilitychange', alVolver)
@@ -1580,7 +1604,20 @@ export default function App() {
       document.removeEventListener('visibilitychange', alVolver)
       window.removeEventListener('focus', alVolver)
     }
-  }, [config, tab, loadCore, loadMetas])
+  }, [config, refrescar])
+
+  // El botón de refrescar de la barra de arriba.
+  const [refrescando, setRefrescando] = useState(false)
+
+  const refrescarAMano = useCallback(async () => {
+    setRefrescando(true)
+    try {
+      await refrescar()
+    } finally {
+      // Un parpadeo de 80ms no se ve y parece que no hizo nada.
+      setTimeout(() => setRefrescando(false), 500)
+    }
+  }, [refrescar])
 
   const reloadSubs = useCallback(() => { api('/subscriptions').then(setSubs).catch(() => {}) }, [])
   const reloadPortfolio = useCallback(() => { api('/portfolio').then(setPortfolio).catch(() => {}) }, [])
@@ -1776,6 +1813,8 @@ export default function App() {
           dolarNombre={networth ? networth.dolarNombre : ''}
           tema={tema}
           onTema={() => setTema(tema === 'dark' ? 'light' : 'dark')}
+          onRefrescar={refrescarAMano}
+          refrescando={refrescando}
           oculto={oculto}
           onOculto={() => setOculto(!oculto)}
         />
@@ -1803,6 +1842,7 @@ export default function App() {
           {tab === 'ahorro' && (
             <AhorroScreen
               cuentas={cuentas}
+              ahorroDelMes={ahorro ? ahorro.monto : null}
               accion={accionDe('ahorro')}
               onReload={() => {
                 api('/cuentas').then(setCuentas).catch(() => {})
