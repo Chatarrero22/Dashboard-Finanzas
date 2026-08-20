@@ -547,7 +547,23 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
   // El boton "+ Nuevo gasto fijo" vive en el encabezado, que es de App.
   useEffect(() => { if (accion) setShowForm(true) }, [accion])
 
-  const total = subs.filter((s) => s.active).reduce((sum, s) => sum + s.amount, 0)
+  // Las suscripciones en dólares se guardan EN DÓLARES (ver db.js: US$15 no te
+  // sale lo mismo en marzo que en agosto). Al sumarlas hay que pasarlas a
+  // pesos: este total hacía `sum + s.amount` a secas, así que Netflix a
+  // US$10,11 sumaba diez pesos con once en vez de quince mil, y el total de
+  // gastos fijos quedaba bajísimo. La fila de al lado ya convertía bien, que
+  // es lo que hacía el error difícil de ver.
+  const activas = subs.filter((s) => s.active)
+  const enDolares = activas.filter((s) => s.moneda === 'usd')
+
+  const total = activas.reduce((sum, s) => {
+    if (s.moneda !== 'usd') return sum + s.amount
+    // Sin cotización no se puede convertir, y preferimos que falte antes que
+    // sumar un número inventado. Se avisa abajo del total.
+    return dolar > 0 ? sum + Math.abs(s.amount) * dolar : sum
+  }, 0)
+
+  const faltaCotizacion = dolar <= 0 && enDolares.length > 0
 
   async function add(e) {
     e.preventDefault()
@@ -589,6 +605,14 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
   return (
     <>
       <Hero label="Suscripciones por mes" value={total} />
+
+      {faltaCotizacion && (
+        <p className="hint">
+          No tengo la cotización del dólar ahora, así que{' '}
+          {enDolares.length === 1 ? 'la suscripción que cobrás' : `las ${enDolares.length} suscripciones que cobrás`}
+          {' '}en dólares no está{enDolares.length === 1 ? '' : 'n'} sumando al total.
+        </p>
+      )}
 
       {showForm && (
         <Modal

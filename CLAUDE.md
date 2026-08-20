@@ -494,6 +494,16 @@ hijo.
 se veía como un disco lleno porque el centro tenía `opacity: 0` durante el
 retardo. Lo que tapa algo no puede desvanecerse.
 
+**Un monto en dólares no se suma sin convertir.** El total de «Suscripciones
+por mes» hacía `sum + s.amount` a secas, y como las suscripciones en dólares
+se guardan EN DÓLARES, Netflix a US$10,11 sumaba **diez pesos con once**. El
+total daba $59.212 cuando eran $74.678.
+
+Lo difícil de ver: **la fila de al lado ya convertía bien** («≈ $15.476»), así
+que la pantalla se contradecía a sí misma sin que saltara a la vista. El
+server lo hacía bien; era solo el frontend. Al sumar montos, fijate siempre si
+la lista puede tener más de una moneda.
+
 **Los íconos por categoría tienen que coincidir exactamente.** `ICONOS` en
 `comunes.jsx` y `EMOJIS` en `telegram-bot.js` se indexan por el nombre de
 `CATEGORIES`. Escribir "Educación" con tilde cuando la categoría es "Educacion"
