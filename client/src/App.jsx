@@ -12,6 +12,7 @@ import TarjetasScreen from './Tarjetas.jsx'
 import AhorroScreen from './Ahorro.jsx'
 import InversionesScreen from './Inversiones.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
+import Guia, { hayGuia, yaLoVio, olvidarTutoriales } from './Ayuda.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import { icono, montoDesde, soloPlata } from './comunes.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
@@ -1091,19 +1092,26 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
   }
 
   return (
-    <>
-      <section className="card">
-        <h2>Tu cuenta</h2>
-        <div className="item">
-          <div className="item-main">
-            <div className="item-desc">{config.displayName}</div>
-            <div className="item-meta"><span>{config.username}</span>{config.isAdmin && <span className="tag">admin</span>}</div>
+    <div className="ajustes">
+      {/* Ajustes era una pila de nueve tarjetas todas iguales: no se sabia
+          que era importante ni donde estaba nada. Ahora van en grupos con
+          titulo, y en la compu de a dos columnas. */}
+      <section className="card ajustes-cuenta">
+        <div className="cuenta-cabeza">
+          <span className="cuenta-avatar">{(config.displayName || '?').slice(0, 1)}</span>
+          <div className="cuenta-quien">
+            <div className="cuenta-nombre-grande">{config.displayName}</div>
+            <div className="item-meta">
+              <span>@{config.username}</span>
+              {config.isAdmin && <span className="tag">admin</span>}
+            </div>
           </div>
+          <button className="ghost" onClick={onLogout}>Salir</button>
         </div>
-        <button className="ghost" style={{ width: '100%', marginTop: 12 }} onClick={onLogout}>
-          Salir
-        </button>
       </section>
+
+      <h3 className="ajustes-grupo">Conectar y respaldar</h3>
+      <div className="ajustes-cols">
 
       {config.telegram && (
         <section className="card">
@@ -1125,9 +1133,7 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
           Bajate todo en un archivo. Sirve de copia de seguridad y para pasar tus
           datos a otra instalación (por ejemplo, de la PC al servidor).
         </p>
-        <button className="ghost" style={{ width: '100%' }} onClick={descargar}>
-          ⬇ Descargar mis datos
-        </button>
+        <button className="ghost" onClick={descargar}>⬇ Descargar mis datos</button>
 
         <div className="divider" style={{ margin: '16px 0' }} />
 
@@ -1139,6 +1145,10 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
           No duplica nada: si un movimiento ya está cargado, lo saltea.
         </p>
       </section>
+      </div>
+
+      <h3 className="ajustes-grupo">Que los números cierren</h3>
+      <div className="ajustes-cols">
 
       {reglas && reglas.length > 0 && (
         <section className="card">
@@ -1233,6 +1243,24 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
         )}
       </section>
 
+      </div>
+
+      <h3 className="ajustes-grupo">La app y quién la usa</h3>
+      <div className="ajustes-cols">
+
+      <section className="card">
+        <h2>Cómo se usa la app</h2>
+        <p className="hint">
+          Cada sección tiene un tutorial que te la marca paso a paso. Aparece
+          solo la primera vez y después queda en el botón <b>?</b> al lado del
+          título. Si querés volver a verlos todos desde cero, tocá acá.
+        </p>
+        <button
+          className="ghost"
+          onClick={() => { olvidarTutoriales(); onSaved('Listo: los tutoriales vuelven a aparecer') }}
+        >Ver los tutoriales de nuevo</button>
+      </section>
+
       <section className="card">
         <h2>Versión</h2>
         <p className="hint">
@@ -1320,7 +1348,8 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
           </form>
         </>
       )}
-    </>
+      </div>
+    </div>
   )
 }
 
@@ -1329,6 +1358,7 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados })
 export default function App() {
   const [config, setConfig] = useState(null)
   const [tab, setTab] = useState('home')
+  const [guiaAbierta, setGuiaAbierta] = useState(false)
   const [dashboard, setDashboard] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [subs, setSubs] = useState([])
@@ -1368,8 +1398,23 @@ export default function App() {
    */
   const irA = (destino) => {
     setAccion(null)
+    // Cerrar la guía al cambiar de sección: los pasos apuntan a cosas de la
+    // pantalla que estabas mirando y en la nueva no existen.
+    setGuiaAbierta(false)
     setTab(destino)
   }
+
+  // La primera vez que entrás a una sección, el tutorial se abre solo. Después
+  // queda en el botón «?» de arriba. Si lo salteaste, no vuelve.
+  useEffect(() => {
+    if (!config) return
+    if (hayGuia(tab) && !yaLoVio(tab)) {
+      // Esperamos a que la pantalla dibuje: los pasos apuntan a elementos que
+      // todavía no existen cuando cambia la pestaña.
+      const t = setTimeout(() => setGuiaAbierta(true), 700)
+      return () => clearTimeout(t)
+    }
+  }, [tab, config])
 
   // Controles de la barra de arriba, como en el diseño.
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
@@ -1736,7 +1781,12 @@ export default function App() {
         />
 
         <main className="contenido" key={tab}>
-          <PaginaHead titulo={meta[0]} bajada={meta[1]} acciones={meta[2]} />
+          <PaginaHead
+            titulo={meta[0]}
+            bajada={meta[1]}
+            acciones={meta[2]}
+            ayuda={hayGuia(tab) ? () => setGuiaAbierta(true) : null}
+          />
 
           {tab === 'home' && (
             <ResumenScreen
@@ -1855,6 +1905,8 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {guiaAbierta && <Guia tab={tab} onCerrar={() => setGuiaAbierta(false)} />}
 
       {nuevoAbierto && (
         <NuevoMovimiento

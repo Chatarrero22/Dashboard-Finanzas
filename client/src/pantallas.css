@@ -1147,3 +1147,338 @@
 
 .item-pnl.positive { color: var(--good); }
 .item-pnl.negative { color: var(--critical); }
+
+/* --- Una tenencia, con todos sus numeros (estilo CoinMarketCap) --------- */
+
+/* Cinco columnas en la compu; en el celular se apila (mas abajo). */
+.activo {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.1fr 1.1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activo:last-child { border-bottom: none; }
+
+/* Los hijos de una grilla arrancan en min-width auto: sin esto un monto
+   largo ensancha la columna y aparece scroll horizontal. */
+.activo > * { min-width: 0; }
+
+.activo-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activo-sim { font-weight: 600; }
+
+.activo-cant {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.activo-dato,
+.activo-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activo-total { text-align: right; }
+
+.activo-rotulo {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.activo-valor {
+  font-family: var(--fuente-titulo);
+  font-variant-numeric: tabular-nums;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activo-valor.fuerte { font-size: 15px; font-weight: 600; }
+.activo-valor.positive { color: var(--good); }
+.activo-valor.negative { color: var(--critical); }
+.activo-valor.apagado { color: var(--text-muted); }
+
+/* Cuando falta el precio de compra, el hueco es un boton: es la accion que
+   queremos que hagas, no un dato que falta. */
+.activo-falta {
+  align-self: flex-start;
+  border: 1px dashed var(--accent);
+  border-radius: 999px;
+  background: none;
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 10px;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.activo-falta:hover { background: var(--accent-soft); }
+
+.activo-acciones { display: flex; align-items: center; gap: 6px; }
+
+/* --- Como esta repartida la cartera ------------------------------------ */
+
+.reparto { display: flex; flex-direction: column; gap: 10px; }
+
+.reparto-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(60px, 2fr) auto minmax(0, auto);
+  align-items: center;
+  gap: 10px;
+}
+
+.reparto-fila > * { min-width: 0; }
+
+.reparto-nombre {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reparto-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.reparto-barra span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.reparto-pct {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.reparto-monto {
+  font-family: var(--fuente-titulo);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* --- La cuentita del modal de editar ----------------------------------- */
+
+.cuenta-previa {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-1);
+}
+
+.cuenta-previa > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* ======================================================== Ajustes ======= */
+
+/* Antes era una pila de nueve tarjetas del mismo tamaño, una abajo de la
+   otra, con los botones estirados a lo ancho de toda la pantalla. No habia
+   forma de saber que era importante ni de encontrar nada. */
+
+.ajustes { display: flex; flex-direction: column; gap: 6px; }
+
+.ajustes-grupo {
+  margin: 18px 0 2px;
+  font-family: var(--fuente-titulo);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* De a dos en la compu; una sola en el celular. `align-items: start` para que
+   una tarjeta corta no se estire hasta el alto de la de al lado. */
+.ajustes-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .ajustes-cols { grid-template-columns: 1fr 1fr; }
+}
+
+.ajustes-cols > * { min-width: 0; margin: 0; }
+
+/* Quien sos, arriba de todo y de un vistazo. */
+.cuenta-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cuenta-cabeza > .ghost { flex: none; }
+
+.cuenta-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-family: var(--fuente-titulo);
+  font-size: 19px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.cuenta-quien { flex: 1; min-width: 0; }
+
+.cuenta-nombre-grande {
+  font-family: var(--fuente-titulo);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+/* Un boton de 1400px de ancho no se lee como un boton. */
+.ajustes .card .ghost,
+.ajustes .card .primary {
+  width: auto;
+  min-width: 180px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+@media (max-width: 560px) {
+  .ajustes .card .ghost,
+  .ajustes .card .primary { width: 100%; }
+}
+
+/* El selector de archivo del sistema no se parece en nada al resto. */
+.ajustes input[type='file'] {
+  font-size: 13px;
+  padding: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 13px;
+  background: var(--surface-1);
+  width: 100%;
+}
+
+.ajustes input[type='file']::file-selector-button {
+  margin-right: 10px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+/* --- Inversiones en el celular ----------------------------------------- */
+
+/* Seis columnas no entran en 390px. La fila se convierte en una tarjetita:
+   el ticker arriba, los numeros en dos columnas abajo y lo que vale
+   destacado. Cada dato lleva su rotulo, asi que se entiende sin encabezado. */
+@media (max-width: 760px) {
+  .activo {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    padding: 14px 0;
+  }
+
+  /* Fila 1: el ticker a la izquierda, Editar y borrar a la derecha.
+     Se coloca con la grilla, no con position: absolute. Absoluto sin `top`
+     usa la posicion estatica del elemento, que aca cae sobre la fila de
+     abajo: los botones terminaban tapando el precio de compra. */
+  .activo-nombre { grid-column: 1; grid-row: 1; justify-content: flex-start; }
+
+  .activo-acciones {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    align-self: start;
+  }
+
+  /* La cantidad no puede empujar el ancho de la columna del ticker. */
+  .activo-cant { width: auto; flex-basis: 100%; }
+
+  .activo-total {
+    text-align: left;
+    grid-column: 1 / -1;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+
+/* Los tres numeros de la ganancia: apilados ocupan media pantalla antes de
+   que veas una sola tenencia. De a dos entran bien y se llega antes. */
+@media (max-width: 760px) {
+  .kpis-3 { grid-template-columns: 1fr 1fr; }
+  .kpis-3 .kpi:last-child { grid-column: 1 / -1; }
+  .kpis-3 .kpi-valor { font-size: 1.35rem; }
+}
+
+/* El reparto: la barra sola no dice nada en poco ancho, asi que el nombre y
+   el monto van arriba y la barra ocupa todo el renglon de abajo. */
+@media (max-width: 620px) {
+  .reparto-fila {
+    grid-template-columns: 1fr auto auto;
+    gap: 4px 8px;
+  }
+
+  .reparto-barra { grid-column: 1 / -1; grid-row: 2; }
+  .reparto-nombre { grid-row: 1; }
+  .reparto-pct { grid-row: 1; }
+  .reparto-monto { grid-row: 1; }
+}
+
+/* La cuentita del modal: tres columnas de numeros en 320px quedan ilegibles. */
+@media (max-width: 420px) {
+  .cuenta-previa { grid-template-columns: 1fr; gap: 8px; }
+
+  .cuenta-previa > div {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+}
+
+/* Un formulario dentro de Ajustes es una tarjeta mas, no una fila entera.
+   La regla global `form.card { grid-column: 1 / -1 }` de index.css lo hacia
+   ocupar las dos columnas, y como ademas tiene max-width se veia angosto: la
+   columna de al lado quedaba vacia y parecia que la grilla no funcionaba.
+   Costo un rato entenderlo porque a simple vista el ancho era el correcto. */
+.ajustes-cols form.card {
+  grid-column: auto;
+  max-width: none;
+}

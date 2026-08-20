@@ -673,6 +673,14 @@ async function valuarCartera(userId) {
   var valorConCosto = 0;
   var porTipo = {};
   var sinPrecio = [];
+  // Los que cotizan pero no sabemos a cuánto los compraste: no se puede decir
+  // si ganás o perdés con ellos, y hay que poder decirlo en la pantalla.
+  var sinCosto = [];
+  // Cuánta plata se movió hoy la cartera. Es la suma de lo que se movió cada
+  // activo, no un promedio de porcentajes: un 5% sobre mil pesos no pesa lo
+  // mismo que un 5% sobre un millón.
+  var cambio24h = 0;
+  var valorConCambio = 0;
 
   var lista = activos.map(function (a) {
     var simbolo = String(a.symbol).toUpperCase();
@@ -710,6 +718,16 @@ async function valuarCartera(userId) {
       // pura y el porcentaje daría cualquier cosa (110% cuando en realidad no
       // sabemos a cuánto lo compraste).
       if (cost) { valorConCosto += value; totalCost += cost; }
+      else sinCosto.push(simbolo);
+
+      // El precio de hoy ya incluye la suba: para saber cuánto subió en plata
+      // hay que sacar el valor de ayer, que es value / (1 + pct/100).
+      var pct = quote && quote.change24h != null ? Number(quote.change24h) : null;
+      if (pct != null && pct > -100) {
+        var ayer = value / (1 + pct / 100);
+        cambio24h += value - ayer;
+        valorConCambio += value;
+      }
     }
 
     return {
@@ -730,7 +748,10 @@ async function valuarCartera(userId) {
       // En pesos, que es como se muestra en toda la app.
       value: value,
       cost: cost,
-      pnl: value != null && cost != null ? value - cost : null,
+      // Sin precio de compra NO hay ganancia que mostrar. Ojo con `cost != null`:
+      // un activo sin costo cargado tiene costo 0, no nulo, y con esa condición
+      // toda su tenencia aparecía como ganancia pura.
+      pnl: value != null && cost ? value - cost : null,
       pnl_pct: value != null && cost ? ((value - cost) / cost) * 100 : null
     };
   });
@@ -742,6 +763,12 @@ async function valuarCartera(userId) {
     totalCost: totalCost,
     totalPnl: valorConCosto - totalCost,
     totalPnlPct: totalCost ? ((valorConCosto - totalCost) / totalCost) * 100 : 0,
+    // Cuánto de la cartera tiene precio de compra: sin esto, el porcentaje de
+    // ganancia parece hablar de todo cuando habla de una parte.
+    valorConCosto: valorConCosto,
+    sinCosto: sinCosto,
+    cambio24h: cambio24h,
+    cambio24hPct: valorConCambio ? (cambio24h / (valorConCambio - cambio24h)) * 100 : 0,
     dolar: mep,
     // Qué no pudimos cotizar, para poder decirlo en vez de mostrar un cero.
     sinPrecio: sinPrecio,

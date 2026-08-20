@@ -119,6 +119,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `Resumen.jsx` `Patrimonio.jsx` `Alertas.jsx` `Gastos.jsx` | Pantallas |
 | `Tarjetas.jsx` `Ahorro.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
 | `Inversiones.jsx` | Pantalla: la cartera a precio de mercado |
+| `Ayuda.jsx` | El tutorial paso a paso de cada sección |
 | `Arbol.jsx` | Dibuja el árbol en SVG |
 | `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
@@ -212,6 +213,36 @@ DesignSync). Los tokens de los dos temas están copiados tal cual en `index.css`
 
 Los formularios de alta abren en **pop-up**, nunca desplegados abajo de la
 pantalla. Emanuel lo pidió explícitamente más de una vez.
+
+---
+
+## El tutorial
+
+`Ayuda.jsx` tiene los pasos de cada sección. Un paso es `{ titulo, texto,
+apunta }`, donde `apunta` es un **selector CSS de algo que existe de verdad en
+la pantalla**: se le hace un agujero a la penumbra ahí encima y el cartel se
+acomoda al lado.
+
+- Se abre solo la primera vez que entrás a cada sección, y después queda en el
+  botón `?` al lado del título.
+- **Saltear cuenta como visto.** Si lo cerraste es porque no lo querés.
+- Si el selector no encuentra nada, el paso **igual se muestra**, centrado y
+  sin agujero. Una sección vacía todavía no tiene lista que marcar, y perder la
+  explicación es peor que perder el resalte.
+- Lo visto se guarda en `localStorage`, no en la base: es de este navegador. Se
+  borra todo desde Ajustes → «Ver los tutoriales de nuevo».
+- Al agregar una sección nueva, agregale la entrada en `GUIAS`. Si no está, el
+  botón `?` no aparece y nadie se entera de que falta.
+
+**Las claves de `GUIAS` son ids de sección, no los nombres que se ven.** Los
+ids reales son `movs`, `subs`, `presu` — no `movimientos`, `fijos` ni
+`presupuestos`. Escribirlos mal **no rompe nada**, y por eso es peligroso: la
+guía simplemente no existe, el botón `?` no aparece y nadie se entera. Lo mismo
+con los selectores de `apunta`: si no coinciden con nada, el paso se muestra
+igual pero sin marcar nada.
+
+Las dos cosas se chequean solas recorriendo la app: los ids contra los de
+`App.jsx` y cada selector contra la pantalla de verdad.
 
 ---
 
@@ -353,6 +384,15 @@ convertiría dos veces.
 **La ganancia se mide solo sobre lo que tiene precio de compra.** Si un activo
 sin costo cargado suma su valor al P&L, aparece como ganancia pura: la cartera
 decía +110% cuando en realidad no sabíamos a cuánto se había comprado.
+
+Ojo con la condición: un activo sin costo cargado tiene costo **0, no nulo**.
+Con `cost != null` la fila mostraba toda la tenencia como ganancia. Va `cost`
+a secas, en los dos lados: el total y cada activo.
+
+**Se tiene que poder editar lo que se carga.** El precio de compra solo se
+pedía al dar de alta el activo; si te lo salteabas, la ganancia quedaba en «—»
+para siempre y no había forma de arreglarlo. La API ya tenía el PATCH: lo que
+faltaba era la pantalla.
 
 **El orden de las reglas de categorización manda.** Gana la primera que
 coincide, y se busca como subcadena: `dia` pega dentro de `dias`. Por eso

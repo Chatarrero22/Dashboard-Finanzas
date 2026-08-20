@@ -48,14 +48,20 @@ function unidades(cantidad, unidad) {
   return `${txt} ${unidad}`
 }
 
+// Colores de las barras del reparto. Salen de los tokens de los dos temas.
+const COLORES = [
+  'var(--accent)', 'var(--good)', 'var(--blue)',
+  'var(--yellow)', 'var(--hoja)', 'var(--critical)',
+]
+
 /**
  * Cuanto pesa un tipo en la cartera. Redondear a cero hace que una tenencia
- * chica parezca que no vale nada, asi que abajo del 1% lo decimos con letras.
+ * chica parezca que no vale nada, asi que abajo del 1% lo decimos aparte.
  */
 function pctCartera(monto, total) {
   const pct = (monto / (total || 1)) * 100
-  if (pct > 0 && pct < 1) return 'menos del 1% de la cartera'
-  return `${Math.round(pct)}% de la cartera`
+  if (pct > 0 && pct < 1) return '<1%'
+  return `${Math.round(pct)}%`
 }
 
 /**
@@ -97,6 +103,7 @@ function Variacion({ pct }) {
 export default function InversionesScreen({ portfolio, accion, onError, onReload }) {
   const { confirmar } = useDialogos()
   const [abierto, setAbierto] = useState(false)
+  const [editando, setEditando] = useState(null)
 
   useEffect(() => { if (accion) setAbierto(true) }, [accion])
 
@@ -109,7 +116,10 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
 
   if (!portfolio) return <div className="spinner" />
 
-  const { assets, totalValue, totalPnl, totalPnlPct, porTipo, sinPrecio, minutos } = portfolio
+  const {
+    assets, totalValue, totalCost, totalPnl, totalPnlPct, valorConCosto,
+    porTipo, sinPrecio, sinCosto, cambio24h, cambio24hPct, minutos,
+  } = portfolio
 
   async function borrar(a) {
     const ok = await confirmar({
@@ -139,22 +149,75 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
         <div className="label">Tu cartera</div>
         <Numero className="value monto-sensible" valor={totalValue} />
         <div className="caption">
-          {totalPnl
-            ? `${totalPnl >= 0 ? '▲' : '▼'} ${money(Math.abs(totalPnl))} (${totalPnlPct.toFixed(1)}%) desde que compraste`
-            : 'Cargá el precio de compra para ver la ganancia'}
+          {cambio24h
+            ? <>hoy {money(cambio24h, { sign: true })} <Variacion pct={cambio24hPct} /></>
+            : 'Sin movimiento hoy'}
         </div>
       </div>
 
-      {conPlata.length > 1 && (
-        <div className="kpis kpis-3">
-          {conPlata.map((t) => (
-            <div className="kpi" key={t.id}>
-              <div className="kpi-label">{t.icono} {t.nombre}</div>
-              <Numero className="kpi-valor monto-sensible" valor={porTipo[t.id]} />
-              <span className="kpi-sub">{pctCartera(porTipo[t.id], totalValue)}</span>
-            </div>
-          ))}
+      {/* Lo que pediste ver: la ganancia de verdad. Cuánto pusiste, cuánto
+          vale hoy y la diferencia — igual que en CoinMarketCap. */}
+      <div className="kpis kpis-3">
+        <div className="kpi">
+          <div className="kpi-label">Lo que pusiste</div>
+          <Numero className="kpi-valor monto-sensible" valor={totalCost} />
+          <span className="kpi-sub">
+            {sinCosto && sinCosto.length
+              ? `sin contar ${sinCosto.length} sin precio de compra`
+              : 'precio de compra de toda la cartera'}
+          </span>
         </div>
+        <div className="kpi">
+          <div className="kpi-label">Lo que vale hoy</div>
+          <Numero className="kpi-valor monto-sensible" valor={valorConCosto} />
+          <span className="kpi-sub">a precio de mercado</span>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Ganancia</div>
+          <Numero
+            className={`kpi-valor monto-sensible ${totalCost ? (totalPnl >= 0 ? 'positivo' : 'negativo') : ''}`}
+            valor={totalPnl}
+            opciones={{ sign: true }}
+          />
+          <span className="kpi-sub">
+            {totalCost
+              ? `${totalPnl >= 0 ? '▲' : '▼'} ${Math.abs(totalPnlPct).toFixed(2)}% desde que compraste`
+              : 'cargá el precio de compra para verla'}
+          </span>
+        </div>
+      </div>
+
+      {/* El aviso importante: si falta el precio de compra de algo, la
+          ganancia de arriba habla de una parte de la cartera, no de toda. */}
+      {sinCosto && sinCosto.length > 0 && totalCost > 0 && (
+        <p className="hint">
+          La ganancia es sobre {money(valorConCosto)} de los {money(totalValue)} que
+          tenés: de {sinCosto.join(', ')} no sé a cuánto {sinCosto.length === 1 ? 'lo compraste' : 'los compraste'}.
+          Tocá <b>Editar</b> y ponele el precio de compra para que entre en la cuenta.
+        </p>
+      )}
+
+      {conPlata.length > 1 && (
+        <section className="card">
+          <div className="card-rotulo">CÓMO ESTÁ REPARTIDA</div>
+          <div className="reparto">
+            {conPlata.map((t, i) => (
+              <div className="reparto-fila" key={t.id}>
+                <span className="reparto-nombre">{t.icono} {t.nombre}</span>
+                <div className="reparto-barra">
+                  <span
+                    style={{
+                      width: `${Math.max((porTipo[t.id] / (totalValue || 1)) * 100, 1.5)}%`,
+                      background: COLORES[i % COLORES.length],
+                    }}
+                  />
+                </div>
+                <span className="reparto-pct">{pctCartera(porTipo[t.id], totalValue)}</span>
+                <span className="reparto-monto monto-sensible">{money(porTipo[t.id])}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {grupos.length === 0 ? (
@@ -169,31 +232,59 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
             </div>
             <div className="list">
               {g.items.map((a) => (
-                <div className="item" key={a.id}>
-                  <div className="item-main">
-                    <div className="item-desc">
-                      {a.symbol}
-                      {a.currency === 'USD' && a.asset_type !== 'crypto' && (
-                        <span className="tag" style={{ marginLeft: 8 }}>en US$</span>
-                      )}
-                    </div>
-                    <div className="item-meta">
-                      <span>{unidades(a.quantity, a.unidad)}</span>
-                      <span>a {precio(a.price, a.currency)}</span>
-                      <Variacion pct={a.change24h} />
-                    </div>
+                <div className="activo" key={a.id}>
+                  <div className="activo-nombre">
+                    <span className="activo-sim">{a.symbol}</span>
+                    {a.currency === 'USD' && a.asset_type !== 'crypto' && (
+                      <span className="tag">en US$</span>
+                    )}
+                    <span className="activo-cant">{unidades(a.quantity, a.unidad)}</span>
                   </div>
-                  <div className="item-lado">
-                    <div className="item-amount monto-sensible">
-                      {a.value != null ? money(a.value) : 'sin precio'}
-                    </div>
-                    {a.pnl != null && a.pnl_pct != null && (
-                      <div className={`item-pnl ${a.pnl >= 0 ? 'positive' : 'negative'}`}>
-                        {a.pnl >= 0 ? '+' : '−'}{a.pnl_pct.toFixed(1)}%
-                      </div>
+
+                  <div className="activo-dato">
+                    <span className="activo-rotulo">Precio</span>
+                    <span className="activo-valor">{precio(a.price, a.currency)}</span>
+                    <Variacion pct={a.change24h} />
+                  </div>
+
+                  <div className="activo-dato">
+                    <span className="activo-rotulo">Compra</span>
+                    {a.avg_price ? (
+                      <span className="activo-valor">{precio(a.avg_price, a.currency)}</span>
+                    ) : (
+                      <button className="activo-falta" onClick={() => setEditando(a)}>
+                        ponelo
+                      </button>
                     )}
                   </div>
-                  <button className="danger" aria-label={`Sacar ${a.symbol}`} onClick={() => borrar(a)}>✕</button>
+
+                  <div className="activo-dato">
+                    <span className="activo-rotulo">Ganancia</span>
+                    {a.pnl != null && a.pnl_pct != null ? (
+                      <>
+                        <span className={`activo-valor ${a.pnl >= 0 ? 'positive' : 'negative'}`}>
+                          {money(a.pnl, { sign: true })}
+                        </span>
+                        <span className={`var-chip ${a.pnl >= 0 ? 'sube' : 'baja'}`}>
+                          {a.pnl >= 0 ? '▲' : '▼'} {Math.abs(a.pnl_pct).toFixed(2)}%
+                        </span>
+                      </>
+                    ) : (
+                      <span className="activo-valor apagado">—</span>
+                    )}
+                  </div>
+
+                  <div className="activo-total">
+                    <span className="activo-rotulo">Vale</span>
+                    <span className="activo-valor fuerte monto-sensible">
+                      {a.value != null ? money(a.value) : 'sin precio'}
+                    </span>
+                  </div>
+
+                  <div className="activo-acciones">
+                    <button className="chip" onClick={() => setEditando(a)}>Editar</button>
+                    <button className="danger" aria-label={`Sacar ${a.symbol}`} onClick={() => borrar(a)}>✕</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -222,7 +313,135 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
           onError={onError}
         />
       )}
+
+      {editando && (
+        <EditarActivo
+          activo={editando}
+          onCerrar={() => setEditando(null)}
+          onHecho={() => { setEditando(null); onReload() }}
+          onError={onError}
+        />
+      )}
     </>
+  )
+}
+
+/* ---------------------------------------------------- editar una tenencia */
+
+/**
+ * Corregir la cantidad y, sobre todo, poner el precio de compra.
+ *
+ * Faltaba: el precio de compra solo se podia cargar al dar de alta el activo,
+ * asi que si te lo salteabas no habia forma de arreglarlo despues y la
+ * ganancia quedaba en "—" para siempre.
+ */
+function EditarActivo({ activo, onCerrar, onHecho, onError }) {
+  const [cantidad, setCantidad] = useState(String(activo.quantity || ''))
+  const [compra, setCompra] = useState(activo.avg_price ? String(activo.avg_price) : '')
+  const [moneda, setMoneda] = useState(activo.currency || 'ARS')
+
+  const esCripto = activo.asset_type === 'crypto'
+  const cant = montoDesde(cantidad)
+  const precioCompra = montoDesde(compra)
+
+  // Lo que va a mostrar la pantalla cuando guardes, calculado acá para que lo
+  // veas antes de guardar y no despues.
+  const valorHoy = activo.price != null ? (cant * activo.price) / (activo.lamina || 1) : null
+  const costo = (cant * precioCompra) / (activo.lamina || 1)
+  const gananciaPct = valorHoy != null && costo ? ((valorHoy - costo) / costo) * 100 : null
+
+  async function guardar(e) {
+    e.preventDefault()
+    if (!cant) return onError(`Poné cuántos ${activo.unidad} tenés`)
+    try {
+      await api(`/portfolio/${activo.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ quantity: cant, avg_price: precioCompra, currency: moneda }),
+      })
+      onHecho()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
+  return (
+    <Modal
+      titulo={activo.symbol}
+      detalle="Corregí la cantidad o ponele el precio de compra para ver cuánto ganaste."
+      onCerrar={onCerrar}
+    >
+      <form onSubmit={guardar}>
+        <div className="row-2">
+          <label className="field">
+            <span className="field-label">¿Cuántos {activo.unidad}?</span>
+            <input
+              inputMode="decimal"
+              placeholder="0"
+              value={cantidad}
+              onChange={(e) => setCantidad(soloPlata(e.target.value))}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">¿A cuánto {activo.unidad === 'nominales' ? 'cada 100' : 'cada uno'}?</span>
+            <input
+              inputMode="decimal"
+              placeholder="0"
+              value={compra}
+              onChange={(e) => setCompra(soloPlata(e.target.value))}
+            />
+          </label>
+        </div>
+
+        {!esCripto && (
+          <div className="field">
+            <span className="field-label">Moneda</span>
+            <div className="segmentado">
+              <button
+                type="button"
+                className={moneda === 'ARS' ? 'elegido' : ''}
+                onClick={() => setMoneda('ARS')}
+              >Pesos</button>
+              <button
+                type="button"
+                className={moneda === 'USD' ? 'elegido' : ''}
+                onClick={() => setMoneda('USD')}
+              >Dólares</button>
+            </div>
+          </div>
+        )}
+
+        <div className="cuenta-previa">
+          <div>
+            <span className="activo-rotulo">Hoy vale</span>
+            <span className="activo-valor fuerte">
+              {valorHoy != null ? precio(valorHoy, moneda) : 'sin precio'}
+            </span>
+          </div>
+          <div>
+            <span className="activo-rotulo">Pusiste</span>
+            <span className="activo-valor">{costo ? precio(costo, moneda) : '—'}</span>
+          </div>
+          <div>
+            <span className="activo-rotulo">Ganancia</span>
+            <span className={`activo-valor ${gananciaPct == null ? '' : gananciaPct >= 0 ? 'positive' : 'negative'}`}>
+              {gananciaPct == null ? '—' : `${gananciaPct >= 0 ? '▲' : '▼'} ${Math.abs(gananciaPct).toFixed(2)}%`}
+            </span>
+          </div>
+        </div>
+
+        {activo.unidad === 'nominales' && (
+          <p className="hint">
+            El precio va como lo dice tu broker: <b>cada 100 nominales</b>. Si AL30
+            figura a 84.350, poné 84.350.
+          </p>
+        )}
+
+        <div className="dialogo-botones">
+          <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
+          <button type="submit" className="dialogo-btn principal" disabled={!cant}>Guardar</button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

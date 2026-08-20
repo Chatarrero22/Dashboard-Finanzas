@@ -143,11 +143,21 @@ export function Topbar({
 
 /* --------------------------------------------------- encabezado de pantalla */
 
-export function PaginaHead({ titulo, bajada, acciones }) {
+export function PaginaHead({ titulo, bajada, acciones, ayuda }) {
   return (
     <div className="pagina-head">
-      <div>
+      <div className="pagina-titulo">
         <h1>{titulo}</h1>
+        {/* El signo de pregunta va pegado al titulo, no perdido entre los
+            botones de accion: es ayuda sobre ESTA seccion. */}
+        {ayuda && (
+          <button
+            className="ayuda-btn"
+            onClick={ayuda}
+            title="Cómo se usa esta sección"
+            aria-label="Cómo se usa esta sección"
+          >?</button>
+        )}
         {bajada && <p className="bajada">{bajada}</p>}
       </div>
       {acciones && acciones.length > 0 && (

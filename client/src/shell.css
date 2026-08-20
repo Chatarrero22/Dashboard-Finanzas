@@ -1039,3 +1039,168 @@
 @media (max-height: 740px) {
   .buscador { max-height: 148px; }
 }
+
+/* ================================================= El tutorial ========== */
+
+/* El signo de pregunta, pegado al titulo de la seccion. */
+.pagina-titulo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* La bajada va abajo del titulo, no al lado del signo de pregunta. */
+.pagina-titulo .bajada { width: 100%; margin: 0; }
+
+.ayuda-btn {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--text-tertiary);
+  font-family: var(--fuente-titulo);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.ayuda-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.guia {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+/* Sin nada a que apuntar: penumbra pareja. */
+.guia-penumbra {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  animation: mFade 0.2s ease both;
+}
+
+/* Con algo a que apuntar: el agujero se hace con una sombra enorme alrededor
+   del recuadro. Recortar de verdad seria mucho mas complicado y se veria
+   igual. `pointer-events: none` para que se pueda ver lo que hay abajo sin
+   que el recuadro se coma los clicks del borde. */
+.guia-foco {
+  position: absolute;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px var(--overlay);
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+  animation: mFade 0.2s ease both;
+}
+
+.guia-cartel {
+  position: absolute;
+  width: min(340px, calc(100vw - 24px));
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface-2);
+  padding: 18px;
+  box-shadow: 0 30px 70px -25px rgba(0, 0, 0, 0.6);
+  transition: top 0.25s ease, left 0.25s ease;
+  animation: mIn 0.26s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.guia-cartel h3 {
+  margin: 10px 0 6px;
+  font-family: var(--fuente-titulo);
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.guia-cartel p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Los puntitos de "vas por el paso 2 de 4". */
+.guia-pasos { display: flex; gap: 5px; }
+
+.guia-pasos span {
+  width: 16px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.2s ease, width 0.2s ease;
+}
+
+.guia-pasos span.hecho { background: var(--accent-soft); }
+.guia-pasos span.ahora { background: var(--accent); width: 24px; }
+
+.guia-botones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.guia-avanzar { display: flex; gap: 8px; }
+
+/* Saltear tiene que estar a la vista, no escondido: si ya sabes usarlo, que
+   no te haga pasar por los cuatro pasos. */
+.guia-saltear {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 0;
+  min-height: 32px;
+}
+
+.guia-saltear:hover { color: var(--text-secondary); }
+
+.guia-btn {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guia-btn.principal {
+  border: none;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  color: var(--on-accent);
+}
+
+/* En el celular el cartel va siempre abajo, fijo: perseguir al elemento en
+   una pantalla chica lo dejaba tapando justo lo que queria mostrar. */
+@media (max-width: 700px) {
+  .guia-cartel {
+    top: auto !important;
+    left: 12px !important;
+    right: 12px;
+    bottom: calc(var(--nav-height) + var(--safe-bottom) + 12px);
+    width: auto;
+  }
+}
