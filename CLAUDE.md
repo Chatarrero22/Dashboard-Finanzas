@@ -203,6 +203,20 @@ siempre en pesos (`mercado-arg.js`, data912, sin clave). Cada activo guarda en
 qué moneda está: **no se adivina por el ticker**. Los totales salen siempre en
 pesos, convirtiendo lo que está en dólares al MEP.
 
+**La plata que espera para comprar vive en Inversiones.** Es una cuenta de
+tipo `inversion` como cualquier otra —la fuente de verdad sigue siendo
+`accounts`— pero se **muestra** arriba de la cartera, como el efectivo
+disponible de un broker, y no en Ahorro.
+
+Antes era el tercer tipo de cuenta de Ahorro, «Invertido», y confundía: el
+nombre hacía pensar que ahí ibas a ver tus acciones, y «pesos apartados para
+invertir» es casi lo mismo que «ahorro». Emanuel lo dijo derecho: «se me
+confunde». Ahorro quedó con dos tipos (Para gastar / Ahorro).
+
+Por eso el hero de Ahorro dice **«En tus cuentas»** y no «Toda tu plata»: con
+las inversiones afuera, ese título mentía. La tarjeta de abajo suma las dos
+cosas para que nada desaparezca.
+
 **Comprar un título saca la plata de una cuenta, y NO es un gasto.** Cuando
 cargás un activo elegís de qué cuenta salió, y se anota **una sola pata** de
 `-monto` con categoría `Traspaso`, atada al activo por `transactions.asset_id`.

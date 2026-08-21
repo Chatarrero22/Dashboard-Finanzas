@@ -12,10 +12,21 @@ import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
+/**
+ * Los tipos de cuenta que se manejan ACÁ.
+ *
+ * Antes había un tercero, «Invertido», para la plata apartada esperando para
+ * comprar algo. Se sacó: confundía. El nombre hacía pensar que ahí ibas a ver
+ * tus acciones, y «pesos apartados para invertir» es casi lo mismo que
+ * «ahorro». Esa plata ahora vive en Inversiones, como en un broker: la ves al
+ * lado de lo que compraste, que es donde la buscás.
+ *
+ * Las cuentas de tipo `inversion` que ya existían siguen funcionando: no se
+ * migró nada, simplemente se muestran en Inversiones en vez de acá.
+ */
 const TIPOS = [
   { id: 'gasto', nombre: 'Para gastar', ayuda: 'De acá sale el día a día', icono: '👛' },
   { id: 'ahorro', nombre: 'Ahorro', ayuda: 'Apartada, no la tocás', icono: '🏦' },
-  { id: 'inversion', nombre: 'Invertido', ayuda: 'Plazo fijo, o esperando para comprar', icono: '📈' },
 ]
 
 const COLORES = ['#EE8A17', '#3B5AA8', '#0E8A51', '#7A5AC9', '#C1372F', '#6B5634']
@@ -48,7 +59,10 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
     setAbierto(true)
   }, [accion])
 
-  const lista = cuentas || []
+  // Las cuentas de inversión se muestran en Inversiones, no acá.
+  const lista = (cuentas || []).filter((c) => c.tipo !== 'inversion')
+  const enBroker = (cuentas || []).filter((c) => c.tipo === 'inversion')
+    .reduce((a, c) => a + c.saldo, 0)
   const total = lista.reduce((a, c) => a + c.saldo, 0)
   const porTipo = (id) => lista.filter((c) => c.tipo === id).reduce((a, c) => a + c.saldo, 0)
 
@@ -86,7 +100,7 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
   return (
     <>
       <div className="hero">
-        <div className="label">Toda tu plata</div>
+        <div className="label">En tus cuentas</div>
         <Numero className="value monto-sensible" valor={total} />
         <div className="caption">
           repartida en {lista.length} {lista.length === 1 ? 'cuenta' : 'cuentas'}
@@ -101,8 +115,8 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
           porque si no hay que sentarse a hacer la cuenta para entenderlo. */}
       {ahorroDelMes != null && Math.round(ahorroDelMes) !== Math.round(total) && (
         <p className="hint">
-          Esto es <b>cuánta plata tenés</b>, sumando todo lo que anotaste desde
-          siempre. No es lo mismo que el <b>ahorro del mes</b>
+          Esto es <b>la plata que tenés en tus cuentas</b>, sumando todo lo que
+          anotaste desde siempre. No es lo mismo que el <b>ahorro del mes</b>
           {' '}(<span className="monto-sensible">{money(ahorroDelMes)}</span>),
           que es solo lo que entró menos lo que salió en {mesActual()}.
           {' '}La diferencia de <span className="monto-sensible">{money(Math.abs(total - ahorroDelMes))}</span>
@@ -127,18 +141,28 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
           —acciones, bonos, cripto— no son pesos: valen lo que valgan hoy en el
           mercado, y viven en Inversiones. Sin esto, alguien que puso toda su
           plata en bonos veia «Invertido $0» y no entendia nada. */}
-      {enTitulos > 0 && (
+      {(enTitulos > 0 || enBroker > 0) && (
         <section className="card titulos-resumen">
           <div className="titulos-txt">
             <div className="card-rotulo">ADEMÁS, EN INVERSIONES</div>
-            <Numero className="titulos-monto monto-sensible" valor={enTitulos} />
+            <Numero className="titulos-monto monto-sensible" valor={enTitulos + enBroker} />
             <p className="hint">
-              Acciones, bonos y cripto a precio de mercado. No son pesos en una
-              cuenta: valen lo que valgan hoy, por eso se cuentan aparte.
+              {enBroker > 0 && (
+                <>
+                  <b className="monto-sensible">{money(enBroker)}</b> esperando para
+                  comprar{enTitulos > 0 ? ', y ' : '. '}
+                </>
+              )}
+              {enTitulos > 0 && (
+                <>
+                  <b className="monto-sensible">{money(enTitulos)}</b> en acciones,
+                  bonos y cripto a precio de mercado.
+                </>
+              )}
             </p>
             <p className="hint">
               Entre tus cuentas y esto tenés{' '}
-              <b className="monto-sensible">{money(total + enTitulos)}</b>.
+              <b className="monto-sensible">{money(total + enTitulos + enBroker)}</b>.
             </p>
           </div>
           {onIrAInversiones && (

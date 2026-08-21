@@ -105,6 +105,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
   const [abierto, setAbierto] = useState(false)
   const [editando, setEditando] = useState(null)
   const [sacando, setSacando] = useState(null)
+  const [sumando, setSumando] = useState(false)
 
   useEffect(() => { if (accion) setAbierto(true) }, [accion])
 
@@ -161,8 +162,29 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
 
   const conPlata = TIPOS.filter((t) => (porTipo || {})[t.id])
 
+  // Las cuentas de tipo inversión son la plata que espera para comprar.
+  const cuentasBroker = (cuentas || []).filter((c) => c.tipo === 'inversion')
+  const disponible = cuentasBroker.reduce((a, c) => a + c.saldo, 0)
+
   return (
     <Privado>
+      {/* La plata que espera para comprar, como en un broker: la ves al lado
+          de lo que compraste. Antes vivía en Ahorro como una cuenta de tipo
+          «Invertido» y confundía: el nombre hacía pensar que ahí iban a estar
+          las acciones. */}
+      <section className="card disponible">
+        <div className="disponible-txt">
+          <div className="card-rotulo">DISPONIBLE PARA COMPRAR</div>
+          <Numero className="disponible-monto monto-sensible" valor={disponible} />
+          <p className="hint">
+            {disponible > 0
+              ? 'Pesos tuyos esperando. Cuando compres algo, salen de acá.'
+              : 'Pasá plata desde tus cuentas para tenerla lista y que al comprar se descuente sola.'}
+          </p>
+        </div>
+        <button className="chip" onClick={() => setSumando(true)}>Agregar plata</button>
+      </section>
+
       <div className="hero">
         <div className="label">Tu cartera</div>
         <Numero className="value monto-sensible" valor={totalValue} />
@@ -333,6 +355,16 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
         />
       )}
 
+      {sumando && (
+        <SumarPlata
+          cuentas={cuentas}
+          destino={cuentasBroker[0]}
+          onCerrar={() => setSumando(false)}
+          onHecho={() => { setSumando(false); onReload() }}
+          onError={onError}
+        />
+      )}
+
       {sacando && (
         <SacarActivo
           {...sacando}
@@ -486,7 +518,13 @@ function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
   const [compra, setCompra] = useState('')
   const [moneda, setMoneda] = useState('ARS')
   // De qué cuenta salió la plata. Vacío = no descontar de ninguna.
-  const [desdeCuenta, setDesdeCuenta] = useState('')
+  // Arranca en la cuenta que espera para comprar, si la tenés: es de donde
+  // sale casi siempre, y así el flujo cierra solo (pasás plata, comprás, se
+  // descuenta de ahí).
+  const [desdeCuenta, setDesdeCuenta] = useState(() => {
+    const broker = (cuentas || []).find((c) => c.tipo === 'inversion' && c.saldo > 0)
+    return broker ? String(broker.id) : ''
+  })
   const debounce = useRef(null)
 
   const esCripto = tipo === 'crypto'
@@ -655,9 +693,14 @@ function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
             <span className="field-label">¿De qué cuenta salió la plata?</span>
             <select value={desdeCuenta} onChange={(e) => setDesdeCuenta(e.target.value)}>
               <option value="">No descontar de ninguna cuenta</option>
-              {(cuentas || []).map((c) => (
-                <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
-              ))}
+              {[...(cuentas || [])]
+                .sort((a, b) => (b.tipo === 'inversion') - (a.tipo === 'inversion'))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {money(c.saldo)}
+                    {c.tipo === 'inversion' ? ' (esperando para comprar)' : ''}
+                  </option>
+                ))}
             </select>
             <span className="hint" style={{ marginTop: 6 }}>
               {desdeCuenta
@@ -805,6 +848,111 @@ function SacarActivo({ activo, compra, cuentas, onCerrar, onHecho, onError }) {
           disabled={guardando || (vendido && valeHoy != null && !cuenta)}
         >{guardando ? 'Sacando…' : 'Sacar'}</button>
       </div>
+    </Modal>
+  )
+}
+
+/* ------------------------------------------ pasar plata a la cartera ---- */
+
+/**
+ * Pasar plata desde una cuenta a la que espera para comprar.
+ *
+ * Es un traspaso comun y corriente: no es un gasto, la plata sigue siendo
+ * tuya. La cuenta de destino es una de tipo `inversion`; si no tenes ninguna,
+ * se crea acá mismo para que no tengas que ir a Ahorro a prepararla primero.
+ */
+function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
+  const origenes = (cuentas || []).filter((c) => c.tipo !== 'inversion')
+
+  const [desde, setDesde] = useState(String(origenes[0]?.id || ''))
+  const [monto, setMonto] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cuenta = origenes.find((c) => String(c.id) === String(desde))
+  const importe = montoDesde(monto)
+  const noAlcanza = cuenta && importe > cuenta.saldo
+
+  async function pasar(e) {
+    e.preventDefault()
+    if (guardando) return
+    setGuardando(true)
+    try {
+      let hasta = destino
+      if (!hasta) {
+        hasta = await api('/cuentas', {
+          method: 'POST',
+          body: JSON.stringify({ name: 'Para invertir', tipo: 'inversion', color: '#0E8A51' }),
+        })
+      }
+      await api('/cuentas/traspaso', {
+        method: 'POST',
+        body: JSON.stringify({ desde, hasta: hasta.id, monto: importe }),
+      })
+      onHecho()
+    } catch (err) {
+      onError(err.message)
+      setGuardando(false)
+    }
+  }
+
+  if (origenes.length === 0) {
+    return (
+      <Modal titulo="Agregar plata" onCerrar={onCerrar}>
+        <p className="hint">Todavía no tenés ninguna cuenta de dónde sacar la plata.</p>
+        <div className="dialogo-botones">
+          <button type="button" className="dialogo-btn principal" onClick={onCerrar}>Entendido</button>
+        </div>
+      </Modal>
+    )
+  }
+
+  return (
+    <Modal
+      titulo="Agregar plata para comprar"
+      detalle="La pasás desde una de tus cuentas. No es un gasto: la plata sigue siendo tuya, queda lista para invertir."
+      onCerrar={onCerrar}
+    >
+      <form onSubmit={pasar}>
+        <label className="field">
+          <span className="field-label">¿De qué cuenta?</span>
+          <select value={desde} onChange={(e) => setDesde(e.target.value)}>
+            {origenes.map((c) => (
+              <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field-label">¿Cuánto?</span>
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={monto}
+            onChange={(e) => setMonto(soloPlata(e.target.value))}
+          />
+          {cuenta && (
+            <span className="hint" style={{ marginTop: 6 }}>
+              En {cuenta.name} hay <span className="monto-sensible">{money(cuenta.saldo)}</span>.
+              Podés pasar una parte.
+              {noAlcanza && ' Ojo, con eso la dejás en rojo.'}
+            </span>
+          )}
+        </label>
+
+        {!destino && (
+          <p className="hint">
+            Se va a crear una cuenta <b>Para invertir</b> donde queda esta plata
+            hasta que compres algo.
+          </p>
+        )}
+
+        <div className="dialogo-botones">
+          <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
+          <button type="submit" className="dialogo-btn principal" disabled={!importe || guardando}>
+            {guardando ? 'Pasando…' : 'Pasar'}
+          </button>
+        </div>
+      </form>
     </Modal>
   )
 }

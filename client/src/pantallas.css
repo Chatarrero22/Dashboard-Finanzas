@@ -1678,3 +1678,27 @@
 }
 
 .privado-barra .chip { flex: none; }
+
+/* La plata que espera para comprar, arriba de la cartera. */
+.disponible {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.disponible-txt { flex: 1; min-width: 200px; }
+
+.disponible-monto {
+  display: block;
+  font-family: var(--fuente-titulo);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 6px 0 6px;
+}
+
+.disponible .hint { margin: 0; }
+.disponible .chip { flex: none; }

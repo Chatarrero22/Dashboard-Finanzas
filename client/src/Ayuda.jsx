@@ -123,7 +123,7 @@ export const GUIAS = {
   ahorro: [
     {
       titulo: 'Dónde está tu plata',
-      texto: 'La app sabía cuánto tenías, pero no dónde. Acá la repartís: lo del día a día, lo que apartaste y lo que pusiste a rendir.',
+      texto: 'La app sabía cuánto tenías, pero no dónde. Acá la repartís entre lo del día a día y lo que apartaste. Lo que está para invertir vive en Inversiones.',
       apunta: '.kpis',
     },
     {
@@ -138,6 +138,11 @@ export const GUIAS = {
   ],
 
   invest: [
+    {
+      titulo: 'La plata que espera para comprar',
+      texto: 'Pasás plata desde tus cuentas y queda acá, lista. Cuando compres algo, sale de acá sola. Es como el efectivo disponible de un broker.',
+      apunta: '.disponible',
+    },
     {
       titulo: 'Tu cartera a precio de mercado',
       texto: 'Acciones argentinas, CEDEARs, bonos, letras, ONs y cripto. Los precios son de verdad y se actualizan solos cada minuto.',
