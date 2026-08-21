@@ -522,6 +522,15 @@ que la pantalla se contradecía a sí misma sin que saltara a la vista. El
 server lo hacía bien; era solo el frontend. Al sumar montos, fijate siempre si
 la lista puede tener más de una moneda.
 
+**Corré el linter: `cd client && npm run lint`.** Estuvo roto un tiempo
+(faltaba `@babel/core` en `node_modules`) y por eso nadie lo usaba. Una
+variable que quedó huérfana después de un refactor —`setSaldo`, tras sacar su
+`useState`— compiló igual y explotó recién al apretar el botón. `vite build`
+NO caza esto; `no-undef` sí, en un segundo.
+
+Quedan avisos preexistentes de `react-refresh` y `react-hooks` que no son
+bugs; lo que no puede aparecer nunca es un `no-undef`.
+
 **Reemplazar en un archivo grande pega en la primera coincidencia.** Puse una
 consulta nueva en `/networth` buscando `var cartera = await valuarCartera(...)`,
 que aparece **también** en `/portfolio` y está antes. El código quedó en el

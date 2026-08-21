@@ -963,8 +963,8 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
 
     try {
       const r = await api('/saldo', { method: 'POST', body: JSON.stringify({ saldoReal: real }) })
-      api('/saldo').then(setDesglose).catch(() => {})
-      setSaldo(r.saldo)
+      // El saldo sale del desglose: volver a pedirlo actualiza las dos cosas.
+      await api('/saldo').then(setDesglose).catch(() => {})
       setSaldoReal('')
       onSaved(r.ajustado ? 'Saldo ajustado' : r.mensaje)
       if (onDatosCambiados) onDatosCambiados()
