@@ -100,9 +100,9 @@ export default function PnlScreen({ pnl }) {
           {[...pnl.meses].reverse().map((m) => (
             <div className="tabla-fila" key={m.mes}>
               <span className="mes">{monthLabel(m.mes)}</span>
-              <span className="num">{money(m.ingresos)}</span>
-              <span className="num">{money(m.egresos)}</span>
-              <span className={`num ${m.ahorro >= 0 ? 'positivo' : 'negativo'}`}>
+              <span className="num monto-sensible">{money(m.ingresos)}</span>
+              <span className="num monto-sensible">{money(m.egresos)}</span>
+              <span className={`num monto-sensible ${m.ahorro >= 0 ? 'positivo' : 'negativo'}`}>
                 {money(m.ahorro)}
                 {m.tasa != null && <small>{Math.round(m.tasa)}%</small>}
               </span>

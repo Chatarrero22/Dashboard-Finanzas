@@ -803,14 +803,6 @@ router.get('/portfolio', async function (req, res) {
   try {
     var cartera = await valuarCartera(req.user.id);
 
-    // Cuáles de los títulos NO se pagaron desde una cuenta. Solo esos pueden
-    // estar contados dos veces (como pesos en la cuenta Y como título); los
-    // que sí descontaron ya no. Antes avisábamos siempre que hubiera plata en
-    // una cuenta "Invertido", y eso pasó a ser una falsa alarma.
-    var sinPagar = db.prepare(
-      'SELECT COUNT(*) c FROM portfolio_assets p WHERE p.user_id = ?' +
-      ' AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.asset_id = p.id AND t.user_id = p.user_id)'
-    ).get(req.user.id).c;
     cartera.tipos = TIPOS_ACTIVO;
     res.json(cartera);
   } catch (err) {
@@ -957,6 +949,15 @@ router.get('/networth', async function (req, res) {
     var cambio30 = db.prepare(
       'SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ? AND date >= ?'
     ).get(req.user.id, hace30).t;
+
+    // Cuáles de los títulos NO se pagaron desde una cuenta. Solo esos pueden
+    // estar contados dos veces (como pesos en la cuenta Y como título); los
+    // que sí descontaron ya no. Antes avisábamos siempre que hubiera plata en
+    // una cuenta "Invertido", y eso pasó a ser una falsa alarma.
+    var sinPagar = db.prepare(
+      'SELECT COUNT(*) c FROM portfolio_assets p WHERE p.user_id = ?' +
+      ' AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.asset_id = p.id AND t.user_id = p.user_id)'
+    ).get(req.user.id).c;
 
     var lista = cuentas.listar(req.user.id);
 
@@ -1226,10 +1227,47 @@ router.delete('/aprendido/:id', function (req, res) {
  * Va con categoría "Ajuste" y queda fuera del análisis por categoría: no es
  * un gasto en algo, es una corrección para que el total cierre.
  */
+/**
+ * Cuánta plata dice la app que tenés, y DE QUÉ ESTÁ HECHA.
+ *
+ * El número solo no alcanza: Emanuel vio $1.059.114 cuando en el banco tenía
+ * $50.000 y no había forma de saber de dónde salía la diferencia. El desglose
+ * la hace evidente.
+ *
+ * Ojo con las cuotas: van con la fecha de cada cuota, o sea que las que
+ * todavía no vencieron YA están restadas acá. Es a propósito (ese plata está
+ * comprometida), pero hay que decirlo o el número no se entiende.
+ */
 router.get('/saldo', function (req, res) {
-  var saldo = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ?')
-    .get(req.user.id).t;
-  res.json({ saldo: saldo });
+  var uid = req.user.id;
+  var hoy = new Date().toISOString().slice(0, 10);
+
+  var t = db.prepare(
+    'SELECT' +
+    ' COALESCE(SUM(amount),0) total,' +
+    " COALESCE(SUM(CASE WHEN amount > 0 AND category <> 'Ajuste' THEN amount END),0) ingresos," +
+    " COALESCE(SUM(CASE WHEN amount < 0 AND category <> 'Ajuste' THEN ABS(amount) END),0) gastos," +
+    " COALESCE(SUM(CASE WHEN category = 'Ajuste' THEN amount END),0) ajustes," +
+    ' COUNT(*) movimientos' +
+    ' FROM transactions WHERE user_id = ?'
+  ).get(uid);
+
+  // Lo que todavía no venció: cuotas y gastos fijos con fecha futura.
+  var futuro = db.prepare(
+    'SELECT COALESCE(SUM(ABS(amount)),0) monto, COUNT(*) n FROM transactions' +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso') AND date > ?"
+  ).get(uid, hoy);
+
+  res.json({
+    saldo: t.total,
+    ingresos: t.ingresos,
+    gastos: t.gastos,
+    ajustes: t.ajustes,
+    movimientos: t.movimientos,
+    // Cuotas que ya están descontadas pero todavía no las pagaste.
+    porVencer: futuro.monto,
+    porVencerN: futuro.n
+  });
 });
 
 router.post('/saldo', function (req, res) {

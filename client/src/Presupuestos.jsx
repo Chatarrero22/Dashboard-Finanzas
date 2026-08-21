@@ -38,12 +38,12 @@ function Tarjeta({ b, onBorrar }) {
 
       <div className="presu-pie">
         <span className="presu-cuanto monto-sensible">
-          {money(b.spent)} de {money(b.monthly_limit)}
+          <span className="monto-sensible">{money(b.spent)}</span> de <span className="monto-sensible">{money(b.monthly_limit)}</span>
         </span>
         <span className="presu-estado monto-sensible">
           {b.status === 'pasado'
-            ? `Te pasaste ${money(Math.abs(b.remaining))}`
-            : `Quedan ${money(b.remaining)}`}
+            ? <>Te pasaste <span className="monto-sensible">{money(Math.abs(b.remaining))}</span></>
+            : <>Quedan <span className="monto-sensible">{money(b.remaining)}</span></>}
         </span>
       </div>
     </div>
@@ -139,7 +139,7 @@ export default function PresupuestosScreen({
         <strong className="banda-monto monto-sensible">{money(ingresoDelMes || 0)}</strong>
         <span className="banda-nota">
           {hayIngreso
-            ? `— sobre ${money(totalTope)} en topes llevás ${money(totalGastado)}.`
+            ? <>— sobre <span className="monto-sensible">{money(totalTope)}</span> en topes llevás <span className="monto-sensible">{money(totalGastado)}</span>.</>
             : `— sin ingresos en ${mesNombre(mes)}, los topes quedan en monto fijo.`}
         </span>
       </div>
@@ -202,8 +202,8 @@ export default function PresupuestosScreen({
                   {p.yaTiene && <span className="tag" style={{ marginLeft: 8 }}>ya tenés</span>}
                 </span>
                 <span className="num monto-sensible">
-                  {money(p.sugerido)}
-                  <small>promedio {money(p.promedio)}</small>
+                  <span className="monto-sensible">{money(p.sugerido)}</span>
+                  <small>promedio <span className="monto-sensible">{money(p.promedio)}</span></small>
                 </span>
                 <button className="chip" onClick={() => aplicar([p])}>Usar</button>
               </div>

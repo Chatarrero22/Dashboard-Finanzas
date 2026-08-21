@@ -522,6 +522,19 @@ que la pantalla se contradecía a sí misma sin que saltara a la vista. El
 server lo hacía bien; era solo el frontend. Al sumar montos, fijate siempre si
 la lista puede tener más de una moneda.
 
+**Reemplazar en un archivo grande pega en la primera coincidencia.** Puse una
+consulta nueva en `/networth` buscando `var cartera = await valuarCartera(...)`,
+que aparece **también** en `/portfolio` y está antes. El código quedó en el
+endpoint equivocado y `/networth` empezó a tirar 500 en producción: sin él no
+hay cotización del dólar, así que se apagó el botón US$, los dólares dejaron
+de convertirse y Patrimonio quedó vacío. Un solo reemplazo mal ubicado rompió
+media app. Verificá **después** del último cambio, no antes.
+
+**Ocultar saldos: lo que no está marcado, se ve.** El botón tapa lo que tenga
+`.monto-sensible`, y era fácil olvidárselo al agregar una pantalla: había 8
+secciones mostrando montos igual. Se chequea solo recorriendo la app con el
+modo prendido y buscando texto con pinta de plata que no esté tapado.
+
 **Los íconos por categoría tienen que coincidir exactamente.** `ICONOS` en
 `comunes.jsx` y `EMOJIS` en `telegram-bot.js` se indexan por el nombre de
 `CATEGORIES`. Escribir "Educación" con tilde cuando la categoría es "Educacion"

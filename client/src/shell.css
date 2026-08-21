@@ -425,10 +425,24 @@
 
 /* El botón "Ocultar" de la barra: tapa los números para mirar la app
    sin que se vean los montos. Es visual, no cambia los datos. */
+/* El desenfoque quedaba sucio: los numeros grandes se seguian adivinando y
+   la pantalla parecia rota. Ahora el numero se vuelve transparente y queda
+   una barra prolija del mismo ancho, asi no salta el layout y se ve
+   claramente que esta tapado a proposito. */
 .oculto .monto-sensible {
-  filter: blur(7px);
+  color: transparent !important;
+  background-color: var(--surface-3);
+  border-radius: 7px;
+  box-shadow: 0 0 0 3px var(--surface-3);
   user-select: none;
   pointer-events: none;
+}
+
+/* Lo de adentro tambien: un <small> con su propio color se seguia viendo. */
+.oculto .monto-sensible * {
+  color: transparent !important;
+  background: none;
+  box-shadow: none;
 }
 
 /* ------------------------------------------- corregir la nav vieja adentro */

@@ -261,14 +261,14 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
 
                   <div className="activo-dato">
                     <span className="activo-rotulo">Precio</span>
-                    <span className="activo-valor">{precio(a.price, a.currency)}</span>
+                    <span className="activo-valor monto-sensible">{precio(a.price, a.currency)}</span>
                     <Variacion pct={a.change24h} />
                   </div>
 
                   <div className="activo-dato">
                     <span className="activo-rotulo">Compra</span>
                     {a.avg_price ? (
-                      <span className="activo-valor">{precio(a.avg_price, a.currency)}</span>
+                      <span className="activo-valor monto-sensible">{precio(a.avg_price, a.currency)}</span>
                     ) : (
                       <button className="activo-falta" onClick={() => setEditando(a)}>
                         ponelo
@@ -280,7 +280,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
                     <span className="activo-rotulo">Ganancia</span>
                     {a.pnl != null && a.pnl_pct != null ? (
                       <>
-                        <span className={`activo-valor ${a.pnl >= 0 ? 'positive' : 'negative'}`}>
+                        <span className={`activo-valor monto-sensible ${a.pnl >= 0 ? 'positive' : 'negative'}`}>
                           {money(a.pnl, { sign: true })}
                         </span>
                         <span className={`var-chip ${a.pnl >= 0 ? 'sube' : 'baja'}`}>

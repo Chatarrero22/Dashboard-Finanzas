@@ -67,7 +67,7 @@ function Hero({ label, value, caption }) {
   return (
     <div className="hero">
       <div className="label">{label}</div>
-      <div className={`value ${cls}`}>{money(value)}</div>
+      <div className={`value monto-sensible ${cls}`}>{money(value)}</div>
       {caption ? <div className="caption">{caption}</div> : null}
     </div>
   )
@@ -78,11 +78,11 @@ function StatPair({ income, expense }) {
     <div className="stat-row">
       <div className="stat">
         <div className="label"><span className="dot in" />Entró</div>
-        <div className="value">{money(income)}</div>
+        <div className="value monto-sensible">{money(income)}</div>
       </div>
       <div className="stat">
         <div className="label"><span className="dot out" />Salió</div>
-        <div className="value">{money(expense)}</div>
+        <div className="value monto-sensible">{money(expense)}</div>
       </div>
     </div>
   )
@@ -159,8 +159,8 @@ function GoalList({ goals, onAdd, onRemove, celebrating }) {
             <div className={`goal-fill ${g.done ? 'done' : ''}`} style={{ width: `${g.pct}%` }} />
           </div>
           <div className="goal-meta">
-            <span>{money(g.saved)} juntados</span>
-            <span>{g.done ? '¡Listo!' : `faltan ${money(g.remaining)}`}</span>
+            <span className="monto-sensible">{money(g.saved)} juntados</span>
+            <span className="monto-sensible">{g.done ? '¡Listo!' : `faltan ${money(g.remaining)}`}</span>
           </div>
           {onAdd && (
             <div className="goal-actions">
@@ -188,7 +188,7 @@ function Upcoming({ items }) {
             <div className="item-desc">{s.name}</div>
             <div className="item-meta"><span>{s.category}</span></div>
           </div>
-          <div className="item-amount">{money(s.amount)}</div>
+          <div className="item-amount monto-sensible">{money(s.amount)}</div>
         </div>
       ))}
     </div>
@@ -452,14 +452,14 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
                     {/* Si lo cargaste en dolares, se ve: el monto en pesos
                         quedo congelado al cambio de ese dia. */}
                     {t.amount_usd ? (
-                      <span className="tag" title={`Al dólar de ${money(t.usd_rate)}`}>
+                      <span className="tag monto-sensible" title={`Al dólar de ${money(t.usd_rate)}`}>
                         US${Math.abs(t.amount_usd).toLocaleString('es-AR')}
                       </span>
                     ) : null}
                     {t.items?.length > 0 && <span>{t.items.length} productos</span>}
                   </div>
                 </div>
-                <div className={`item-amount ${t.amount > 0 ? 'positive' : ''}`}>
+                <div className={`item-amount monto-sensible ${t.amount > 0 ? 'positive' : ''}`}>
                   {money(t.amount, { sign: true })}
                 </div>
                 <button
@@ -699,7 +699,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
                     )}
                   </div>
                 </div>
-                <div className="item-amount">
+                <div className="item-amount monto-sensible">
                   {s.moneda === 'usd'
                     ? `US$${Math.abs(s.amount).toLocaleString('es-AR')}`
                     : money(s.amount)}
@@ -938,10 +938,11 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
   const [orden, setOrden] = useState(null)
   const [ordenando, setOrdenando] = useState(false)
   const [reglas, setReglas] = useState(null)
-  const [saldo, setSaldo] = useState(null)
   const [saldoReal, setSaldoReal] = useState('')
+  const [desglose, setDesglose] = useState(null)
+  const saldo = desglose ? desglose.saldo : 0
 
-  useEffect(() => { api('/saldo').then((r) => setSaldo(r.saldo)).catch(() => {}) }, [])
+  useEffect(() => { api('/saldo').then(setDesglose).catch(() => {}) }, [])
 
   async function ajustarSaldo(e) {
     e.preventDefault()
@@ -962,6 +963,7 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
 
     try {
       const r = await api('/saldo', { method: 'POST', body: JSON.stringify({ saldoReal: real }) })
+      api('/saldo').then(setDesglose).catch(() => {})
       setSaldo(r.saldo)
       setSaldoReal('')
       onSaved(r.ajustado ? 'Saldo ajustado' : r.mensaje)
@@ -1215,9 +1217,29 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
           que nunca cargaste, cree que tenés esa plata y no la tenés. Decime
           cuánto tenés de verdad y anoto un solo movimiento por la diferencia.
         </p>
+        {/* El numero solo no alcanza: Emanuel vio $1.059.114 cuando en el
+            banco tenia $50.000 y no habia forma de saber de donde salia la
+            diferencia. Mostrar de que esta hecho la vuelve evidente. */}
         <p className="hint">
           Según lo cargado tenés <strong className="monto-sensible">{money(saldo || 0)}</strong>.
         </p>
+        {desglose && (
+          <p className="hint">
+            Sale de <span className="monto-sensible">{money(desglose.ingresos)}</span> que
+            entraron menos <span className="monto-sensible">{money(desglose.gastos)}</span> que
+            salieron, en {desglose.movimientos} movimientos
+            {desglose.ajustes ? <> (más <span className="monto-sensible">{money(desglose.ajustes)}</span> de ajustes)</> : null}.
+            {desglose.porVencer > 0 && (
+              <>
+                {' '}Incluye <span className="monto-sensible">{money(desglose.porVencer)}</span> de
+                cuotas y gastos fijos que <b>todavía no venciste</b>
+                {' '}({desglose.porVencerN} {desglose.porVencerN === 1 ? 'movimiento' : 'movimientos'}):
+                esa plata ya está descontada acá pero todavía la tenés en el banco.
+              </>
+            )}
+            {' '}Si en el banco tenés menos, es que falta cargar gastos.
+          </p>
+        )}
         <label className="field">
           <span className="field-label">¿Cuánto tenés de verdad?</span>
           <input

@@ -65,7 +65,7 @@ function Variacion({ cambio, total }) {
   const sube = cambio > 0
 
   return (
-    <span className={`variacion-pill ${sube ? 'ok' : 'mal'}`}>
+    <span className={`variacion-pill monto-sensible ${sube ? 'ok' : 'mal'}`}>
       {sube ? '↗' : '↘'} {money(cambio, { sign: true })}
       {pct != null && ` · ${Math.abs(pct).toFixed(1).replace('.', ',')}%`} en 30 días
     </span>

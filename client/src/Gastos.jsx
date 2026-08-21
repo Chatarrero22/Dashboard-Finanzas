@@ -38,14 +38,14 @@ export default function GastosScreen({ dashboard }) {
           <div className="kpi-label">Donde más se va</div>
           <div className="kpi-valor monto-sensible">{mayor.category}</div>
           <span className="kpi-sub">
-            {money(mayor.total)} · {Math.round((mayor.total / total) * 100)}% del mes
+            <span className="monto-sensible">{money(mayor.total)}</span> · {Math.round((mayor.total / total) * 100)}% del mes
           </span>
         </div>
         <div className="kpi">
           <div className="kpi-label">Categorías con gasto</div>
           <div className="kpi-valor">{cats.length}</div>
           <span className="kpi-sub">
-            Promedio {money(total / cats.length)} cada una
+            Promedio <span className="monto-sensible">{money(total / cats.length)}</span> cada una
           </span>
         </div>
       </div>
