@@ -1578,7 +1578,7 @@ export default function App() {
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
     if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
     if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
-    if (tab === 'ahorro') api('/cuentas').then(setCuentas).catch(() => {})
+    if (tab === 'ahorro' || tab === 'invest') api('/cuentas').then(setCuentas).catch(() => {})
   }, [tab, config, loadMetas])
 
   // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
@@ -1615,7 +1615,7 @@ export default function App() {
     if (t === 'pnl') pendientes.push(api('/pnl').then(setPnl))
     if (t === 'subs') pendientes.push(api('/subscriptions').then(setSubs))
     if (t === 'invest') pendientes.push(api('/portfolio').then(setPortfolio))
-    if (t === 'ahorro') pendientes.push(api('/cuentas').then(setCuentas))
+    if (t === 'ahorro' || t === 'invest') pendientes.push(api('/cuentas').then(setCuentas))
     if (t === 'tarjetas' || t === 'movs') pendientes.push(api('/cards').then(setCards))
     if (t === 'tarjetas') pendientes.push(api('/cuotas').then((r) => setProximasCuotas(r.meses)))
 
@@ -1653,7 +1653,16 @@ export default function App() {
   }, [refrescar])
 
   const reloadSubs = useCallback(() => { api('/subscriptions').then(setSubs).catch(() => {}) }, [])
-  const reloadPortfolio = useCallback(() => { api('/portfolio').then(setPortfolio).catch(() => {}) }, [])
+  /**
+   * Comprar o vender ya no toca solo la cartera: mueve plata de una cuenta.
+   * Si refrescáramos únicamente /portfolio, el saldo de la cuenta y el
+   * patrimonio quedarían con el número viejo hasta que cambiaras de pantalla.
+   */
+  const reloadPortfolio = useCallback(() => {
+    api('/portfolio').then(setPortfolio).catch(() => {})
+    api('/cuentas').then(setCuentas).catch(() => {})
+    api('/networth').then(setNetworth).catch(() => {})
+  }, [])
 
   async function handleSaved(message) {
     notify(message)
@@ -1967,6 +1976,7 @@ export default function App() {
           {tab === 'invest' && (
             <InversionesScreen
               portfolio={portfolio}
+              cuentas={cuentas}
               accion={accionDe('invest')}
               onReload={reloadPortfolio}
               onError={(m) => notify(m, 'error')}

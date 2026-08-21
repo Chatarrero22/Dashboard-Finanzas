@@ -100,10 +100,11 @@ function Variacion({ pct }) {
   )
 }
 
-export default function InversionesScreen({ portfolio, accion, onError, onReload }) {
+export default function InversionesScreen({ portfolio, accion, cuentas, onError, onReload }) {
   const { confirmar } = useDialogos()
   const [abierto, setAbierto] = useState(false)
   const [editando, setEditando] = useState(null)
+  const [sacando, setSacando] = useState(null)
 
   useEffect(() => { if (accion) setAbierto(true) }, [accion])
 
@@ -121,19 +122,36 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
     porTipo, sinPrecio, sinCosto, cambio24h, cambio24hPct, minutos,
   } = portfolio
 
+  /**
+   * Sacar un activo son dos cosas muy distintas y no se pueden adivinar:
+   * o lo vendiste (y la plata volvió a una cuenta) o te equivocaste al
+   * cargarlo (y esa compra nunca existió). Preguntamos.
+   */
   async function borrar(a) {
-    const ok = await confirmar({
-      titulo: `¿Sacar ${a.symbol} de la cartera?`,
-      detalle: 'Deja de contar en tu patrimonio. No se borra ningún movimiento.',
-      aceptar: 'Sacarlo', peligro: true,
-    })
-    if (!ok) return
+    let compra = null
     try {
-      await api(`/portfolio/${a.id}`, { method: 'DELETE' })
-      onReload()
-    } catch (err) {
-      onError(err.message)
+      const r = await api(`/portfolio/${a.id}/compra`)
+      compra = r.compra
+    } catch {
+      /* si no se puede saber, seguimos como antes */
     }
+
+    // Si nunca se descontó de una cuenta, no hay nada que devolver.
+    if (!compra) {
+      const ok = await confirmar({
+        titulo: `¿Sacar ${a.symbol} de la cartera?`,
+        detalle: 'Deja de contar en tu patrimonio. No toca ninguna cuenta, porque esta compra no se descontó de ninguna.',
+        aceptar: 'Sacarlo', peligro: true,
+      })
+      if (!ok) return
+      try {
+        await api(`/portfolio/${a.id}`, { method: 'DELETE' })
+        onReload()
+      } catch (err) { onError(err.message) }
+      return
+    }
+
+    setSacando({ activo: a, compra })
   }
 
   // Agrupamos por tipo, en el orden de TIPOS, mostrando solo los que tienen algo.
@@ -308,8 +326,19 @@ export default function InversionesScreen({ portfolio, accion, onError, onReload
 
       {abierto && (
         <AgregarActivo
+          cuentas={cuentas}
           onCerrar={() => setAbierto(false)}
           onHecho={() => { setAbierto(false); onReload() }}
+          onError={onError}
+        />
+      )}
+
+      {sacando && (
+        <SacarActivo
+          {...sacando}
+          cuentas={cuentas}
+          onCerrar={() => setSacando(null)}
+          onHecho={() => { setSacando(null); onReload() }}
           onError={onError}
         />
       )}
@@ -447,7 +476,7 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
 
 /* ------------------------------------------------------- alta de un activo */
 
-function AgregarActivo({ onCerrar, onHecho, onError }) {
+function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
   const [tipo, setTipo] = useState('cedear')
   const [texto, setTexto] = useState('')
   const [elegido, setElegido] = useState(null)
@@ -456,6 +485,8 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
   const [cantidad, setCantidad] = useState('')
   const [compra, setCompra] = useState('')
   const [moneda, setMoneda] = useState('ARS')
+  // De qué cuenta salió la plata. Vacío = no descontar de ninguna.
+  const [desdeCuenta, setDesdeCuenta] = useState('')
   const debounce = useRef(null)
 
   const esCripto = tipo === 'crypto'
@@ -494,6 +525,7 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
           quantity: montoDesde(cantidad),
           avg_price: montoDesde(compra),
           currency: esCripto ? 'USD' : moneda,
+          account_id: desdeCuenta || null,
         }),
       })
       onHecho()
@@ -613,6 +645,28 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
           </label>
         </div>
 
+        {/* De dónde salió la plata.
+            Sin esto la misma plata se contaba dos veces: como pesos en tu
+            cuenta Y como título. Comprar no es gastar, así que el movimiento
+            que genera no aparece en tus gastos del mes: solo baja el saldo de
+            la cuenta, porque esos pesos ahora son otra cosa. */}
+        {(cuentas || []).length > 0 && (
+          <label className="field">
+            <span className="field-label">¿De qué cuenta salió la plata?</span>
+            <select value={desdeCuenta} onChange={(e) => setDesdeCuenta(e.target.value)}>
+              <option value="">No descontar de ninguna cuenta</option>
+              {(cuentas || []).map((c) => (
+                <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
+              ))}
+            </select>
+            <span className="hint" style={{ marginTop: 6 }}>
+              {desdeCuenta
+                ? 'Se descuenta de esa cuenta. No cuenta como gasto: cambiaste pesos por un título, no gastaste nada.'
+                : 'Si no elegís ninguna, la plata sigue figurando en tus cuentas Y el título en tu cartera, o sea contada dos veces.'}
+            </span>
+          </label>
+        )}
+
         {POR_LAMINA.includes(tipo) && (
           <p className="hint">
             Los bonos, las letras y las ONs se cargan por <b>valor nominal</b>,
@@ -631,6 +685,126 @@ function AgregarActivo({ onCerrar, onHecho, onError }) {
           >Agregar</button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+/* ------------------------------------------------- sacar una tenencia --- */
+
+/**
+ * Sacar un activo que se pagó desde una cuenta.
+ *
+ * Son dos cosas distintas y la app no las puede adivinar:
+ *
+ *   Lo vendiste     -> la plata vuelve a una cuenta, al precio de HOY. Ahí es
+ *                      donde se hace real la ganancia o la pérdida.
+ *   Me equivoqué    -> deshacemos la compra: la cuenta vuelve a como estaba,
+ *                      como si nunca hubieras sacado esa plata.
+ */
+function SacarActivo({ activo, compra, cuentas, onCerrar, onHecho, onError }) {
+  const [vendido, setVendido] = useState(true)
+  const [cuenta, setCuenta] = useState(() => {
+    // Por defecto, la misma cuenta de la que salió.
+    if (compra && compra.account_id) return String(compra.account_id)
+    return String((cuentas || [])[0]?.id || '')
+  })
+  const [guardando, setGuardando] = useState(false)
+
+  const loQuePagaste = Math.abs(compra?.amount || 0)
+  const valeHoy = activo.value != null ? activo.value : null
+  const ganancia = valeHoy != null ? valeHoy - loQuePagaste : null
+
+  async function sacar() {
+    if (guardando) return
+    setGuardando(true)
+    try {
+      const q = vendido && valeHoy != null
+        ? `?vendido=1&account_id=${cuenta}&monto=${valeHoy}`
+        : ''
+      await api(`/portfolio/${activo.id}${q}`, { method: 'DELETE' })
+      onHecho()
+    } catch (err) {
+      onError(err.message)
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Modal
+      titulo={`Sacar ${activo.symbol}`}
+      detalle={`Lo pagaste desde ${compra.cuenta || 'una cuenta'}. ¿Qué pasó con esa plata?`}
+      onCerrar={onCerrar}
+    >
+      <div className="field">
+        <div className="tipos">
+          <button
+            type="button"
+            className={`tipo ${vendido ? 'elegido' : ''}`}
+            onClick={() => setVendido(true)}
+          >
+            <span className="tipo-ico">💵</span>
+            <span className="tipo-txt">
+              <span className="tipo-nombre">Lo vendí</span>
+              <small>
+                {valeHoy != null
+                  ? `Vuelven ${money(valeHoy)} a la cuenta que elijas`
+                  : 'Sin precio de mercado no puedo calcular cuánto vuelve'}
+              </small>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`tipo ${!vendido ? 'elegido' : ''}`}
+            onClick={() => setVendido(false)}
+          >
+            <span className="tipo-ico">↩</span>
+            <span className="tipo-txt">
+              <span className="tipo-nombre">Me equivoqué al cargarlo</span>
+              <small>Deshace la compra: la cuenta vuelve como estaba</small>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {vendido && valeHoy != null && (
+        <>
+          <label className="field">
+            <span className="field-label">¿A qué cuenta vuelve la plata?</span>
+            <select value={cuenta} onChange={(e) => setCuenta(e.target.value)}>
+              {(cuentas || []).map((c) => (
+                <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
+              ))}
+            </select>
+          </label>
+
+          <div className="cuenta-previa">
+            <div>
+              <span className="activo-rotulo">Pagaste</span>
+              <span className="activo-valor monto-sensible">{money(loQuePagaste)}</span>
+            </div>
+            <div>
+              <span className="activo-rotulo">Vuelven</span>
+              <span className="activo-valor fuerte monto-sensible">{money(valeHoy)}</span>
+            </div>
+            <div>
+              <span className="activo-rotulo">Ganancia</span>
+              <span className={`activo-valor ${ganancia >= 0 ? 'positive' : 'negative'}`}>
+                {money(ganancia, { sign: true })}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="dialogo-botones">
+        <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
+        <button
+          type="button"
+          className="dialogo-btn principal"
+          onClick={sacar}
+          disabled={guardando || (vendido && valeHoy != null && !cuenta)}
+        >{guardando ? 'Sacando…' : 'Sacar'}</button>
+      </div>
     </Modal>
   )
 }

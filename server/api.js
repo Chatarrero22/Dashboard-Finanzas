@@ -802,6 +802,15 @@ async function valuarCartera(userId) {
 router.get('/portfolio', async function (req, res) {
   try {
     var cartera = await valuarCartera(req.user.id);
+
+    // Cuáles de los títulos NO se pagaron desde una cuenta. Solo esos pueden
+    // estar contados dos veces (como pesos en la cuenta Y como título); los
+    // que sí descontaron ya no. Antes avisábamos siempre que hubiera plata en
+    // una cuenta "Invertido", y eso pasó a ser una falsa alarma.
+    var sinPagar = db.prepare(
+      'SELECT COUNT(*) c FROM portfolio_assets p WHERE p.user_id = ?' +
+      ' AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.asset_id = p.id AND t.user_id = p.user_id)'
+    ).get(req.user.id).c;
     cartera.tipos = TIPOS_ACTIVO;
     res.json(cartera);
   } catch (err) {
@@ -818,7 +827,7 @@ router.get('/mercado/buscar', async function (req, res) {
   }
 });
 
-router.post('/portfolio', function (req, res) {
+router.post('/portfolio', async function (req, res) {
   var b = req.body;
   if (!b.symbol) return res.status(400).json({ error: 'Falta el símbolo' });
 
@@ -836,7 +845,32 @@ router.post('/portfolio', function (req, res) {
     Number(b.quantity) || 0, Number(b.avg_price) || Number(b.buy_price) || 0, moneda
   );
   arbol.alAgregarInversion(req.user.id);
-  res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(info.lastInsertRowid));
+
+  var creado = db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(info.lastInsertRowid);
+
+  // Si dijiste de qué cuenta salió la plata, la descontamos. Sin esto la
+  // misma plata se contaba dos veces: como pesos en la cuenta Y como título.
+  var pago = null;
+  if (b.account_id) {
+    try {
+      var lamina = (TIPOS_ACTIVO[tipo] || {}).lamina || 1;
+      var costo = mercado.valuar(creado.quantity, creado.avg_price, lamina);
+      // Lo que pagaste en dólares hay que pasarlo a pesos: las cuentas son
+      // en pesos.
+      if (moneda === 'USD') {
+        var d = await prices.getDolar();
+        var mep = (d.bolsa && d.bolsa.venta) || (d.blue && d.blue.venta) || 0;
+        if (!mep) throw new Error('No tengo la cotización del dólar para descontar la compra');
+        costo = costo * mep;
+      }
+      pago = cuentas.pagarInversion(req.user.id, b.account_id, costo, creado.symbol, creado.id);
+    } catch (err) {
+      // El activo ya quedó cargado: avisamos pero no lo perdemos.
+      return res.json({ ...creado, avisoPago: err.message });
+    }
+  }
+
+  res.json({ ...creado, pago: pago });
 });
 
 router.patch('/portfolio/:id', function (req, res) {
@@ -856,9 +890,35 @@ router.patch('/portfolio/:id', function (req, res) {
   res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(req.params.id));
 });
 
+/** Si este activo se pagó desde una cuenta, cuál y cuánto. */
+router.get('/portfolio/:id/compra', function (req, res) {
+  res.json({ compra: cuentas.compraDe(req.user.id, Number(req.params.id)) });
+});
+
 router.delete('/portfolio/:id', function (req, res) {
-  db.prepare('DELETE FROM portfolio_assets WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
-  res.json({ success: true });
+  var id = Number(req.params.id);
+  var activo = db.prepare('SELECT * FROM portfolio_assets WHERE id = ? AND user_id = ?')
+    .get(id, req.user.id);
+  if (!activo) return res.status(404).json({ error: 'No existe ese activo' });
+
+  var compra = cuentas.compraDe(req.user.id, id);
+
+  // Sacar un activo puede ser dos cosas muy distintas y no se pueden
+  // adivinar: o lo vendiste (y la plata volvió a una cuenta) o te
+  // equivocaste al cargarlo (y la compra nunca existió). Lo pregunta la
+  // pantalla; acá solo hacemos lo que diga.
+  if (req.query.vendido === '1' && req.query.account_id) {
+    cuentas.cobrarInversion(
+      req.user.id, req.query.account_id, Number(req.query.monto) || 0, activo.symbol
+    );
+  } else if (compra) {
+    // No lo vendiste: deshacemos la compra, como si nunca hubieras sacado
+    // la plata de la cuenta.
+    cuentas.deshacerCompra(req.user.id, id);
+  }
+
+  db.prepare('DELETE FROM portfolio_assets WHERE id = ? AND user_id = ?').run(id, req.user.id);
+  res.json({ success: true, teniaCompra: Boolean(compra) });
 });
 
 /* ------------------------------------------------------- patrimonio neto */
@@ -918,7 +978,9 @@ router.get('/networth', async function (req, res) {
       dolarNombre: cual,
       total: cash + cryptoArs + mercadoArs,
       pricesAvailable: cartera.pricesAvailable,
-      sinPrecio: cartera.sinPrecio
+      sinPrecio: cartera.sinPrecio,
+      // Títulos cargados sin decir de qué cuenta salió la plata.
+      titulosSinPagar: sinPagar
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

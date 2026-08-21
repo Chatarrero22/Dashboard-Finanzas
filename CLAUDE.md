@@ -203,6 +203,24 @@ siempre en pesos (`mercado-arg.js`, data912, sin clave). Cada activo guarda en
 qué moneda está: **no se adivina por el ticker**. Los totales salen siempre en
 pesos, convirtiendo lo que está en dólares al MEP.
 
+**Comprar un título saca la plata de una cuenta, y NO es un gasto.** Cuando
+cargás un activo elegís de qué cuenta salió, y se anota **una sola pata** de
+`-monto` con categoría `Traspaso`, atada al activo por `transactions.asset_id`.
+
+Que sea una sola pata es al revés que un traspaso entre cuentas, y es a
+propósito: en un traspaso los pesos siguen siendo pesos y por eso las dos
+patas se anulan; acá los pesos **dejan de ser pesos** y pasan a ser un bono.
+Tu plata en cuentas tiene que bajar de verdad. El patrimonio no cambia, porque
+el título aparece del otro lado valuado a mercado.
+
+Sin esto la misma plata se contaba dos veces: como pesos en la cuenta y como
+título en la cartera.
+
+**Sacar un activo son dos cosas distintas y no se pueden adivinar.** O lo
+vendiste —y vuelve a una cuenta el **valor de hoy**, que es donde se hace real
+la ganancia— o te equivocaste al cargarlo, y entonces se deshace la compra y la
+cuenta queda como estaba. Lo pregunta la pantalla.
+
 **Si no hay cotización, no inventamos.** El botón US$ se deshabilita, la API
 responde 503 con un mensaje claro y una suscripción en dólares no se carga (se
 reintenta al día siguiente). Preferible que falte un dato a que haya uno falso.

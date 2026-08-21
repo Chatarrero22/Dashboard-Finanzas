@@ -116,8 +116,81 @@ function traspasar(userId, desdeId, hastaId, monto, fecha, nota) {
   return { grupo: grupo, monto: importe, desde: desde.name, hasta: hasta.name };
 }
 
+/**
+ * La plata sale de una cuenta para comprar un título.
+ *
+ * Va UNA sola pata, al revés que `traspasar()`. En un traspaso los pesos
+ * siguen siendo pesos y por eso las dos patas se anulan; acá los pesos dejan
+ * de serlo y pasan a ser un bono, así que tu plata en cuentas tiene que bajar
+ * de verdad. El patrimonio no cambia: el bono aparece del otro lado, valuado
+ * a mercado.
+ *
+ * Categoría 'Traspaso' porque comprar no es gastar.
+ */
+function pagarInversion(userId, cuentaId, monto, simbolo, assetId, fecha) {
+  var importe = Math.abs(Number(monto) || 0);
+  if (!importe) return null;
+
+  var cuenta = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(cuentaId, userId);
+  if (!cuenta) throw new Error('No encontré esa cuenta');
+
+  db.prepare(
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
+    " account_id, asset_id) VALUES (?, ?, ?, ?, 'Traspaso', 'Inversion', ?, ?)"
+  ).run(
+    userId,
+    fecha || new Date().toISOString().slice(0, 10),
+    'Compra de ' + simbolo,
+    -importe,
+    cuenta.id,
+    assetId
+  );
+
+  return { cuenta: cuenta.name, monto: importe };
+}
+
+/** Vendiste: la plata vuelve a una cuenta. */
+function cobrarInversion(userId, cuentaId, monto, simbolo, fecha) {
+  var importe = Math.abs(Number(monto) || 0);
+  if (!importe) return null;
+
+  var cuenta = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(cuentaId, userId);
+  if (!cuenta) throw new Error('No encontré esa cuenta');
+
+  db.prepare(
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
+    " account_id) VALUES (?, ?, ?, ?, 'Traspaso', 'Inversion', ?)"
+  ).run(
+    userId,
+    fecha || new Date().toISOString().slice(0, 10),
+    'Venta de ' + simbolo,
+    importe,
+    cuenta.id
+  );
+
+  return { cuenta: cuenta.name, monto: importe };
+}
+
+/** Deshacer la compra: como si nunca hubieras sacado la plata. */
+function deshacerCompra(userId, assetId) {
+  return db.prepare('DELETE FROM transactions WHERE user_id = ? AND asset_id = ?')
+    .run(userId, assetId).changes;
+}
+
+/** ¿Este activo tiene una compra atada a una cuenta? */
+function compraDe(userId, assetId) {
+  return db.prepare(
+    'SELECT t.*, a.name cuenta FROM transactions t LEFT JOIN accounts a ON a.id = t.account_id' +
+    ' WHERE t.user_id = ? AND t.asset_id = ?'
+  ).get(userId, assetId) || null;
+}
+
 module.exports = {
   TIPOS: TIPOS,
+  pagarInversion: pagarInversion,
+  cobrarInversion: cobrarInversion,
+  deshacerCompra: deshacerCompra,
+  compraDe: compraDe,
   principal: principal,
   asegurarPrincipal: asegurarPrincipal,
   listar: listar,

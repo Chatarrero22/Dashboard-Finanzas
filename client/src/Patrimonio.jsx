@@ -156,12 +156,15 @@ export default function PatrimonioScreen({ networth }) {
           en una cuenta Y ademas cargaste lo que compraste, el patrimonio la
           cuenta dos veces. Preferimos decirlo antes que mostrar un total que
           no es. */}
-      {networth.invertido > 0 && (networth.mercadoArs > 0 || networth.cryptoArs > 0) && (
+      {networth.titulosSinPagar > 0 && (
         <p className="hint">
-          Ojo: tenés {money(networth.invertido)} en cuentas marcadas como
-          «Invertido» <b>y</b> además títulos cargados en Inversiones. Si esa plata
-          es justamente la que usaste para comprarlos, está sumando dos veces.
-          Pasá esa cuenta a «Ahorro» o dejala en cero.
+          {networth.titulosSinPagar === 1
+            ? 'Hay 1 título cargado'
+            : `Hay ${networth.titulosSinPagar} títulos cargados`}
+          {' '}sin decir de qué cuenta salió la plata. Si esa plata además
+          figura en tus cuentas, está contada dos veces: una como pesos y otra
+          como título. Sacalo y volvé a cargarlo eligiendo la cuenta, o
+          descontalo a mano.
         </p>
       )}
 

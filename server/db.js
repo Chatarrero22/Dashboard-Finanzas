@@ -292,6 +292,21 @@ function initDB() {
   // más. No es una preferencia: es de dónde sale el precio.
   db.exec("UPDATE portfolio_assets SET currency = 'USD' WHERE asset_type = 'crypto' AND currency <> 'USD'");
 
+  // Cuando comprás un título, la plata sale de una cuenta. Ese movimiento
+  // queda atado al activo para poder deshacerlo si después lo sacás.
+  //
+  // Es UNA sola pata, no dos como un traspaso entre cuentas, y es a propósito:
+  // en un traspaso la plata sigue siendo pesos y por eso las dos patas se
+  // anulan; acá los pesos dejan de ser pesos y pasan a ser un bono. Tu plata
+  // en cuentas tiene que bajar de verdad. El patrimonio no cambia, porque el
+  // bono aparece del otro lado valuado a mercado.
+  //
+  // Va con categoría 'Traspaso' para que no cuente como gasto: comprar un
+  // bono no es gastar, es cambiar pesos por otra cosa.
+  if (!tieneColumna('transactions', 'asset_id')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN asset_id INTEGER');
+  }
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
 }
