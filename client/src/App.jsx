@@ -1882,6 +1882,8 @@ export default function App() {
             <AhorroScreen
               cuentas={cuentas}
               ahorroDelMes={ahorro ? ahorro.monto : null}
+              enTitulos={networth ? (networth.cryptoArs || 0) + (networth.mercadoArs || 0) : 0}
+              onIrAInversiones={() => irA('invest')}
               accion={accionDe('ahorro')}
               onReload={() => {
                 api('/cuentas').then(setCuentas).catch(() => {})

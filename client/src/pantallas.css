@@ -1630,3 +1630,28 @@
   .tg-invita-botones { width: 100%; }
   .tg-invita .primary { flex: 1; }
 }
+
+/* Lo que tenes en titulos, en la pantalla de Ahorro. Va aparte de los tres
+   KPI de cuentas a proposito: esos son PESOS y esto no. */
+.titulos-resumen {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.titulos-txt { flex: 1; min-width: 200px; }
+
+.titulos-monto {
+  display: block;
+  font-family: var(--fuente-titulo);
+  font-size: 1.9rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 6px 0 8px;
+}
+
+.titulos-resumen .hint { margin: 0 0 6px; }
+.titulos-resumen .hint:last-child { margin-bottom: 0; }

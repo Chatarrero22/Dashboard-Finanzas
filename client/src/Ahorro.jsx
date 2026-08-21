@@ -15,7 +15,7 @@ import Numero from './Numero.jsx'
 const TIPOS = [
   { id: 'gasto', nombre: 'Para gastar', ayuda: 'De acá sale el día a día', icono: '👛' },
   { id: 'ahorro', nombre: 'Ahorro', ayuda: 'Apartada, no la tocás', icono: '🏦' },
-  { id: 'inversion', nombre: 'Invertido', ayuda: 'Puesta a rendir', icono: '📈' },
+  { id: 'inversion', nombre: 'Invertido', ayuda: 'Plazo fijo, o esperando para comprar', icono: '📈' },
 ]
 
 const COLORES = ['#EE8A17', '#3B5AA8', '#0E8A51', '#7A5AC9', '#C1372F', '#6B5634']
@@ -34,7 +34,7 @@ function mesActual() {
   return MESES[new Date().getMonth()]
 }
 
-export default function AhorroScreen({ cuentas, accion, ahorroDelMes, onReload, onError, onSaved }) {
+export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos, onIrAInversiones, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [form, setForm] = useState(VACIA)
   const [editando, setEditando] = useState(null)
@@ -120,6 +120,32 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, onReload, 
           </div>
         ))}
       </div>
+
+      {/* Faltaba media foto.
+          «Invertido» son PESOS que apartaste (un plazo fijo, o plata esperando
+          en el broker para comprar algo). Los titulos que ya compraste
+          —acciones, bonos, cripto— no son pesos: valen lo que valgan hoy en el
+          mercado, y viven en Inversiones. Sin esto, alguien que puso toda su
+          plata en bonos veia «Invertido $0» y no entendia nada. */}
+      {enTitulos > 0 && (
+        <section className="card titulos-resumen">
+          <div className="titulos-txt">
+            <div className="card-rotulo">ADEMÁS, EN INVERSIONES</div>
+            <Numero className="titulos-monto monto-sensible" valor={enTitulos} />
+            <p className="hint">
+              Acciones, bonos y cripto a precio de mercado. No son pesos en una
+              cuenta: valen lo que valgan hoy, por eso se cuentan aparte.
+            </p>
+            <p className="hint">
+              Entre tus cuentas y esto tenés{' '}
+              <b className="monto-sensible">{money(total + enTitulos)}</b>.
+            </p>
+          </div>
+          {onIrAInversiones && (
+            <button className="chip" onClick={onIrAInversiones}>Ver Inversiones</button>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="card-title-row">
