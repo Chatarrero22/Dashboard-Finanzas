@@ -2,7 +2,7 @@
  * Piezas compartidas entre pantallas: formato de plata, fechas y los
  * componentes chicos que se repiten.
  */
-
+import { useState } from 'react'
 import { formatear } from './moneda.js'
 
 export const API = '/api'
@@ -132,6 +132,39 @@ export const ICONOS = {
 
 export function icono(cat) {
   return ICONOS[cat] || '◈'
+}
+
+/**
+ * Una pantalla que arranca con los montos tapados.
+ *
+ * Patrimonio e Inversiones muestran cuánta plata tenés en total, que es lo
+ * más privado de la app: alcanza con que alguien pase por al lado. Por eso
+ * estas dos empiezan tapadas y las destapás vos.
+ *
+ * Se vuelven a tapar solas al salir de la sección: el `key={tab}` del
+ * contenedor hace que la pantalla se vuelva a montar, y este estado arranca
+ * de nuevo en false. Es a propósito, si no dejaría de tener sentido.
+ *
+ * La clase `oculto` es la misma del botón «Ocultar saldos» de la barra: como
+ * el selector es `.oculto .monto-sensible`, ponerla en cualquier envoltorio
+ * de adentro tapa lo que haya abajo.
+ */
+export function Privado({ children }) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <div className={visible ? undefined : 'oculto'}>
+      <div className="privado-barra">
+        <span className="privado-txt">
+          {visible ? 'Los montos están a la vista' : 'Los montos están ocultos'}
+        </span>
+        <button className="chip" onClick={() => setVisible(!visible)}>
+          {visible ? 'Ocultar' : 'Mostrar'}
+        </button>
+      </div>
+      {children}
+    </div>
+  )
 }
 
 export function Empty({ icon, text }) {

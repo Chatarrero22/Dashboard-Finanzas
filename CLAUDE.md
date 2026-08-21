@@ -539,6 +539,17 @@ hay cotización del dólar, así que se apagó el botón US$, los dólares dejar
 de convertirse y Patrimonio quedó vacío. Un solo reemplazo mal ubicado rompió
 media app. Verificá **después** del último cambio, no antes.
 
+**Patrimonio e Inversiones arrancan tapadas.** Son las dos que muestran
+cuánta plata tenés en total, o sea lo más privado: alcanza con que alguien
+pase por al lado. Se destapan con el botón «Mostrar» y **se vuelven a tapar
+solas al salir de la sección**, porque el `key={tab}` del contenedor las
+remonta y el estado del componente `Privado` vuelve a arrancar en false. Eso
+es a propósito: si quedara destapado dejaría de servir.
+
+`Privado` reusa la clase `.oculto` del botón de la barra. Como el selector es
+`.oculto .monto-sensible`, ponerla en cualquier envoltorio de adentro tapa lo
+que haya abajo — no hizo falta CSS nuevo.
+
 **Ocultar saldos: lo que no está marcado, se ve.** El botón tapa lo que tenga
 `.monto-sensible`, y era fácil olvidárselo al agregar una pantalla: había 8
 secciones mostrando montos igual. Se chequea solo recorriendo la app con el

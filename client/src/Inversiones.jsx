@@ -17,7 +17,7 @@
  *   cotizan por cada 100 nominales. Está explicado en el formulario.
  */
 import { useEffect, useRef, useState } from 'react'
-import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
+import { api, money, Empty, montoDesde, soloPlata, Privado } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
@@ -162,7 +162,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
   const conPlata = TIPOS.filter((t) => (porTipo || {})[t.id])
 
   return (
-    <>
+    <Privado>
       <div className="hero">
         <div className="label">Tu cartera</div>
         <Numero className="value monto-sensible" valor={totalValue} />
@@ -351,7 +351,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
           onError={onError}
         />
       )}
-    </>
+    </Privado>
   )
 }
 

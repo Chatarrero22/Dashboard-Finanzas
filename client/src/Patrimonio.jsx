@@ -7,7 +7,7 @@
  *
  * Los datos salen de /api/networth.
  */
-import { money, Empty } from './comunes.jsx'
+import { money, Empty, Privado } from './comunes.jsx'
 import Numero from './Numero.jsx'
 
 const COLORES = [
@@ -108,7 +108,7 @@ export default function PatrimonioScreen({ networth }) {
   const conPct = partes.map((p) => ({ ...p, pct: (Math.abs(p.monto) / base) * 100 }))
 
   return (
-    <>
+    <Privado>
       <div className="titular patrimonio-titular">
         <div className="titular-brillo" />
         <div className="titular-txt patrimonio-cabeza">
@@ -175,6 +175,6 @@ export default function PatrimonioScreen({ networth }) {
           total. Prefiero que falte antes que poner un número inventado.
         </p>
       )}
-    </>
+    </Privado>
   )
 }

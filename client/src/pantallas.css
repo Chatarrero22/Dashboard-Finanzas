@@ -1655,3 +1655,26 @@
 
 .titulos-resumen .hint { margin: 0 0 6px; }
 .titulos-resumen .hint:last-child { margin-bottom: 0; }
+
+/* --- Pantallas que arrancan tapadas ------------------------------------ */
+
+/* Patrimonio e Inversiones muestran lo mas privado de la app. Empiezan
+   tapadas y esta barra es la que las destapa. */
+.privado-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+
+.privado-txt {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.privado-barra .chip { flex: none; }
