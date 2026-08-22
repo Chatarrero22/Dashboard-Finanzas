@@ -1001,14 +1001,31 @@
 
 .cuenta-saldo.negativo { color: var(--critical); }
 
-/* A 320 la fila no entra: nombre, saldo y tres botones se pisaban y la ✕
-   quedaba fuera de la tarjeta. Se parte en dos lineas y los botones bajan. */
+/* Las columnas de la derecha tienen que cerrar entre filas: el saldo debajo
+   del saldo y los botones debajo de los botones. Sin esto la fila de la
+   cuenta principal quedaba corrida, porque es la unica sin ✕. */
+.cuenta-saldo { min-width: 92px; text-align: right; }
+
 .cuenta-acciones { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* El lugar que ocuparia la ✕ en las filas que no la tienen. Los dos con el
+   mismo box-sizing y sin padding: si no, el hueco y el boton miden distinto
+   y la fila sin ✕ queda corrida igual. */
+.cuenta-hueco,
+.cuenta-acciones > .danger {
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+  flex: none;
+}
 
 @media (max-width: 560px) {
   .cuenta { flex-wrap: wrap; row-gap: 8px; }
-  .cuenta-txt { flex: 1 1 auto; }
-  .cuenta-saldo { flex: none; }
+  .cuenta-txt { flex: 1 1 auto; min-width: 0; }
+  /* Pegado a la derecha, o cada saldo cae donde termina su nombre. */
+  .cuenta-saldo { flex: none; margin-left: auto; }
   .cuenta-acciones {
     flex: 1 0 100%;
     justify-content: flex-end;

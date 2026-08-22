@@ -391,8 +391,7 @@ reintenta al día siguiente). Preferible que falte un dato a que haya uno falso.
 
 - **Patrimonio e Inversiones arrancan tapadas.** Son las que muestran cuánta
   plata tenés en total. Se destapan con «Mostrar» y **se vuelven a tapar al
-  salir de la sección** — el `key={tab}` del contenedor remonta la pantalla y
-  el estado de `Privado` vuelve a false. Si quedara destapado no serviría.
+  recargar**, no al cambiar de solapa.
 - **El botón «Ocultar saldos» de la barra** tapa todo lo que tenga
   `.monto-sensible`, en todas las pantallas. Es aparte del anterior.
 - **Lo que no está marcado se ve.** Había ocho secciones mostrando montos
@@ -674,6 +673,17 @@ al diseño y el motivo no estaba en el layout: heredaba el `position: fixed;
 bottom: 0` de `.nav`, la barra del celular. Si algo "no se parece al diseño",
 fijate qué está heredando antes de reescribir el componente.
 
+**Las columnas de una lista tienen que cerrar entre filas.** En «Tus cuentas»
+la fila de la cuenta principal quedaba corrida respecto de las otras, y no
+era el CSS: es la única sin botón de borrar. Cuando una fila tiene un
+elemento opcional al final, **reservale el lugar** (`.cuenta-hueco`) en vez de
+no renderizar nada.
+
+Ojo con el hueco: tiene que medir **exactamente** lo mismo que lo que
+reemplaza. La primera versión quedaba 16px corta porque el botón tenía
+padding y el hueco no — se ve igual de desprolijo, y peor, parece arreglado.
+Los dos con el mismo `box-sizing` y sin padding.
+
 **Los hijos de una grilla no se achican solos.** Arrancan con `min-width: auto`,
 así que un texto largo o un monto grande ensanchan la columna y aparece scroll
 horizontal a 320px. Hay que ponerles `min-width: 0` (está en `shell.css`).
@@ -728,9 +738,17 @@ media app. Verificá **después** del último cambio, no antes.
 **Patrimonio e Inversiones arrancan tapadas.** Son las dos que muestran
 cuánta plata tenés en total, o sea lo más privado: alcanza con que alguien
 pase por al lado. Se destapan con el botón «Mostrar» y **se vuelven a tapar
-solas al salir de la sección**, porque el `key={tab}` del contenedor las
-remonta y el estado del componente `Privado` vuelve a arrancar en false. Eso
-es a propósito: si quedara destapado dejaría de servir.
+al recargar**.
+
+Al principio se tapaban también al cambiar de sección, porque el `key={tab}`
+del contenedor remonta la pantalla y el estado de `Privado` volvía a false.
+Se sentía como un bug: ir a Inversiones y volver te obligaba a apretar
+«Mostrar» de nuevo cada vez. Ahora el estado vive en una variable del módulo
+(`destapado`, en `comunes.jsx`), así que sobrevive el cambio de solapa.
+
+**No va en `localStorage` a propósito:** tiene que durar lo que dura la
+pestaña. Guardarlo dejaría los montos destapados la próxima vez que abrís la
+app, que es justo lo que esto tiene que evitar.
 
 `Privado` reusa la clase `.oculto` del botón de la barra. Como el selector es
 `.oculto .monto-sensible`, ponerla en cualquier envoltorio de adentro tapa lo

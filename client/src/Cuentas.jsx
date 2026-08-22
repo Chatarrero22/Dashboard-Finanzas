@@ -198,9 +198,12 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
                       setAbierto(true)
                     }}
                   >Editar</button>
-                  {!c.es_default && (
-                    <button className="danger" aria-label={`Borrar ${c.name}`} onClick={() => borrar(c)}>✕</button>
-                  )}
+                  {/* La principal no se puede borrar, pero el lugar de la ✕
+                      se reserva igual: si no, su fila queda corrida respecto
+                      de las otras y las columnas no cierran. */}
+                  {c.es_default
+                    ? <span className="cuenta-hueco" aria-hidden="true" />
+                    : <button className="danger" aria-label={`Borrar ${c.name}`} onClick={() => borrar(c)}>✕</button>}
                 </div>
               </div>
             ))}

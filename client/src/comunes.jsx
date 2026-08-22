@@ -149,8 +149,27 @@ export function icono(cat) {
  * el selector es `.oculto .monto-sensible`, ponerla en cualquier envoltorio
  * de adentro tapa lo que haya abajo.
  */
+/*
+ * Si destapaste los montos, siguen destapados hasta que recargues.
+ *
+ * Antes vivía en el estado del componente, y como el contenedor se remonta
+ * al cambiar de sección (`key={tab}`), volver a Patrimonio te obligaba a
+ * apretar «Mostrar» de nuevo cada vez. Emanuel lo pidió: que se tape solo al
+ * recargar, no al cambiar de solapa.
+ *
+ * Va en una variable del módulo y NO en localStorage a propósito: así vive lo
+ * que vive la pestaña. Guardarlo dejaría los montos destapados la próxima vez
+ * que abrís la app, que es justo lo que esto tiene que evitar.
+ */
+let destapado = false
+
 export function Privado({ children }) {
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(destapado)
+
+  function alternar() {
+    destapado = !visible
+    setVisible(destapado)
+  }
 
   return (
     <div className={visible ? undefined : 'oculto'}>
@@ -158,7 +177,7 @@ export function Privado({ children }) {
         <span className="privado-txt">
           {visible ? 'Los montos están a la vista' : 'Los montos están ocultos'}
         </span>
-        <button className="chip" onClick={() => setVisible(!visible)}>
+        <button className="chip" onClick={alternar}>
           {visible ? 'Ocultar' : 'Mostrar'}
         </button>
       </div>
