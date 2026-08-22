@@ -161,6 +161,13 @@ dando tu plata total sin que ninguna consulta sepa que existen los traspasos.
 **El saldo de una cuenta no se guarda.** Es la suma de sus movimientos. Guardarlo
 sería tener dos verdades que se pueden contradecir.
 
+**Con qué pagás casi siempre lo elegís vos.** Si pagás casi todo con una
+tarjeta, marcarla una por una es imposible: hay un medio por defecto y todo va
+ahí salvo que digas lo contrario («…en efectivo», «…con la Naranja»). Pero
+**«débito o efectivo» tiene que ser una opción**: Camila paga poco con
+crédito y si no, cada gasto le entra al resumen y hay que corregirlo a mano.
+Se elige en Tarjetas.
+
 **El pago del resumen de la tarjeta NO es un movimiento.** Las compras ya están
 cargadas una por una; si además anotáramos el pago, el mes contaría el doble.
 Por eso existe `card_payments`, que solo marca "el resumen que cerró tal día
@@ -219,18 +226,33 @@ lo que compraste en títulos. Si comprás un bono con plata que ya estaba en el
 broker, la cuenta baja y los títulos suben: el apartado no se mueve, que es lo
 correcto — esa plata ya estaba apartada.
 
-**«Toda tu plata» y «Ahorro del mes» son cosas distintas.** Un saldo y un
+**«En tus cuentas» y «Ahorro del mes» son cosas distintas.** Un saldo y un
 flujo, y se confunden fácil porque los dos son un peso con signo:
 
-- **Toda tu plata** = `SUM(amount)` de **todos** los movimientos, de siempre,
+- **En tus cuentas** = `SUM(amount)` de **todos** los movimientos, de siempre,
   sin filtrar categoría. Es cuánta plata tenés.
-- **Ahorro del mes** = ingresos menos gastos **de ese mes**, excluyendo
-  `Traspaso`. Es cómo te fue este mes.
+- **Ahorro del mes** = ingresos menos gastos **de ese mes**. Es cómo te fue
+  este mes.
 
 La diferencia entre los dos es exactamente lo que arrastrás de los meses
 anteriores (los traspasos no cuentan porque se anulan entre sí). Emanuel vio
 $1.157.159 y $1.097.792 y preguntó por qué; la pantalla ahora lo explica sola
 en vez de dejarte hacer la cuenta.
+
+Ese cartel decía «Toda tu plata» y era mentira: con $50.000 en el banco y ocho
+millones en títulos, mostraba $50.000. **Si un título dice «todo», que sea
+todo.**
+
+**Los montos se leen igual en los dos lados.** La gente escribe `1.000.000`,
+no `1000000`. El front usa `montoDesde()` de `comunes.jsx` y el server usa
+`plata.js`, y **tienen que seguir la misma regla**: si leyeran distinto, el
+mismo gasto valdría una cosa por la web y otra por Telegram. Hay una prueba
+que los compara.
+
+Lo que había antes era `Number(texto.replace(/[^\d.]/g, ''))` y fallaba de dos
+formas: `300.000` daba **300** —movía trescientos pesos sin avisar— y
+`1.000.000` daba `NaN`, que apagaba el botón de guardar y parecía que la app
+«no dejaba» con ciertos montos.
 
 **Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
 saldo en rojo se lee igual que uno a favor.
@@ -287,6 +309,23 @@ cuenta queda como estaba. Lo pregunta la pantalla.
 **Si no hay cotización, no inventamos.** El botón US$ se deshabilita, la API
 responde 503 con un mensaje claro y una suscripción en dólares no se carga (se
 reintenta al día siguiente). Preferible que falte un dato a que haya uno falso.
+
+---
+
+## Qué se ve y qué está tapado
+
+- **Patrimonio e Inversiones arrancan tapadas.** Son las que muestran cuánta
+  plata tenés en total. Se destapan con «Mostrar» y **se vuelven a tapar al
+  salir de la sección** — el `key={tab}` del contenedor remonta la pantalla y
+  el estado de `Privado` vuelve a false. Si quedara destapado no serviría.
+- **El botón «Ocultar saldos» de la barra** tapa todo lo que tenga
+  `.monto-sensible`, en todas las pantallas. Es aparte del anterior.
+- **Lo que no está marcado se ve.** Había ocho secciones mostrando montos
+  igual. Se chequea recorriendo la app con el modo prendido y buscando texto
+  con pinta de plata que no esté tapado.
+- **El botón «Actualizar»** de la barra vuelve a pedir todo lo de la pantalla
+  actual, sin recargar. Usa `refrescar()`, la **única** lista de qué recargar:
+  antes había dos que se habían ido separando.
 
 ---
 
@@ -381,13 +420,14 @@ Queda:
    aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
 3. **Los dos números del Resumen** — "gastaste este mes" (lo de hoy) vs "sale de
    tu cuenta este mes" (el resumen que vence + lo que no es tarjeta). Los datos
-   ya están; falta mostrarlos.
+   ya están; falta mostrarlos. Lo que **sí** se hizo es el reparto de lo
+   ahorrado: cuánto ya apartaste y cuánto queda sin destino.
 4. **La deuda de tarjeta en Patrimonio** — hoy resta bien el total pero no dice
    cuánto de eso es tarjeta sin pagar.
 
 ### Cosas del pasado que conviene saber
 
-- El **modo simple ya no existe**: todos ven las 13 secciones. Escondía cosas
+- El **modo simple ya no existe**: todos ven las 12 secciones. Escondía cosas
   que la persona necesitaba y no había forma de darse cuenta de por qué no
   aparecían. La columna `simple_ui` sigue en la base porque borrarla en SQLite
   es un lío, pero **no se lee**: `initDB()` la pone en 0. No la vuelvas a usar.
