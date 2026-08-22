@@ -488,16 +488,40 @@ router.get('/dashboard', function (req, res) {
    * estaba en el broker, la cuenta baja y los títulos suben: el apartado no
    * se mueve, que es lo correcto (esa plata ya estaba apartada).
    */
+  var base = cuentas.principal(uid);
+  var baseId = base ? base.id : -1;
+
+  /*
+   * Apartar es MOVER plata a un costado, no que la cuenta crezca.
+   *
+   * Antes esto sumaba todo lo que pasara por una cuenta de tipo ahorro o
+   * inversion, y con eso alcanzaba para mentir: la cuenta principal de
+   * Emanuel es de tipo Ahorro, asi que su sueldo, sus gastos y el ajuste de
+   * la tarjeta contaban como si los hubiera apartado. El Resumen le decia
+   * "apartaste $1.187.059" un mes en el que no habia invertido nada.
+   *
+   * Por eso miramos dos cosas concretas y nada mas:
+   *   - traspasos que entraron a una cuenta apartada (neto: si la sacaste,
+   *     resta). Un sueldo que cae ahi, o un ajuste, NO es apartar.
+   *   - compras de titulos pagadas con plata que todavia no estaba apartada.
+   *
+   * Y la cuenta principal nunca cuenta como apartada, sea del tipo que sea:
+   * es donde vivis, no un costado.
+   */
   var apartado = db.prepare(
     'SELECT COALESCE(SUM(t.amount),0) x FROM transactions t' +
     ' JOIN accounts a ON a.id = t.account_id' +
-    " WHERE t.user_id = ? AND a.tipo IN ('ahorro','inversion') AND substr(t.date,1,7) = ?"
-  ).get(uid, month).x;
+    " WHERE t.user_id = ? AND t.category = 'Traspaso' AND t.asset_id IS NULL" +
+    " AND a.tipo IN ('ahorro','inversion') AND a.id <> ?" +
+    ' AND substr(t.date,1,7) = ?'
+  ).get(uid, baseId, month).x;
 
   apartado += db.prepare(
-    'SELECT COALESCE(SUM(ABS(amount)),0) x FROM transactions' +
-    ' WHERE user_id = ? AND asset_id IS NOT NULL AND substr(date,1,7) = ?'
-  ).get(uid, month).x;
+    'SELECT COALESCE(SUM(ABS(t.amount)),0) x FROM transactions t' +
+    ' LEFT JOIN accounts a ON a.id = t.account_id' +
+    ' WHERE t.user_id = ? AND t.asset_id IS NOT NULL AND substr(t.date,1,7) = ?' +
+    "   AND (a.id IS NULL OR a.id = ? OR a.tipo NOT IN ('ahorro','inversion'))"
+  ).get(uid, month, baseId).x;
 
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
@@ -1394,17 +1418,36 @@ router.get('/saldo', function (req, res) {
     movimientos: t.movimientos,
     // Cuotas que ya están descontadas pero todavía no las pagaste.
     porVencer: futuro.monto,
-    porVencerN: futuro.n
+    porVencerN: futuro.n,
+    // Con su saldo, para poder ajustar UNA y no el total.
+    cuentas: cuentas.listar(uid)
   });
 });
 
+/**
+ * Ajustar el saldo, SIEMPRE de una cuenta.
+ *
+ * Antes esto ajustaba contra toda tu plata junta y anotaba la diferencia en
+ * la cuenta principal. Suena parecido y no lo es: Emanuel miro el banco, vio
+ * $50.000, lo escribio, y la app entendio "en total tengo $50.000" — asi que
+ * descontó de la principal todo lo que habia en las otras cuentas y la dejó
+ * en negativo.
+ *
+ * Nadie puede verificar un total. Lo que una persona puede mirar es el saldo
+ * de UNA cuenta, y eso es lo unico contra lo que tiene sentido comparar.
+ */
 router.post('/saldo', function (req, res) {
   if (req.body.saldoReal == null || isNaN(Number(req.body.saldoReal))) {
     return res.status(400).json({ error: 'Decime cuánta plata tenés de verdad' });
   }
 
-  var saldo = db.prepare('SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ?')
-    .get(req.user.id).t;
+  var cuenta = req.body.account_id
+    ? db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?')
+        .get(Number(req.body.account_id), req.user.id)
+    : cuentas.asegurarPrincipal(req.user.id);
+  if (!cuenta) return res.status(400).json({ error: 'No encontré esa cuenta' });
+
+  var saldo = cuentas.saldoDe(req.user.id, cuenta.id);
   var real = Number(req.body.saldoReal);
   var diferencia = real - saldo;
 
@@ -1415,14 +1458,14 @@ router.post('/saldo', function (req, res) {
   var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
   var texto = req.body.motivo
     ? String(req.body.motivo).trim()
-    : (diferencia < 0 ? 'Ajuste de saldo' : 'Ajuste de saldo (a favor)');
+    : (diferencia < 0 ? 'Ajuste de ' + cuenta.name : 'Ajuste de ' + cuenta.name + ' (a favor)');
 
   db.prepare(
-    'INSERT INTO transactions (user_id, date, description, amount, category, platform)' +
-    " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste')"
-  ).run(req.user.id, fecha, texto, diferencia);
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
+    " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste', ?)"
+  ).run(req.user.id, fecha, texto, diferencia, cuenta.id);
 
-  res.json({ ajustado: true, diferencia: diferencia, saldo: real });
+  res.json({ ajustado: true, diferencia: diferencia, saldo: real, cuenta: cuenta.name });
 });
 
 /* -------------------------------------------------------- mantenimiento */

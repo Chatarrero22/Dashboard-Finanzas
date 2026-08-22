@@ -939,9 +939,20 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
   const [reglas, setReglas] = useState(null)
   const [saldoReal, setSaldoReal] = useState('')
   const [desglose, setDesglose] = useState(null)
-  const saldo = desglose ? desglose.saldo : 0
+  // Se ajusta UNA cuenta, no el total: un total no lo puede verificar nadie,
+  // el saldo de una cuenta lo mirás en el banco.
+  const [cuentaId, setCuentaId] = useState(null)
+  const listaCuentas = (desglose && desglose.cuentas) || []
+  const cuenta = listaCuentas.find((c) => c.id === cuentaId) || listaCuentas[0] || null
+  const saldo = cuenta ? cuenta.saldo : 0
 
-  useEffect(() => { api('/saldo').then(setDesglose).catch(() => {}) }, [])
+  useEffect(() => {
+    api('/saldo').then((d) => {
+      setDesglose(d)
+      const base = (d.cuentas || []).find((c) => c.es_default) || (d.cuentas || [])[0]
+      if (base) setCuentaId((prev) => (prev == null ? base.id : prev))
+    }).catch(() => {})
+  }, [])
 
   async function ajustarSaldo(e) {
     e.preventDefault()
@@ -950,18 +961,24 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
     // es algo que podés querer hacer. Lo que no vale es un "-" solo.
     if (!/\d/.test(saldoReal)) return onError('Escribí cuánta plata tenés de verdad')
 
+    if (!cuenta) return onError('Todavía no hay ninguna cuenta')
+
     const dif = real - (saldo || 0)
     const ok = await confirmar({
       titulo: dif < 0 ? `¿Descontar ${money(Math.abs(dif))}?` : `¿Sumar ${money(dif)}?`,
-      detalle: `La app cree que tenés ${money(saldo || 0)} y vos decís que tenés ${money(real)}. ` +
-        'Anoto un solo movimiento por la diferencia, con categoría Ajuste. ' +
-        'No cuenta como gasto en ninguna categoría.',
+      detalle: `En «${cuenta.name}» la app cree que tenés ${money(saldo || 0)} ` +
+        `y vos decís que tenés ${money(real)}. ` +
+        'Anoto un solo movimiento por la diferencia en esa cuenta, con categoría Ajuste. ' +
+        'Las otras cuentas no se tocan.',
       aceptar: 'Ajustar',
     })
     if (!ok) return
 
     try {
-      const r = await api('/saldo', { method: 'POST', body: JSON.stringify({ saldoReal: real }) })
+      const r = await api('/saldo', {
+        method: 'POST',
+        body: JSON.stringify({ saldoReal: real, account_id: cuenta.id }),
+      })
       // El saldo sale del desglose: volver a pedirlo actualiza las dos cosas.
       await api('/saldo').then(setDesglose).catch(() => {})
       setSaldoReal('')
@@ -1219,15 +1236,34 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
         {/* El numero solo no alcanza: Emanuel vio $1.059.114 cuando en el
             banco tenia $50.000 y no habia forma de saber de donde salia la
             diferencia. Mostrar de que esta hecho la vuelve evidente. */}
+        {listaCuentas.length > 1 && (
+          <label className="field">
+            <span className="field-label">¿Qué cuenta querés ajustar?</span>
+            <select
+              value={cuenta ? cuenta.id : ''}
+              onChange={(e) => setCuentaId(Number(e.target.value))}
+            >
+              {listaCuentas.map((c) => (
+                <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <p className="hint">
-          Según lo cargado tenés <strong className="monto-sensible">{money(saldo || 0)}</strong>.
+          En <strong>{cuenta ? cuenta.name : 'tu cuenta'}</strong> la app cree que
+          tenés <strong className="monto-sensible">{money(saldo || 0)}</strong>.
+          {listaCuentas.length > 1 && ' Las otras cuentas no se tocan.'}
         </p>
         {desglose && (
           <p className="hint">
+            Sumando todas tus cuentas hay <span className="monto-sensible">{money(desglose.saldo)}</span>.
             Sale de <span className="monto-sensible">{money(desglose.ingresos)}</span> que
             entraron menos <span className="monto-sensible">{money(desglose.gastos)}</span> que
             salieron, en {desglose.movimientos} movimientos
-            {desglose.ajustes ? <> (más <span className="monto-sensible">{money(desglose.ajustes)}</span> de ajustes)</> : null}
+            {desglose.ajustes ? (
+              <> ({desglose.ajustes < 0 ? 'menos' : 'más'}{' '}
+                <span className="monto-sensible">{money(Math.abs(desglose.ajustes))}</span> de ajustes)</>
+            ) : null}
             {desglose.yaTenias ? <> Más <span className="monto-sensible">{money(desglose.yaTenias)}</span> que ya tenías y la app no sabía.</> : '.'}
             {desglose.porVencer > 0 && (
               <>
@@ -1241,7 +1277,9 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
           </p>
         )}
         <label className="field">
-          <span className="field-label">¿Cuánto tenés de verdad?</span>
+          <span className="field-label">
+            ¿Cuánto tenés de verdad en {cuenta ? cuenta.name : 'esa cuenta'}?
+          </span>
           <input
             inputMode="decimal"
             placeholder="0"

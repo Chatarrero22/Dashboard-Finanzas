@@ -53,21 +53,35 @@ function asegurarPrincipal(userId) {
   return db.prepare('SELECT * FROM accounts WHERE id = ?').get(info.lastInsertRowid);
 }
 
+/**
+ * El saldo de una cuenta: la suma de sus movimientos.
+ *
+ * Vive en una sola funcion a proposito. Ajustar el saldo real tiene que
+ * comparar contra exactamente el mismo numero que muestra la pantalla; si
+ * cada lado hiciera su propia cuenta, el ajuste corregiria una diferencia
+ * que no existe.
+ */
+function saldoDe(userId, cuentaId) {
+  var base = principal(userId);
+  // Los movimientos sin cuenta cuentan para la principal.
+  if (base && Number(cuentaId) === base.id) {
+    return db.prepare(
+      'SELECT COALESCE(SUM(amount),0) t FROM transactions' +
+      ' WHERE user_id = ? AND (account_id = ? OR account_id IS NULL)'
+    ).get(userId, base.id).t;
+  }
+  return db.prepare(
+    'SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ? AND account_id = ?'
+  ).get(userId, cuentaId).t;
+}
+
 /** Las cuentas con su saldo. */
 function listar(userId) {
-  var base = asegurarPrincipal(userId);
+  asegurarPrincipal(userId);
 
   return db.prepare('SELECT * FROM accounts WHERE user_id = ? ORDER BY id').all(userId)
     .map(function (c) {
-      // Los movimientos sin cuenta cuentan para la principal.
-      var saldo = c.id === base.id
-        ? db.prepare(
-            'SELECT COALESCE(SUM(amount),0) t FROM transactions' +
-            ' WHERE user_id = ? AND (account_id = ? OR account_id IS NULL)'
-          ).get(userId, c.id).t
-        : db.prepare(
-            'SELECT COALESCE(SUM(amount),0) t FROM transactions WHERE user_id = ? AND account_id = ?'
-          ).get(userId, c.id).t;
+      var saldo = saldoDe(userId, c.id);
 
       return {
         id: c.id,
@@ -193,6 +207,7 @@ module.exports = {
   compraDe: compraDe,
   principal: principal,
   asegurarPrincipal: asegurarPrincipal,
+  saldoDe: saldoDe,
   listar: listar,
   traspasar: traspasar
 };

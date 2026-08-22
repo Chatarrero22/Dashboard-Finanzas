@@ -209,6 +209,22 @@ es un gasto», y el ahorro del mes de Emanuel saltó de $109.367 a $1.059.436
 de arriba dice «Ajuste no es un gasto» pensando en la **torta de categorías**,
 que es donde no tiene dónde ir; en los totales sí tiene que estar.
 
+**El saldo real se ajusta SIEMPRE de a una cuenta.** «Poner el saldo real»
+compara contra el saldo de **una** cuenta y anota la diferencia ahí; las otras
+no se tocan.
+
+Antes ajustaba contra toda tu plata junta y anotaba la diferencia en la cuenta
+principal. Suena parecido y no lo es: Emanuel miró el banco, vio $50.000, lo
+escribió, y la app entendió «en total tengo $50.000» — así que le descontó a
+la principal todo lo que había en las otras cuentas y la dejó en **-$9.045**.
+
+**Nadie puede verificar un total.** Lo que una persona puede mirar es el saldo
+de una cuenta, y eso es lo único contra lo que tiene sentido comparar.
+
+El saldo de una cuenta se calcula en un solo lado, `cuentas.saldoDe()`: si
+cada lado hiciera su propia cuenta, el ajuste corregiría una diferencia que no
+existe.
+
 **La plata que ya tenías y la app no sabía se anota como `Ajuste`.** Una
 cuenta nueva puede nacer con saldo (`saldo_inicial` en `POST /cuentas`), y en
 Inversiones podés decir «ya la tengo ahí» en vez de moverla de otro lado.
@@ -221,10 +237,26 @@ saber. El resultado del mes es un flujo y **no cambia** cuando movés plata de
 lugar (está bien que no cambie), así que el Resumen lo aclara aparte:
 `dashboard.apartado`.
 
-Se mide como cuánto crecieron este mes tus cuentas de ahorro e inversión, más
-lo que compraste en títulos. Si comprás un bono con plata que ya estaba en el
-broker, la cuenta baja y los títulos suben: el apartado no se mueve, que es lo
-correcto — esa plata ya estaba apartada.
+**Apartar es MOVER plata a un costado, no que una cuenta crezca.** Se cuentan
+dos cosas y nada más:
+
+- los **traspasos** que entraron a una cuenta apartada (neto: si la sacaste,
+  resta);
+- las **compras de títulos** pagadas con plata que todavía no estaba apartada.
+
+Si comprás un bono con plata que ya estaba en el broker, la cuenta baja y los
+títulos suben: el apartado no se mueve, que es lo correcto — esa plata ya
+estaba apartada.
+
+Y **la cuenta principal nunca es una cuenta apartada, sea del tipo que sea**:
+es donde vivís, no un costado.
+
+Antes esto sumaba todo lo que pasara por una cuenta de tipo `ahorro` o
+`inversion`, y con eso alcanzaba para mentir. La cuenta principal de Emanuel
+es de tipo Ahorro, así que su sueldo, sus gastos y el ajuste de la tarjeta
+contaban como si los hubiera apartado: el Resumen le decía «apartaste
+$1.187.059» un mes en el que no había invertido nada. Un sueldo que cae en una
+cuenta no es apartar, y un `Ajuste` mucho menos.
 
 **«En tus cuentas» y «Ahorro del mes» son cosas distintas.** Un saldo y un
 flujo, y se confunden fácil porque los dos son un peso con signo:
