@@ -146,8 +146,11 @@ motivo antes de cambiarlo.
 correcto para categorías, presupuestos y P&L: si comprás en agosto, gastaste en
 agosto aunque pagues la tarjeta en septiembre.
 
-**Categorías que NO son gastos: `Traspaso` y `Ajuste`.** Hay que excluirlas de
-ingresos, gastos, `byCategory`, `topExpenses` y `byDay`. Si no, mover plata al
+**Categorías que NO son gastos: `Traspaso`, `Ajuste` y `Saldo inicial`.** Hay
+que excluirlas de `byCategory`, `topExpenses` y `byDay`: no son un gasto EN
+algo. De los **totales** (ingresos y gastos del mes) se excluyen solo
+`Traspaso` y `Saldo inicial` — un `Ajuste` sí cuenta, porque representa plata
+que realmente se movió y no se cargó. Si no, mover plata al
 ahorro aparece como un gasto y el mes queda arruinado.
 
 **Un traspaso entre cuentas son DOS movimientos que se anulan.** `-X` en la
@@ -181,12 +184,23 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
-**Un `Ajuste` NO es un gasto ni un ingreso, y hay que acordarse en TODAS las
-consultas.** `byCategory`, `topExpenses` y `byDay` ya lo excluían, pero
-`totals`, `monthTotals` y `byMonth` no: solo sacaban `Traspaso`. Resultado:
-Emanuel ajustó su saldo en −$1.009.114 y el ahorro del mes se le desplomó de
-$1.118.481 a $109.367, porque la app contó la corrección como si hubiera
-gastado un millón. Si agregás una consulta de totales, sacá las dos.
+**`Ajuste` y `Saldo inicial` parecen lo mismo y no lo son.**
+
+- **`Ajuste`** — ponés el saldo real porque la app decía que tenías más de lo
+  que tenés. Eso pasa porque hubo plata que **se fue** y nunca se cargó
+  (pagaste el resumen de un mes que no anotaste). Es un gasto de verdad
+  aunque no sepamos en qué. **Cuenta** en los totales del mes.
+- **`Saldo inicial`** — la app se entera de plata que ya era tuya («tengo un
+  palo en el broker esperando»). No entró ni salió nada. **No cuenta.**
+
+Los dos quedan afuera de `byCategory` / `topExpenses` / `byDay`: no son un
+gasto EN algo, no tienen dónde ir en la torta.
+
+Me equivoqué acá: saqué `Ajuste` de los totales razonando «una corrección no
+es un gasto», y el ahorro del mes de Emanuel saltó de $109.367 a $1.059.436
+—plata que él sabía que no tenía—. El número viejo era el correcto. La regla
+de arriba dice «Ajuste no es un gasto» pensando en la **torta de categorías**,
+que es donde no tiene dónde ir; en los totales sí tiene que estar.
 
 **La plata que ya tenías y la app no sabía se anota como `Ajuste`.** Una
 cuenta nueva puede nacer con saldo (`saldo_inicial` en `POST /cuentas`), y en

@@ -1227,7 +1227,8 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
             Sale de <span className="monto-sensible">{money(desglose.ingresos)}</span> que
             entraron menos <span className="monto-sensible">{money(desglose.gastos)}</span> que
             salieron, en {desglose.movimientos} movimientos
-            {desglose.ajustes ? <> (más <span className="monto-sensible">{money(desglose.ajustes)}</span> de ajustes)</> : null}.
+            {desglose.ajustes ? <> (más <span className="monto-sensible">{money(desglose.ajustes)}</span> de ajustes)</> : null}
+            {desglose.yaTenias ? <> Más <span className="monto-sensible">{money(desglose.yaTenias)}</span> que ya tenías y la app no sabía.</> : '.'}
             {desglose.porVencer > 0 && (
               <>
                 {' '}Incluye <span className="monto-sensible">{money(desglose.porVencer)}</span> de

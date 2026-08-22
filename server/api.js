@@ -410,36 +410,45 @@ router.get('/dashboard', function (req, res) {
   var month = req.query.month || mesActual();
 
   /*
-   * Ojo con 'Ajuste': NO es un gasto ni un ingreso.
+   * DOS cosas distintas que parecen la misma, y confundirlas cambia números
+   * que la persona conoce de memoria:
    *
-   * Estas tres consultas excluían solo 'Traspaso', y por eso un ajuste de
-   * saldo se comía el resultado del mes. Emanuel ajustó su saldo en
-   * -$1.009.114 y el ahorro del mes se le desplomó de $1.118.481 a $109.367:
-   * la app le estaba contando la corrección como si hubiera gastado un millón.
+   *   'Ajuste'        Ponés el saldo real porque la app te decía que tenías
+   *                   más plata de la que tenés. Eso pasa porque hubo plata
+   *                   que SE FUE y nunca se cargó — pagaste el resumen de un
+   *                   mes que no anotaste. Es un gasto de verdad, aunque no
+   *                   sepamos en qué. CUENTA en el mes.
    *
-   * Un ajuste es la app poniéndose al día con la realidad, no plata que se
-   * movió. Va afuera de los totales, igual que ya estaba afuera del análisis
-   * por categoría.
+   *   'Saldo inicial' La app se entera de plata que ya era tuya («tengo un
+   *                   palo en el broker esperando»). No entró ni salió nada:
+   *                   simplemente no lo sabía. NO cuenta en el mes.
+   *
+   * Los saqué a los dos una vez, y el ahorro del mes de Emanuel saltó de
+   * $109.367 a $1.059.436: plata que él sabía que no tenía. El número viejo
+   * era el correcto.
+   *
+   * Los dos quedan afuera del análisis por categoría, eso sí: no son un gasto
+   * EN algo, así que no tienen dónde ir en la torta.
    */
   var totals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
     ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso','Ajuste')"
+    " AND category NOT IN ('Traspaso','Saldo inicial')"
   ).get(uid);
 
   var monthTotals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
     ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso','Ajuste') AND substr(date,1,7) = ?"
+    " AND category NOT IN ('Traspaso','Saldo inicial') AND substr(date,1,7) = ?"
   ).get(uid, month);
 
   // Los ajustes de saldo quedan fuera del analisis por categoria: no son un
   // gasto en algo, son una correccion para que el total cierre con la realidad.
   var byCategory = db.prepare(
     'SELECT category, SUM(ABS(amount)) total, COUNT(*) count FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial')" +
     ' AND substr(date,1,7) = ? GROUP BY category ORDER BY total DESC'
   ).all(uid, month);
 
@@ -447,7 +456,7 @@ router.get('/dashboard', function (req, res) {
     'SELECT substr(date,1,7) month,' +
     ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
-    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso','Ajuste')" +
+    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso','Saldo inicial')" +
     ' GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid);
 
@@ -493,7 +502,7 @@ router.get('/dashboard', function (req, res) {
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
     'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial')" +
     ' AND substr(date,1,7) = ? ORDER BY total DESC LIMIT 5'
   ).all(uid, month);
 
@@ -501,7 +510,7 @@ router.get('/dashboard', function (req, res) {
   // donde no hubo nada) para que el grafico no se deforme segun el mes.
   var porDia = db.prepare(
     'SELECT CAST(substr(date,9,2) AS INTEGER) dia, SUM(ABS(amount)) total FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso')" +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial')" +
     ' AND substr(date,1,7) = ? GROUP BY dia'
   ).all(uid, month);
   var diasDelMes = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
@@ -1223,7 +1232,7 @@ router.post('/cuentas', function (req, res) {
   if (inicial) {
     db.prepare(
       'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
-      " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste', ?)"
+      " VALUES (?, ?, ?, ?, 'Saldo inicial', 'Ajuste', ?)"
     ).run(
       req.user.id,
       new Date().toISOString().slice(0, 10),
@@ -1291,7 +1300,7 @@ router.post('/cuentas/ajuste', function (req, res) {
 
   db.prepare(
     'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
-    " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste', ?)"
+    " VALUES (?, ?, ?, ?, 'Saldo inicial', 'Ajuste', ?)"
   ).run(
     req.user.id,
     new Date().toISOString().slice(0, 10),
@@ -1361,9 +1370,10 @@ router.get('/saldo', function (req, res) {
   var t = db.prepare(
     'SELECT' +
     ' COALESCE(SUM(amount),0) total,' +
-    " COALESCE(SUM(CASE WHEN amount > 0 AND category <> 'Ajuste' THEN amount END),0) ingresos," +
-    " COALESCE(SUM(CASE WHEN amount < 0 AND category <> 'Ajuste' THEN ABS(amount) END),0) gastos," +
+    " COALESCE(SUM(CASE WHEN amount > 0 AND category NOT IN ('Ajuste','Saldo inicial') THEN amount END),0) ingresos," +
+    " COALESCE(SUM(CASE WHEN amount < 0 AND category NOT IN ('Ajuste','Saldo inicial') THEN ABS(amount) END),0) gastos," +
     " COALESCE(SUM(CASE WHEN category = 'Ajuste' THEN amount END),0) ajustes," +
+    " COALESCE(SUM(CASE WHEN category = 'Saldo inicial' THEN amount END),0) yaTenias," +
     ' COUNT(*) movimientos' +
     ' FROM transactions WHERE user_id = ?'
   ).get(uid);
@@ -1371,7 +1381,7 @@ router.get('/saldo', function (req, res) {
   // Lo que todavía no venció: cuotas y gastos fijos con fecha futura.
   var futuro = db.prepare(
     'SELECT COALESCE(SUM(ABS(amount)),0) monto, COUNT(*) n FROM transactions' +
-    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso') AND date > ?"
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial') AND date > ?"
   ).get(uid, hoy);
 
   res.json({
@@ -1379,6 +1389,8 @@ router.get('/saldo', function (req, res) {
     ingresos: t.ingresos,
     gastos: t.gastos,
     ajustes: t.ajustes,
+    // Plata que ya era tuya y la app recién se enteró: no entró este mes.
+    yaTenias: t.yaTenias,
     movimientos: t.movimientos,
     // Cuotas que ya están descontadas pero todavía no las pagaste.
     porVencer: futuro.monto,
