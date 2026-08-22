@@ -181,6 +181,17 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
+**El resultado del mes no dice cuánto de eso ya tiene destino.** «Ahorré 300k
+pero 200k los mandé a invertir, me quedan 100k»: eso es lo que la gente quiere
+saber. El resultado del mes es un flujo y **no cambia** cuando movés plata de
+lugar (está bien que no cambie), así que el Resumen lo aclara aparte:
+`dashboard.apartado`.
+
+Se mide como cuánto crecieron este mes tus cuentas de ahorro e inversión, más
+lo que compraste en títulos. Si comprás un bono con plata que ya estaba en el
+broker, la cuenta baja y los títulos suben: el apartado no se mueve, que es lo
+correcto — esa plata ya estaba apartada.
+
 **«Toda tu plata» y «Ahorro del mes» son cosas distintas.** Un saldo y un
 flujo, y se confunden fácil porque los dos son un peso con signo:
 
@@ -438,6 +449,14 @@ el botón de actualizar y el regreso a la pestaña.
 a `esNuevo()`, que marca el aviso como enviado. Si una pantalla las usa, abrirla
 apaga el aviso de Telegram del día. Por eso existe `alertas-pantalla.js`, que
 calcula lo mismo sin escribir nada.
+
+**Una casilla que solo prende y nunca apaga.** El PATCH de tarjetas hacía
+`if (req.body.es_default)`, así que destildar «por defecto» no hacía nada. La
+primera tarjeta que cargabas quedaba fija y **todos** los gastos le caían
+encima: Camila paga casi todo con débito y no tenía forma de zafar, cada gasto
+le entraba al resumen de crédito. Ahora hay un selector explícito en Tarjetas
+—«Con qué pagás casi siempre», con «Débito o efectivo» como opción— y el
+endpoint acepta `card_id: null`.
 
 **Una acción que aparece sola cuando "ya tenés lo necesario" no existe.**
 El botón «Mover plata» de Ahorro estaba detrás de `lista.length > 1`: con una

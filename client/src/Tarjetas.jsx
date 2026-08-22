@@ -115,6 +115,16 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
   const [editando, setEditando] = useState(null)
   const [abierto, setAbierto] = useState(false)
 
+  async function elegirMedio(cardId) {
+    try {
+      await api('/cards/default', { method: 'POST', body: JSON.stringify({ card_id: cardId }) })
+      onSaved(cardId ? 'Listo, tus gastos van a esa tarjeta' : 'Listo, tus gastos ya no entran en ninguna tarjeta')
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   // El botón "+ Nueva tarjeta" vive en el encabezado, que es de App. App
   // limpia la acción al navegar, así que llegar acá siempre es un click.
   useEffect(() => {
@@ -232,11 +242,53 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
           />
         </section>
       ) : (
-        <div className="tarjetas-grid">
-          {cards.map((t) => (
-            <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} onOrdenar={ordenarSueltos} />
-          ))}
-        </div>
+        <>
+          {/* Con qué pagás casi siempre.
+              Esto faltaba y se notaba: la primera tarjeta que cargabas
+              quedaba por defecto y TODOS los gastos le caían encima. A quien
+              paga casi todo con débito —el caso de Camila— le entraba cada
+              gasto al resumen de crédito y tenía que corregirlos uno por uno.
+              Ahora se puede decir «débito o efectivo» y no cae ninguno. */}
+          <section className="card medio-habitual">
+            <div className="card-rotulo">CON QUÉ PAGÁS CASI SIEMPRE</div>
+            <p className="hint">
+              Los gastos que cargues van solos acá, salvo que digas otra cosa
+              («…en efectivo», «…con la Visa»). Marcá lo que uses más y
+              corregís solo las excepciones.
+            </p>
+            <div className="medios">
+              <button
+                className={`tipo ${!cards.some((c) => c.es_default) ? 'elegido' : ''}`}
+                onClick={() => elegirMedio(null)}
+              >
+                <span className="tipo-ico">💵</span>
+                <span className="tipo-txt">
+                  <span className="tipo-nombre">Débito o efectivo</span>
+                  <small>Los gastos no entran en ningún resumen</small>
+                </span>
+              </button>
+              {cards.map((t) => (
+                <button
+                  key={t.id}
+                  className={`tipo ${t.es_default ? 'elegido' : ''}`}
+                  onClick={() => elegirMedio(t.id)}
+                >
+                  <span className="tipo-ico">▭</span>
+                  <span className="tipo-txt">
+                    <span className="tipo-nombre">{t.name}</span>
+                    <small>Entran en el resumen de esta tarjeta</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="tarjetas-grid">
+            {cards.map((t) => (
+              <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} onOrdenar={ordenarSueltos} />
+            ))}
+          </div>
+        </>
       )}
 
       {proximas && proximas.length > 0 && (

@@ -1702,3 +1702,7 @@
 
 .disponible .hint { margin: 0; }
 .disponible .chip { flex: none; }
+
+/* Con que pagas casi siempre: el medio que se aplica solo a lo que cargas. */
+.medios { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.medios .tipo { width: 100%; }

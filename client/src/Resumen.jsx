@@ -18,6 +18,9 @@ const COLORES = [
 function Titular({ dashboard, mes }) {
   const neto = dashboard.income - dashboard.expense
   const enRojo = neto < 0
+  // Lo que ya mandaste a ahorro, a invertir o a comprar titulos este mes.
+  const apartado = dashboard.apartado || 0
+  const libre = neto - apartado
 
   // El porcentaje solo significa algo si entró plata.
   const pctGastado = dashboard.income > 0
@@ -39,6 +42,25 @@ function Titular({ dashboard, mes }) {
           className={`titular-num monto-sensible ${enRojo ? 'negativo' : 'positivo'}`}
           valor={neto}
         />
+        {/* Cuánto de lo que ahorraste ya tiene destino.
+            «Ahorré 300k pero 200k los mandé a invertir, me quedan 100k»: el
+            resultado del mes solo no lo dice, porque mover plata no cambia el
+            resultado (y está bien que no lo cambie). Faltaba decir cuánto de
+            ese número ya está comprometido. */}
+        {apartado > 0 && (
+          <div className="titular-reparto">
+            <span>
+              Apartaste <b className="monto-sensible">{money(apartado)}</b>
+              {' '}para ahorrar o invertir
+            </span>
+            <span className={libre < 0 ? 'mal' : ''}>
+              {libre >= 0
+                ? <>Te quedan <b className="monto-sensible">{money(libre)}</b> sin destino</>
+                : <>Apartaste <b className="monto-sensible">{money(-libre)}</b> más de lo que ahorraste este mes: salió de lo que traías</>}
+            </span>
+          </div>
+        )}
+
         <div className="titular-pie">
           <span className={`titular-chip ${enRojo || pctGastado == null ? 'mal' : 'ok'}`}>{chip}</span>
           <span className="titular-movs">

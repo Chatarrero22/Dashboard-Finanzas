@@ -453,6 +453,31 @@ router.get('/dashboard', function (req, res) {
     }, 0)
   };
 
+  /*
+   * Cuánto de lo que ahorraste este mes YA lo apartaste.
+   *
+   * «Ahorré 300k pero 200k los mandé a invertir, o sea que me quedan 100k»:
+   * eso es lo que la gente quiere saber y el resultado del mes solo no lo
+   * dice. El resultado del mes es un flujo (entró menos salió) y no cambia
+   * cuando movés plata de lugar, que está bien; lo que faltaba era decir
+   * cuánto de ese flujo ya tiene destino.
+   *
+   * Se mide como cuánto crecieron este mes tus cuentas de ahorro e inversión,
+   * más lo que compraste en títulos. Si comprás un bono con la plata que ya
+   * estaba en el broker, la cuenta baja y los títulos suben: el apartado no
+   * se mueve, que es lo correcto (esa plata ya estaba apartada).
+   */
+  var apartado = db.prepare(
+    'SELECT COALESCE(SUM(t.amount),0) x FROM transactions t' +
+    ' JOIN accounts a ON a.id = t.account_id' +
+    " WHERE t.user_id = ? AND a.tipo IN ('ahorro','inversion') AND substr(t.date,1,7) = ?"
+  ).get(uid, month).x;
+
+  apartado += db.prepare(
+    'SELECT COALESCE(SUM(ABS(amount)),0) x FROM transactions' +
+    ' WHERE user_id = ? AND asset_id IS NOT NULL AND substr(date,1,7) = ?'
+  ).get(uid, month).x;
+
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
     'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
@@ -499,6 +524,8 @@ router.get('/dashboard', function (req, res) {
     income: monthTotals.income,
     expense: monthTotals.expense,
     balance: monthTotals.income - monthTotals.expense,
+    // Cuánto de eso ya mandaste a ahorro, a invertir o a comprar títulos.
+    apartado: apartado,
     count: monthTotals.count,
     allTime: {
       income: totals.income,
@@ -1036,9 +1063,33 @@ router.patch('/cards/:id', function (req, res) {
     req.params.id, req.user.id
   );
 
-  if (req.body.es_default) tarjetas.marcarPorDefecto(req.user.id, Number(req.params.id));
+  // Ojo: hay que poder DESmarcarla, no solo marcarla. Antes esto era
+  // `if (req.body.es_default)` y destildar la casilla no hacía nada, así que
+  // quien pagaba casi todo con débito no tenía forma de zafar: cada gasto le
+  // caía igual en la tarjeta de crédito.
+  if (req.body.es_default === true) tarjetas.marcarPorDefecto(req.user.id, Number(req.params.id));
+  else if (req.body.es_default === false && actual.es_default) tarjetas.marcarPorDefecto(req.user.id, null);
 
   res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === Number(req.params.id); }));
+});
+
+/**
+ * Con qué pagás casi siempre.
+ *
+ * `card_id: null` significa débito o efectivo: los gastos no caen en ninguna
+ * tarjeta salvo que lo digas. Es lo que necesita quien paga poco con crédito;
+ * si no, cada gasto le entra al resumen y hay que corregirlo uno por uno.
+ */
+router.post('/cards/default', function (req, res) {
+  var id = req.body.card_id ? Number(req.body.card_id) : null;
+
+  if (id) {
+    var existe = db.prepare('SELECT id FROM cards WHERE id = ? AND user_id = ?').get(id, req.user.id);
+    if (!existe) return res.status(404).json({ error: 'No existe esa tarjeta' });
+  }
+
+  tarjetas.marcarPorDefecto(req.user.id, id);
+  res.json({ cards: tarjetas.listar(req.user.id), porDefecto: id });
 });
 
 router.delete('/cards/:id', function (req, res) {

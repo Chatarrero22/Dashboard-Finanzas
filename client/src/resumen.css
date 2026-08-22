@@ -530,3 +530,16 @@
 
   .proyeccion-num { text-align: left; }
 }
+
+/* Cuanto de lo que ahorraste ya tiene destino. Va abajo del numero grande,
+   en dos renglones cortos: es una aclaracion, no un dato mas. */
+.titular-reparto {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.titular-reparto .mal { color: var(--critical); }
