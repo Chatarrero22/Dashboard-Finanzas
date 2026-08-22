@@ -413,35 +413,49 @@ router.get('/dashboard', function (req, res) {
    * DOS cosas distintas que parecen la misma, y confundirlas cambia números
    * que la persona conoce de memoria:
    *
-   *   'Ajuste'        Ponés el saldo real porque la app te decía que tenías
-   *                   más plata de la que tenés. Eso pasa porque hubo plata
-   *                   que SE FUE y nunca se cargó — pagaste el resumen de un
-   *                   mes que no anotaste. Es un gasto de verdad, aunque no
-   *                   sepamos en qué. CUENTA en el mes.
+   *   'Ajuste' NEGATIVO   La app te decía que tenías MÁS plata de la que
+   *                       tenés. Eso pasa porque hubo plata que SE FUE y
+   *                       nunca se cargó — pagaste el resumen de un mes que
+   *                       no anotaste. Es un gasto de verdad, aunque no
+   *                       sepamos en qué. CUENTA en el mes.
    *
-   *   'Saldo inicial' La app se entera de plata que ya era tuya («tengo un
-   *                   palo en el broker esperando»). No entró ni salió nada:
-   *                   simplemente no lo sabía. NO cuenta en el mes.
+   *   'Ajuste' POSITIVO   La app te decía que tenías MENOS. Eso NO es plata
+   *                       que ganaste: es plata que ya era tuya y la app no
+   *                       sabía. NO cuenta en el mes.
    *
-   * Los saqué a los dos una vez, y el ahorro del mes de Emanuel saltó de
-   * $109.367 a $1.059.436: plata que él sabía que no tenía. El número viejo
-   * era el correcto.
+   *   'Saldo inicial'     Lo mismo, pero dicho a propósito («tengo un palo
+   *                       en el broker esperando»). NO cuenta en el mes.
    *
-   * Los dos quedan afuera del análisis por categoría, eso sí: no son un gasto
-   * EN algo, así que no tienen dónde ir en la torta.
+   * La asimetría no es un capricho, es cómo falla la memoria de la gente: el
+   * sueldo se anota siempre, los gastos se olvidan. Si la app cree que tenés
+   * de más, es que falta un gasto; si cree que tenés de menos, es plata que
+   * ya estaba ahí.
+   *
+   * Los dos lados me mordieron, uno por vez:
+   *   - Saqué el Ajuste de los totales razonando «una corrección no es un
+   *     gasto» y el ahorro del mes saltó de $109.367 a $1.059.436: plata que
+   *     Emanuel sabía que no tenía.
+   *   - Después dejé que el Ajuste positivo contara, y arreglar el saldo de
+   *     una cuenta le sumó $59.345 de ingresos que nunca cobró.
+   *
+   * Los tres quedan afuera del análisis por categoría, eso sí: no son un
+   * gasto EN algo, así que no tienen dónde ir en la torta.
    */
+  // Un Ajuste positivo no es un ingreso. Se filtra igual en todos lados.
+  var SIN_CORRECCIONES =
+    " AND category NOT IN ('Traspaso','Saldo inicial')" +
+    " AND NOT (category = 'Ajuste' AND amount > 0)";
   var totals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
-    ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso','Saldo inicial')"
+    ' COUNT(*) count FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES
   ).get(uid);
 
   var monthTotals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
-    ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso','Saldo inicial') AND substr(date,1,7) = ?"
+    ' COUNT(*) count FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES +
+    ' AND substr(date,1,7) = ?'
   ).get(uid, month);
 
   // Los ajustes de saldo quedan fuera del analisis por categoria: no son un
@@ -456,7 +470,7 @@ router.get('/dashboard', function (req, res) {
     'SELECT substr(date,1,7) month,' +
     ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
-    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso','Saldo inicial')" +
+    ' FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES +
     ' GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid);
 

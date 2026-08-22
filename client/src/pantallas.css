@@ -1702,6 +1702,8 @@
 
 .disponible .hint { margin: 0; }
 .disponible .chip { flex: none; }
+/* Agregar y sacar van juntos: una accion sin su inversa es una trampa. */
+.disponible-botones { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
 
 /* Con que pagas casi siempre: el medio que se aplica solo a lo que cargas. */
 .medios { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }

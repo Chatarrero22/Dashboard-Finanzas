@@ -106,6 +106,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
   const [editando, setEditando] = useState(null)
   const [sacando, setSacando] = useState(null)
   const [sumando, setSumando] = useState(false)
+  const [sacandoPlata, setSacandoPlata] = useState(false)
 
   useEffect(() => { if (accion) setAbierto(true) }, [accion])
 
@@ -182,7 +183,14 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
               : 'Pasá plata desde tus cuentas para tenerla lista y que al comprar se descuente sola.'}
           </p>
         </div>
-        <button className="chip" onClick={() => setSumando(true)}>Agregar plata</button>
+        {/* Poner plata sin poder sacarla no es una funcion, es una trampa.
+            Emanuel paso $50.300 y se quedo sin forma de volver atras. */}
+        <div className="disponible-botones">
+          <button className="chip" onClick={() => setSumando(true)}>Agregar plata</button>
+          {disponible !== 0 && (
+            <button className="chip" onClick={() => setSacandoPlata(true)}>Sacar plata</button>
+          )}
+        </div>
       </section>
 
       <div className="hero">
@@ -361,6 +369,17 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
           destino={cuentasBroker[0]}
           onCerrar={() => setSumando(false)}
           onHecho={() => { setSumando(false); onReload() }}
+          onError={onError}
+        />
+      )}
+
+      {sacandoPlata && (
+        <SacarPlata
+          cuentas={cuentas}
+          origen={cuentasBroker[0]}
+          disponible={disponible}
+          onCerrar={() => setSacandoPlata(false)}
+          onHecho={() => { setSacandoPlata(false); onReload() }}
           onError={onError}
         />
       )}
@@ -861,6 +880,146 @@ function SacarActivo({ activo, compra, cuentas, onCerrar, onHecho, onError }) {
  * tuya. La cuenta de destino es una de tipo `inversion`; si no tenes ninguna,
  * se crea acá mismo para que no tengas que ir a Ahorro a prepararla primero.
  */
+/**
+ * Sacar la plata que estaba esperando para comprar.
+ *
+ * Existia "Agregar plata" y no existia lo contrario: Emanuel paso $50.300 y
+ * se quedo sin forma de volver atras. Una accion sin su inversa no es una
+ * funcion, es una trampa.
+ *
+ * Son dos cosas distintas y no se pueden adivinar, igual que al sacar un
+ * activo: o la plata se va a otra cuenta tuya (sigue siendo tuya, cambia de
+ * lugar), o nunca estuvo ahi y te equivocaste al cargarla.
+ */
+function SacarPlata({ cuentas, origen, disponible, onCerrar, onHecho, onError }) {
+  const destinos = (cuentas || []).filter((c) => c.id !== (origen && origen.id))
+
+  const [modo, setModo] = useState(destinos.length ? 'mover' : 'error')
+  const [hasta, setHasta] = useState(String(destinos[0]?.id || ''))
+  const [monto, setMonto] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const importe = montoDesde(monto)
+  const seVa = importe > disponible
+
+  async function sacar(e) {
+    e.preventDefault()
+    if (guardando || !origen) return
+    setGuardando(true)
+    try {
+      if (modo === 'mover') {
+        await api('/cuentas/traspaso', {
+          method: 'POST',
+          body: JSON.stringify({ desde: origen.id, hasta, monto: importe }),
+        })
+      } else {
+        // Nunca estuvo: se deshace como se cargo, sin tocar el mes.
+        await api('/cuentas/ajuste', {
+          method: 'POST',
+          body: JSON.stringify({ cuenta_id: origen.id, monto: -importe }),
+        })
+      }
+      onHecho()
+    } catch (err) {
+      onError(err.message)
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Modal
+      titulo="Sacar plata de acá"
+      detalle="Esta plata está esperando para comprar. Podés devolverla a una cuenta tuya o borrarla si la cargaste por error."
+      onCerrar={onCerrar}
+    >
+      <form onSubmit={sacar}>
+        <div className="field">
+          <span className="field-label">¿Qué pasó?</span>
+          <div className="tipos tipos-chicos">
+            <button
+              type="button"
+              className={`tipo ${modo === 'mover' ? 'elegido' : ''}`}
+              onClick={() => setModo('mover')}
+              disabled={destinos.length === 0}
+            >
+              <span className="tipo-ico">↤</span>
+              <span className="tipo-txt">
+                <span className="tipo-nombre">La paso a otra cuenta</span>
+                <small>Sigue siendo tuya</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`tipo ${modo === 'error' ? 'elegido' : ''}`}
+              onClick={() => setModo('error')}
+            >
+              <span className="tipo-ico">✕</span>
+              <span className="tipo-txt">
+                <span className="tipo-nombre">Me equivoqué</span>
+                <small>Nunca estuvo acá</small>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {modo === 'mover' && (
+          <label className="field">
+            <span className="field-label">¿A qué cuenta?</span>
+            <select value={hasta} onChange={(e) => setHasta(e.target.value)}>
+              {destinos.map((c) => (
+                <option key={c.id} value={c.id}>{c.name} — {money(c.saldo)}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label className="field">
+          <span className="field-label">¿Cuánto?</span>
+          <input
+            inputMode="decimal"
+            placeholder="0"
+            value={monto}
+            onChange={(e) => setMonto(soloPlata(e.target.value))}
+          />
+          <span className="hint" style={{ marginTop: 6 }}>
+            Hay <span className="monto-sensible">{money(disponible)}</span> esperando.
+            Podés sacar una parte.
+            {seVa && ' Ojo, con eso lo dejás en rojo.'}
+          </span>
+        </label>
+
+        <div style={{ display: 'flex', marginBottom: 12 }}>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setMonto(String(Math.max(disponible, 0)))}
+          >
+            Sacar todo
+          </button>
+        </div>
+
+        {modo === 'error' && (
+          <p className="hint">
+            No se anota como gasto ni como ingreso: la app deja de creer que
+            esa plata estaba acá, nada más.
+          </p>
+        )}
+
+        <div className="dialogo-botones">
+          <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
+          <button
+            type="submit"
+            className="dialogo-btn principal"
+            disabled={!importe || guardando || (modo === 'mover' && !hasta)}
+          >
+            {guardando ? 'Guardando…' : modo === 'mover' ? 'Pasar' : 'Borrarla'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
   const origenes = (cuentas || []).filter((c) => c.tipo !== 'inversion')
 

@@ -191,23 +191,30 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
-**`Ajuste` y `Saldo inicial` parecen lo mismo y no lo son.**
+**El signo del `Ajuste` cambia lo que significa.** Son tres cosas, no dos:
 
-- **`Ajuste`** — ponés el saldo real porque la app decía que tenías más de lo
-  que tenés. Eso pasa porque hubo plata que **se fue** y nunca se cargó
-  (pagaste el resumen de un mes que no anotaste). Es un gasto de verdad
-  aunque no sepamos en qué. **Cuenta** en los totales del mes.
-- **`Saldo inicial`** — la app se entera de plata que ya era tuya («tengo un
-  palo en el broker esperando»). No entró ni salió nada. **No cuenta.**
+- **`Ajuste` negativo** — la app decía que tenías **más** de lo que tenés.
+  Hubo plata que **se fue** y nunca se cargó (pagaste el resumen de un mes que
+  no anotaste). Es un gasto de verdad aunque no sepamos en qué. **Cuenta** en
+  los totales del mes.
+- **`Ajuste` positivo** — la app decía que tenías **menos**. Eso **no** es
+  plata que ganaste: es plata que ya era tuya y la app no sabía. **No cuenta.**
+- **`Saldo inicial`** — lo mismo que el anterior pero dicho a propósito
+  («tengo un palo en el broker esperando»). **No cuenta.**
 
-Los dos quedan afuera de `byCategory` / `topExpenses` / `byDay`: no son un
+La asimetría no es un capricho, es cómo falla la memoria de la gente: el
+sueldo se anota siempre, los gastos se olvidan. Si la app cree que tenés de
+más, falta un gasto; si cree que tenés de menos, es plata que ya estaba.
+
+Los tres quedan afuera de `byCategory` / `topExpenses` / `byDay`: no son un
 gasto EN algo, no tienen dónde ir en la torta.
 
-Me equivoqué acá: saqué `Ajuste` de los totales razonando «una corrección no
-es un gasto», y el ahorro del mes de Emanuel saltó de $109.367 a $1.059.436
-—plata que él sabía que no tenía—. El número viejo era el correcto. La regla
-de arriba dice «Ajuste no es un gasto» pensando en la **torta de categorías**,
-que es donde no tiene dónde ir; en los totales sí tiene que estar.
+**Los dos lados me mordieron, uno por vez.** Primero saqué el `Ajuste` de los
+totales razonando «una corrección no es un gasto», y el ahorro del mes de
+Emanuel saltó de $109.367 a $1.059.436 —plata que él sabía que no tenía—.
+Después dejé que el `Ajuste` positivo contara, y arreglar el saldo de una
+cuenta le sumó **$59.345 de ingresos que nunca cobró**. El filtro vive en una
+sola constante, `SIN_CORRECCIONES`, para que no se separen de nuevo.
 
 **El saldo real se ajusta SIEMPRE de a una cuenta.** «Poner el saldo real»
 compara contra el saldo de **una** cuenta y anota la diferencia ahí; las otras
@@ -305,6 +312,18 @@ Lo que sí servía —saber que hay plata en la cuenta de otra persona o en un
 plazo fijo, y poder moverla— se mudó a **Patrimonio**, que es la pantalla que
 ya contestaba «cuánto tenés». Ahora contesta las dos: cuánto y dónde. El
 componente es `Cuentas.jsx`.
+
+**Toda acción tiene que tener su inversa, y en la misma pantalla.** En
+Inversiones había «Agregar plata» y no había cómo sacarla: Emanuel pasó
+$50.300 y se quedó sin forma de volver atrás. Ahora está «Sacar plata», y
+pregunta lo mismo que al sacar un activo, porque son dos cosas que no se
+pueden adivinar: o la plata **se va a otra cuenta tuya** (traspaso), o **nunca
+estuvo ahí** y te equivocaste al cargarla (`Saldo inicial` negativo, no toca
+el mes).
+
+Es la misma familia que el botón «Mover plata» escondido detrás de
+`lista.length > 1`: una función a la que le falta la mitad no es una función,
+es una trampa.
 
 **La plata que espera para comprar vive en Inversiones.** Es una cuenta de
 tipo `inversion` como cualquier otra —la fuente de verdad sigue siendo
