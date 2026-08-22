@@ -585,6 +585,10 @@ router.get('/dashboard', function (req, res) {
     balance: monthTotals.income - monthTotals.expense,
     // Cuánto de eso ya mandaste a ahorro, a invertir o a comprar títulos.
     apartado: apartado,
+    // Los dos potes: lo que tenés para usar y lo que apartaste. Es un saldo,
+    // no un flujo — es el número que la persona puede verificar mirando el
+    // banco, y el que va arriba de todo en la barra lateral.
+    potes: cuentas.potes(uid),
     count: monthTotals.count,
     allTime: {
       income: totals.income,
@@ -1047,14 +1051,18 @@ router.get('/networth', async function (req, res) {
 
     var lista = cuentas.listar(req.user.id);
 
+    // Los dos potes. Sale de cuentas.potes() y no de un filter por tipo acá:
+    // la cuenta principal cuenta como liquidez aunque esté marcada Ahorro, y
+    // esa regla tiene que vivir en un solo lado.
+    var potes = cuentas.potes(req.user.id);
+
     res.json({
       cash: cash,
       cuentas: lista,
+      potes: potes,
       // Cuanto de tu plata esta apartada o puesta a rendir.
-      ahorrado: lista.filter(function (c) { return c.tipo === 'ahorro'; })
-        .reduce(function (a, c) { return a + c.saldo; }, 0),
-      invertido: lista.filter(function (c) { return c.tipo === 'inversion'; })
-        .reduce(function (a, c) { return a + c.saldo; }, 0),
+      ahorrado: potes.ahorro,
+      invertido: potes.invertido,
       cambio30: cambio30,
       cryptoUsd: cryptoUsd,
       cryptoArs: cryptoArs,

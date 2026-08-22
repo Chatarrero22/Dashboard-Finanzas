@@ -162,6 +162,7 @@ export default function PatrimonioScreen({ networth, cuentas, accion, onReload, 
           de «de qué está hecho» cierra: primero cuánto tenés, después dónde. */}
       <Cuentas
         cuentas={cuentas}
+        potes={networth.potes}
         accion={accion}
         onReload={onReload}
         onError={onError}

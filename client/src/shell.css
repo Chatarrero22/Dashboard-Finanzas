@@ -155,6 +155,19 @@
     animation: mGrow 0.8s cubic-bezier(0.2, 0.8, 0.25, 1) both;
   }
 
+  /* El segundo pote, en el encabezado: la tarjeta no puede crecer o el menu
+     de abajo se corta. */
+  .ahorro-mini-otro {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  .ahorro-mini-otro b {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
   .ahorro-mini.bien  .ahorro-mini-pct { color: var(--good); }
   .ahorro-mini.bien  .ahorro-mini-barra > div { background: linear-gradient(90deg, var(--good), var(--accent-2)); }
   .ahorro-mini.rojo  .ahorro-mini-pct { color: var(--critical); }

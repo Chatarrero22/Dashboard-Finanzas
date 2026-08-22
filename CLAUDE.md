@@ -265,6 +265,30 @@ contaban como si los hubiera apartado: el Resumen le decía «apartaste
 $1.187.059» un mes en el que no había invertido nada. Un sueldo que cae en una
 cuenta no es apartar, y un `Ajuste` mucho menos.
 
+**Arriba de todo va la plata que TENÉS, no cómo te fue en el mes.** La
+tarjeta de la barra lateral decía «Ahorro del mes» y mostraba ingresos menos
+gastos: un flujo. Ese número no coincide nunca con lo que hay en el banco —no
+tiene por qué, son cosas distintas— pero puesto ahí arriba parece que sí.
+Emanuel: «ese número tiene que coincidir con el monto que tengas en la app».
+
+Ahora son **dos potes**, que es como la gente piensa la plata:
+
+- **Liquidez** — la que podés usar. Es el número grande.
+- **Ahorro** — la que apartaste. Cuando le mandás plata, **Liquidez baja**.
+
+Los dos salen de `cuentas.potes()`, que es el único lado donde se decide qué
+es cada cosa. Los usan la barra lateral (vía `dashboard.potes`) y Patrimonio
+(vía `networth.potes`); `networth.ahorrado` sale de ahí también, para que no
+se separen.
+
+**La cuenta principal SIEMPRE es liquidez, esté marcada como esté.** Es la
+misma regla que usa `apartado`, y no es un detalle: la cuenta principal de
+Emanuel quedó marcada como Ahorro, así que sin esto su plata del día a día
+aparecía como apartada y Liquidez daba cero. Por el mismo motivo la fila de
+la cuenta principal **muestra** «Liquidez» aunque tenga guardado otro tipo:
+si no, la pantalla se contradice con el pote de arriba. Lo guardado no se
+toca, solo se muestra lo que de verdad es.
+
 **«En tus cuentas» y «Ahorro del mes» son cosas distintas.** Un saldo y un
 flujo, y se confunden fácil porque los dos son un peso con signo:
 

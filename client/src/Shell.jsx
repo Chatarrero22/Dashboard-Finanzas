@@ -6,12 +6,25 @@ import { money } from './comunes.jsx'
 
 /* ------------------------------------------------------- barra lateral */
 
-export function Lateral({ marca, grupos, tab, onGo, onNuevo, ahorro, usuario }) {
-  // El porcentaje de ahorro solo tiene sentido si entró plata.
-  const pct = ahorro && ahorro.ingresos > 0
-    ? Math.round((ahorro.monto / ahorro.ingresos) * 100)
-    : null
-  const enRojo = ahorro && ahorro.monto < 0
+export function Lateral({ marca, grupos, tab, onGo, onNuevo, potes, usuario }) {
+  /*
+   * Arriba de todo va la plata QUE TENÉS, no cómo te fue en el mes.
+   *
+   * Antes decía «Ahorro del mes» y era ingresos menos gastos: un flujo. Ese
+   * número no coincide nunca con lo que hay en el banco, y no tiene por qué
+   * —son cosas distintas— pero puesto ahí arriba parece que sí. Emanuel lo
+   * dijo derecho: ese número tiene que coincidir con lo que tenés.
+   *
+   * Ahora son los dos potes: lo que podés usar y lo que apartaste. Cuando
+   * mandás plata al ahorro, el de arriba baja. Eso se entiende solo.
+   */
+  const liquidez = potes ? potes.liquidez : 0
+  const guardado = potes ? potes.ahorro : 0
+  const enRojo = liquidez < 0
+  // Cuánto de tu plata en cuentas está disponible. Si no hay nada, no hay
+  // barra que dibujar: un 0% lleno se lee como un error.
+  const enCuentas = liquidez + guardado
+  const pct = enCuentas > 0 ? Math.round((liquidez / enCuentas) * 100) : null
   // Ajustes no va en la lista: en escritorio se entra por el bloque de abajo,
   // como en el diseño. En el celular sigue estando dentro de "Más".
   const navGrupos = grupos
@@ -33,14 +46,19 @@ export function Lateral({ marca, grupos, tab, onGo, onNuevo, ahorro, usuario }) 
         <span className="mas">+</span>Nuevo movimiento
       </button>
 
-      {ahorro && (
+      {potes && (
         <div className={`ahorro-mini ${enRojo ? 'rojo' : 'bien'}`}>
+          {/* El segundo pote va en el encabezado y no en una fila propia: la
+              tarjeta tiene que seguir entrando sin empujar el menú. Cuando le
+              agregué una línea abajo, «Árbol» se salió de la barra lateral. */}
           <div className="ahorro-mini-fila">
-            <span className="ahorro-mini-label">Ahorro del mes</span>
-            <span className="ahorro-mini-pct">{pct == null ? '—' : `${pct}%`}</span>
+            <span className="ahorro-mini-label">Disponible</span>
+            <span className="ahorro-mini-otro">
+              Ahorro <b className="monto-sensible">{money(guardado)}</b>
+            </span>
           </div>
-          <div className="ahorro-mini-monto monto-sensible">{money(ahorro.monto)}</div>
-          <div className="ahorro-mini-barra">
+          <div className="ahorro-mini-monto monto-sensible">{money(liquidez)}</div>
+          <div className="ahorro-mini-barra" title={pct == null ? '' : `${pct}% de tu plata está disponible`}>
             <div style={{ width: `${ancho}%` }} />
           </div>
         </div>

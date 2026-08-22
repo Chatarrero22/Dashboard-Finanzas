@@ -1885,10 +1885,10 @@ export default function App() {
   }
   const meta = META[tab] || ['', '', []]
 
-  // Lo que muestra la tarjeta de ahorro de la barra lateral.
-  const ahorro = dashboard
-    ? { monto: dashboard.income - dashboard.expense, ingresos: dashboard.income }
-    : null
+  // Lo de arriba de la barra lateral: la plata que tenés, no cómo te fue en
+  // el mes. Sale del server (cuentas.potes) para que la regla de qué es
+  // liquidez y qué es ahorro viva en un solo lado.
+  const potes = dashboard ? dashboard.potes : null
 
   return (
     <div className={`layout ${oculto ? 'oculto' : ''}`}>
@@ -1898,7 +1898,7 @@ export default function App() {
         tab={tab}
         onGo={irA}
         onNuevo={() => setNuevoAbierto(true)}
-        ahorro={ahorro}
+        potes={potes}
         usuario={{ nombre: config.displayName, sub: `@${config.username}` }}
       />
 

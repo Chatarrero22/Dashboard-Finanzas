@@ -1001,6 +1001,21 @@
 
 .cuenta-saldo.negativo { color: var(--critical); }
 
+/* A 320 la fila no entra: nombre, saldo y tres botones se pisaban y la ✕
+   quedaba fuera de la tarjeta. Se parte en dos lineas y los botones bajan. */
+.cuenta-acciones { display: flex; align-items: center; gap: 8px; flex: none; }
+
+@media (max-width: 560px) {
+  .cuenta { flex-wrap: wrap; row-gap: 8px; }
+  .cuenta-txt { flex: 1 1 auto; }
+  .cuenta-saldo { flex: none; }
+  .cuenta-acciones {
+    flex: 1 0 100%;
+    justify-content: flex-end;
+    padding-left: 22px;
+  }
+}
+
 /* Elegir qué es la cuenta */
 .tipos { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1704,6 +1719,40 @@
 .disponible .chip { flex: none; }
 /* Agregar y sacar van juntos: una accion sin su inversa es una trampa. */
 .disponible-botones { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
+
+/* Los dos potes: la plata que usas y la que apartaste. */
+.potes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.pote {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-card, 16px);
+  background: var(--surface);
+  padding: 16px;
+}
+
+.pote-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.pote-monto {
+  font-family: var(--fuente-titulo);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pote-monto.negativo { color: var(--critical); }
+.pote .hint { margin: 6px 0 0; }
+.pote .chip { margin-top: 10px; }
 
 /* Con que pagas casi siempre: el medio que se aplica solo a lo que cargas. */
 .medios { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }

@@ -22,7 +22,7 @@ var db_module = require('./db.js');
 var db = db_module.db;
 
 var TIPOS = {
-  gasto: { nombre: 'Para gastar', orden: 1 },
+  gasto: { nombre: 'Liquidez', orden: 1 },
   ahorro: { nombre: 'Ahorro', orden: 2 },
   inversion: { nombre: 'Invertido', orden: 3 }
 };
@@ -98,6 +98,34 @@ function listar(userId) {
       var ob = (TIPOS[b.tipo] || TIPOS.gasto).orden;
       return oa - ob || a.id - b.id;
     });
+}
+
+/**
+ * Los dos potes, que es como la gente piensa la plata.
+ *
+ *   Liquidez  lo que tenes para usar. Es el numero de arriba de todo.
+ *   Ahorro    lo que apartaste. Cuando sube, Liquidez baja: moviste plata.
+ *
+ * La cuenta principal SIEMPRE cuenta como liquidez, sea del tipo que sea.
+ * Es la misma regla que usa `apartado` en el Resumen, y no es un detalle:
+ * la cuenta principal de Emanuel quedo marcada como Ahorro, asi que sin esto
+ * su plata del dia a dia aparecia como apartada y Liquidez daba cero.
+ *
+ * Lo de tipo `inversion` va aparte: se muestra en Inversiones, no aca.
+ */
+function potes(userId) {
+  var base = principal(userId);
+  var baseId = base ? base.id : -1;
+  var r = { liquidez: 0, ahorro: 0, invertido: 0 };
+
+  listar(userId).forEach(function (c) {
+    if (c.id === baseId || c.tipo === 'gasto') r.liquidez += c.saldo;
+    else if (c.tipo === 'inversion') r.invertido += c.saldo;
+    else r.ahorro += c.saldo;
+  });
+
+  r.enCuentas = r.liquidez + r.ahorro + r.invertido;
+  return r;
 }
 
 /**
@@ -208,6 +236,7 @@ module.exports = {
   principal: principal,
   asegurarPrincipal: asegurarPrincipal,
   saldoDe: saldoDe,
+  potes: potes,
   listar: listar,
   traspasar: traspasar
 };
