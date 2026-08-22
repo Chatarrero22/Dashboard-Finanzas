@@ -117,7 +117,8 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `comunes.jsx` | `money`, fechas, `ICONOS` por categoría, `Empty` |
 | `moneda.js` | Si los montos se muestran en pesos o dólares (botón ARS/US$) |
 | `Resumen.jsx` `Patrimonio.jsx` `Alertas.jsx` `Gastos.jsx` | Pantallas |
-| `Tarjetas.jsx` `Ahorro.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
+| `Tarjetas.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
+| `Cuentas.jsx` | Tus cuentas y mover plata. Vive **dentro de Patrimonio** |
 | `Inversiones.jsx` | Pantalla: la cartera a precio de mercado |
 | `Ayuda.jsx` | El tutorial paso a paso de cada sección |
 | `Telegram.jsx` | El asistente para conectar el bot, paso a paso |
@@ -202,6 +203,16 @@ CEDEARs, bonos, letras y ONs— cotiza en la Bolsa de Buenos Aires y casi
 siempre en pesos (`mercado-arg.js`, data912, sin clave). Cada activo guarda en
 qué moneda está: **no se adivina por el ticker**. Los totales salen siempre en
 pesos, convirtiendo lo que está en dólares al MEP.
+
+**«Ahorro» no existe más como sección.** Con una sola cuenta mostraba un
+número que ya estaba en la barra lateral, dos recuadros con uno en cero, una
+tarjeta que repetía Inversiones y una lista de un elemento. Emanuel: «no
+cumple ninguna función».
+
+Lo que sí servía —saber que hay plata en la cuenta de otra persona o en un
+plazo fijo, y poder moverla— se mudó a **Patrimonio**, que es la pantalla que
+ya contestaba «cuánto tenés». Ahora contesta las dos: cuánto y dónde. El
+componente es `Cuentas.jsx`.
 
 **La plata que espera para comprar vive en Inversiones.** Es una cuenta de
 tipo `inversion` como cualquier otra —la fuente de verdad sigue siendo
@@ -321,9 +332,9 @@ recibir `/vincular`.
 
 ## Lo que falta
 
-De las 14 pantallas del diseño están las 13: Resumen, Patrimonio, Alertas,
-Movimientos, Gastos, Gastos fijos, Tarjetas, Presupuestos, P&L, Ahorro, Metas,
-Inversiones, Árbol (más Ajustes y el alta en pop-up).
+Resumen, Patrimonio (con tus cuentas adentro), Alertas, Movimientos, Gastos,
+Gastos fijos, Tarjetas, Presupuestos, P&L, Metas, Inversiones y Árbol, más
+Ajustes y el alta en pop-up.
 
 Queda:
 

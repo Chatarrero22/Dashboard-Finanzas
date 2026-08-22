@@ -120,23 +120,6 @@ export const GUIAS = {
     },
   ],
 
-  ahorro: [
-    {
-      titulo: 'Dónde está tu plata',
-      texto: 'La app sabía cuánto tenías, pero no dónde. Acá la repartís entre lo del día a día y lo que apartaste. Lo que está para invertir vive en Inversiones.',
-      apunta: '.kpis',
-    },
-    {
-      titulo: 'Mover plata NO es gastarla',
-      texto: 'Pasar plata de una cuenta a otra no aparece en tus gastos del mes, porque no gastaste nada: la cambiaste de lugar.',
-      apunta: 'button.chip',
-    },
-    {
-      titulo: 'Podés mover una parte',
-      texto: 'No tenés que mover todo el saldo. Escribí el monto que quieras: podés poner 300.000 con los puntos, como lo escribís normalmente.',
-    },
-  ],
-
   invest: [
     {
       titulo: 'La plata que espera para comprar',
@@ -195,13 +178,23 @@ export const GUIAS = {
   patrimonio: [
     {
       titulo: 'Todo lo que tenés, junto',
-      texto: 'Los pesos de tus cuentas más las inversiones a precio de mercado. Es el número más honesto de la app.',
-      apunta: '.titular',
+      texto: 'Los pesos de tus cuentas más las inversiones a precio de mercado. Arranca tapado: tocá «Mostrar» cuando quieras verlo.',
+      apunta: '.privado-barra',
     },
     {
       titulo: 'De qué está hecho',
       texto: 'La rueda muestra cuánto pesa cada cosa. Si algo no se puede cotizar, no lo sumamos: preferimos que falte antes que inventarlo.',
       apunta: '.patrimonio-grid, .card',
+    },
+    {
+      titulo: 'Y dónde está',
+      texto: 'Tus cuentas: el banco, el efectivo, la de otra persona, un plazo fijo. Sirve para saber no solo cuánto tenés sino dónde.',
+      apunta: '.cuentas, .card',
+    },
+    {
+      titulo: 'Mover plata NO es gastarla',
+      texto: 'Pasar plata de una cuenta a otra no aparece en tus gastos del mes, porque no gastaste nada: la cambiaste de lugar. Podés mover la parte que quieras, no hace falta que sea todo.',
+      apunta: 'button.chip',
     },
   ],
 

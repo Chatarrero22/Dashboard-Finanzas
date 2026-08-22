@@ -9,7 +9,6 @@ import AlertasScreen from './Alertas.jsx'
 import GastosScreen from './Gastos.jsx'
 import ResumenScreen from './Resumen.jsx'
 import TarjetasScreen from './Tarjetas.jsx'
-import AhorroScreen from './Ahorro.jsx'
 import InversionesScreen from './Inversiones.jsx'
 import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import Guia, { hayGuia, yaLoVio, olvidarTutoriales } from './Ayuda.jsx'
@@ -1600,7 +1599,7 @@ export default function App() {
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
     if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
     if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
-    if (tab === 'ahorro' || tab === 'invest') api('/cuentas').then(setCuentas).catch(() => {})
+    if (tab === 'patrimonio' || tab === 'invest') api('/cuentas').then(setCuentas).catch(() => {})
   }, [tab, config, loadMetas])
 
   // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
@@ -1637,7 +1636,7 @@ export default function App() {
     if (t === 'pnl') pendientes.push(api('/pnl').then(setPnl))
     if (t === 'subs') pendientes.push(api('/subscriptions').then(setSubs))
     if (t === 'invest') pendientes.push(api('/portfolio').then(setPortfolio))
-    if (t === 'ahorro' || t === 'invest') pendientes.push(api('/cuentas').then(setCuentas))
+    if (t === 'patrimonio' || t === 'invest') pendientes.push(api('/cuentas').then(setCuentas))
     if (t === 'tarjetas' || t === 'movs') pendientes.push(api('/cards').then(setCards))
     if (t === 'tarjetas') pendientes.push(api('/cuotas').then((r) => setProximasCuotas(r.meses)))
 
@@ -1779,7 +1778,6 @@ export default function App() {
       { id: 'pnl', label: 'P&L', icon: '⌁' },
     ] },
     { titulo: 'Crecer', items: [
-      { id: 'ahorro', label: 'Ahorro', icon: '◈' },
       { id: 'metas', label: 'Metas', icon: '◎' },
       { id: 'invest', label: 'Inversiones', icon: '↗' },
       { id: 'arbol', label: 'Árbol', icon: '🌳' },
@@ -1819,7 +1817,9 @@ export default function App() {
   // Título, bajada y botones de cada pantalla, igual que en el diseño.
   const META = {
     home: ['Resumen', 'Cómo venís este mes, de un vistazo', [{ txt: 'Exportar', go: exportar }, { txt: 'Compartir', go: compartir }]],
-    patrimonio: ['Patrimonio', 'Pesos e inversiones, todo junto', []],
+    patrimonio: ['Patrimonio', 'Cuánto tenés y dónde está', [
+      { txt: '+ Nueva cuenta', tono: 'acento', go: pedir('patrimonio', 'nuevo') },
+    ]],
     alertas: ['Alertas', 'Lo que conviene que mires ahora', []],
     movs: ['Movimientos', `${transactions.length} anotados en total`, [{ txt: 'Exportar', go: exportar }]],
     gastos: ['Gastos', 'En qué se te va la plata', []],
@@ -1834,9 +1834,6 @@ export default function App() {
       { txt: '+ Nuevo presupuesto', tono: 'acento', go: pedir('presu', 'nuevo') },
     ]],
     pnl: ['P&L', 'Ingresos, egresos y ahorro mes por mes', [{ txt: 'Exportar', go: exportar }]],
-    ahorro: ['Ahorro', 'Dónde está tu plata', [
-      { txt: '+ Nueva cuenta', tono: 'acento', go: pedir('ahorro', 'nuevo') },
-    ]],
     metas: ['Metas', 'Repartí tu ahorro hacia lo que querés', [
       { txt: '+ Nueva meta', tono: 'acento', go: pedir('metas', 'nuevo') },
     ]],
@@ -1906,24 +1903,21 @@ export default function App() {
               config={config}
             />
           )}
-          {tab === 'patrimonio' && <PatrimonioScreen networth={networth} />}
-          {tab === 'alertas' && <AlertasScreen alertas={alertas} />}
-          {tab === 'gastos' && <GastosScreen dashboard={dashboard} />}
-          {tab === 'ahorro' && (
-            <AhorroScreen
+          {tab === 'patrimonio' && (
+            <PatrimonioScreen
+              networth={networth}
               cuentas={cuentas}
-              ahorroDelMes={ahorro ? ahorro.monto : null}
-              enTitulos={networth ? (networth.cryptoArs || 0) + (networth.mercadoArs || 0) : 0}
-              onIrAInversiones={() => irA('invest')}
-              accion={accionDe('ahorro')}
+              accion={accionDe('patrimonio')}
               onReload={() => {
                 api('/cuentas').then(setCuentas).catch(() => {})
-                loadCore().catch(() => {})
+                api('/networth').then(setNetworth).catch(() => {})
               }}
-              onSaved={notify}
               onError={(m) => notify(m, 'error')}
+              onSaved={notify}
             />
           )}
+          {tab === 'alertas' && <AlertasScreen alertas={alertas} />}
+          {tab === 'gastos' && <GastosScreen dashboard={dashboard} />}
           {tab === 'tarjetas' && (
             <TarjetasScreen
               cards={cards}

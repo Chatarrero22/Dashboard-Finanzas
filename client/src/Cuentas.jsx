@@ -1,16 +1,6 @@
-/**
- * Ahorro: dónde está tu plata y cómo moverla de un lugar a otro.
- *
- * La app sabía cuánta plata tenías, pero no dónde. Acá se ve repartida entre
- * lo que está para gastar, lo apartado y lo puesto a rendir.
- *
- * Mover plata entre cuentas NO es un gasto: no ganaste ni gastaste nada,
- * cambiaste la plata de lugar. Por eso no aparece en tus gastos del mes.
- */
 import { useEffect, useState } from 'react'
 import { api, money, Empty, montoDesde, soloPlata } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
-import Numero from './Numero.jsx'
 
 /**
  * Los tipos de cuenta que se manejan ACÁ.
@@ -36,16 +26,22 @@ function tipoDe(id) {
   return TIPOS.find((t) => t.id === id) || TIPOS[0]
 }
 
-const MESES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-]
-
-function mesActual() {
-  return MESES[new Date().getMonth()]
-}
-
-export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos, onIrAInversiones, onReload, onError, onSaved }) {
+/**
+ * Tus cuentas: dónde está la plata y cómo moverla de un lugar a otro.
+ *
+ * Esto era una sección propia («Ahorro») y se saco: con una sola cuenta
+ * mostraba un número que ya estaba en la barra lateral, dos recuadros con
+ * uno en cero y una lista de un elemento. No se ganaba el lugar.
+ *
+ * Ahora vive dentro de Patrimonio, que es la pantalla que ya contesta
+ * «cuánto tenés y de qué está hecho». Lo que sigue siendo útil —saber que
+ * hay plata en la cuenta de otra persona o en un plazo fijo, y poder moverla—
+ * quedó intacto.
+ *
+ * Mover plata entre cuentas NO es un gasto: no ganaste ni gastaste nada,
+ * cambiaste la plata de lugar. Por eso no aparece en tus gastos del mes.
+ */
+export default function Cuentas({ cuentas, accion, onReload, onError, onSaved }) {
   const { confirmar } = useDialogos()
   const [form, setForm] = useState(VACIA)
   const [editando, setEditando] = useState(null)
@@ -61,10 +57,6 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
 
   // Las cuentas de inversión se muestran en Inversiones, no acá.
   const lista = (cuentas || []).filter((c) => c.tipo !== 'inversion')
-  const enBroker = (cuentas || []).filter((c) => c.tipo === 'inversion')
-    .reduce((a, c) => a + c.saldo, 0)
-  const total = lista.reduce((a, c) => a + c.saldo, 0)
-  const porTipo = (id) => lista.filter((c) => c.tipo === id).reduce((a, c) => a + c.saldo, 0)
 
   async function guardar(e) {
     e.preventDefault()
@@ -99,78 +91,6 @@ export default function AhorroScreen({ cuentas, accion, ahorroDelMes, enTitulos,
 
   return (
     <>
-      <div className="hero">
-        <div className="label">En tus cuentas</div>
-        <Numero className="value monto-sensible" valor={total} />
-        <div className="caption">
-          repartida en {lista.length} {lista.length === 1 ? 'cuenta' : 'cuentas'}
-        </div>
-      </div>
-
-      {/* «Toda tu plata» y «Ahorro del mes» son dos cosas distintas y es fácil
-          confundirlas: una es CUÁNTA PLATA TENÉS (la suma de todo lo que
-          anotaste, desde siempre) y la otra es CÓMO TE FUE ESTE MES (lo que
-          entró menos lo que salió, solo de este mes). La diferencia entre las
-          dos es lo que arrastrás de los meses anteriores. Lo decimos acá
-          porque si no hay que sentarse a hacer la cuenta para entenderlo. */}
-      {ahorroDelMes != null && Math.round(ahorroDelMes) !== Math.round(total) && (
-        <p className="hint">
-          Esto es <b>la plata que tenés en tus cuentas</b>, sumando todo lo que
-          anotaste desde siempre. No es lo mismo que el <b>ahorro del mes</b>
-          {' '}(<span className="monto-sensible">{money(ahorroDelMes)}</span>),
-          que es solo lo que entró menos lo que salió en {mesActual()}.
-          {' '}La diferencia de <span className="monto-sensible">{money(Math.abs(total - ahorroDelMes))}</span>
-          {' '}es lo que {total - ahorroDelMes < 0 ? 'venías debiendo' : 'traías'} de los meses
-          anteriores.
-        </p>
-      )}
-
-      <div className="kpis kpis-3">
-        {TIPOS.map((t) => (
-          <div className="kpi" key={t.id}>
-            <div className="kpi-label">{t.icono} {t.nombre}</div>
-            <Numero className="kpi-valor monto-sensible" valor={porTipo(t.id)} />
-            <span className="kpi-sub">{t.ayuda}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Faltaba media foto.
-          «Invertido» son PESOS que apartaste (un plazo fijo, o plata esperando
-          en el broker para comprar algo). Los titulos que ya compraste
-          —acciones, bonos, cripto— no son pesos: valen lo que valgan hoy en el
-          mercado, y viven en Inversiones. Sin esto, alguien que puso toda su
-          plata en bonos veia «Invertido $0» y no entendia nada. */}
-      {(enTitulos > 0 || enBroker > 0) && (
-        <section className="card titulos-resumen">
-          <div className="titulos-txt">
-            <div className="card-rotulo">ADEMÁS, EN INVERSIONES</div>
-            <Numero className="titulos-monto monto-sensible" valor={enTitulos + enBroker} />
-            <p className="hint">
-              {enBroker > 0 && (
-                <>
-                  <b className="monto-sensible">{money(enBroker)}</b> esperando para
-                  comprar{enTitulos > 0 ? ', y ' : '. '}
-                </>
-              )}
-              {enTitulos > 0 && (
-                <>
-                  <b className="monto-sensible">{money(enTitulos)}</b> en acciones,
-                  bonos y cripto a precio de mercado.
-                </>
-              )}
-            </p>
-            <p className="hint">
-              Entre tus cuentas y esto tenés{' '}
-              <b className="monto-sensible">{money(total + enTitulos + enBroker)}</b>.
-            </p>
-          </div>
-          {onIrAInversiones && (
-            <button className="chip" onClick={onIrAInversiones}>Ver Inversiones</button>
-          )}
-        </section>
-      )}
-
       <section className="card">
         <div className="card-title-row">
           <h2>Tus cuentas</h2>

@@ -8,6 +8,7 @@
  * Los datos salen de /api/networth.
  */
 import { money, Empty, Privado } from './comunes.jsx'
+import Cuentas from './Cuentas.jsx'
 import Numero from './Numero.jsx'
 
 const COLORES = [
@@ -72,7 +73,7 @@ function Variacion({ cambio, total }) {
   )
 }
 
-export default function PatrimonioScreen({ networth }) {
+export default function PatrimonioScreen({ networth, cuentas, accion, onReload, onError, onSaved }) {
   if (!networth) return <div className="spinner" />
 
   const total = networth.total || 0
@@ -156,6 +157,17 @@ export default function PatrimonioScreen({ networth }) {
           en una cuenta Y ademas cargaste lo que compraste, el patrimonio la
           cuenta dos veces. Preferimos decirlo antes que mostrar un total que
           no es. */}
+      {/* Dónde está esa plata. Esto era la sección «Ahorro», que con una sola
+          cuenta no mostraba nada que no estuviera ya en otro lado. Acá abajo
+          de «de qué está hecho» cierra: primero cuánto tenés, después dónde. */}
+      <Cuentas
+        cuentas={cuentas}
+        accion={accion}
+        onReload={onReload}
+        onError={onError}
+        onSaved={onSaved}
+      />
+
       {networth.titulosSinPagar > 0 && (
         <p className="hint">
           {networth.titulosSinPagar === 1
