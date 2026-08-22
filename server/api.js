@@ -409,18 +409,30 @@ router.get('/dashboard', function (req, res) {
   var uid = req.user.id;
   var month = req.query.month || mesActual();
 
+  /*
+   * Ojo con 'Ajuste': NO es un gasto ni un ingreso.
+   *
+   * Estas tres consultas excluían solo 'Traspaso', y por eso un ajuste de
+   * saldo se comía el resultado del mes. Emanuel ajustó su saldo en
+   * -$1.009.114 y el ahorro del mes se le desplomó de $1.118.481 a $109.367:
+   * la app le estaba contando la corrección como si hubiera gastado un millón.
+   *
+   * Un ajuste es la app poniéndose al día con la realidad, no plata que se
+   * movió. Va afuera de los totales, igual que ya estaba afuera del análisis
+   * por categoría.
+   */
   var totals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
     ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso')"
+    " AND category NOT IN ('Traspaso','Ajuste')"
   ).get(uid);
 
   var monthTotals = db.prepare(
     'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
     ' COUNT(*) count FROM transactions WHERE user_id = ?' +
-    " AND category NOT IN ('Traspaso') AND substr(date,1,7) = ?"
+    " AND category NOT IN ('Traspaso','Ajuste') AND substr(date,1,7) = ?"
   ).get(uid, month);
 
   // Los ajustes de saldo quedan fuera del analisis por categoria: no son un
@@ -435,7 +447,7 @@ router.get('/dashboard', function (req, res) {
     'SELECT substr(date,1,7) month,' +
     ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
-    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso')" +
+    " FROM transactions WHERE user_id = ? AND category NOT IN ('Traspaso','Ajuste')" +
     ' GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid);
 
@@ -1196,6 +1208,31 @@ router.post('/cuentas', function (req, res) {
   var info = db.prepare('INSERT INTO accounts (user_id, name, tipo, color) VALUES (?, ?, ?, ?)')
     .run(req.user.id, String(req.body.name).trim(), tipo, req.body.color || '#EE8A17');
 
+  /*
+   * La plata que YA estaba ahí.
+   *
+   * Antes una cuenta nueva arrancaba siempre en cero y la única forma de
+   * llenarla era moviendo plata desde otra. Eso no sirve cuando la plata
+   * existe pero la app nunca la supo: «tengo un palo en el broker esperando
+   * para invertir» no tenía dónde cargarse.
+   *
+   * Va como 'Ajuste' y no como ingreso, porque no es plata que entró: es la
+   * app poniéndose al día. Por eso no cuenta en el resultado del mes.
+   */
+  var inicial = Number(req.body.saldo_inicial) || 0;
+  if (inicial) {
+    db.prepare(
+      'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
+      " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste', ?)"
+    ).run(
+      req.user.id,
+      new Date().toISOString().slice(0, 10),
+      'Lo que ya había en ' + String(req.body.name).trim(),
+      inicial,
+      info.lastInsertRowid
+    );
+  }
+
   // Devolvemos la cuenta creada, como el resto de los POST. Antes devolvía la
   // lista entera y quien la creaba para usarla enseguida —mover plata a una
   // cuenta nueva— se quedaba sin el id y el traspaso salía sin destino.
@@ -1238,6 +1275,34 @@ router.delete('/cuentas/:id', function (req, res) {
  * Mover plata de una cuenta a otra: ahorrar, invertir, sacar del plazo fijo.
  * NO es un gasto ni un ingreso, y por eso queda fuera de esos totales.
  */
+/**
+ * Anotar plata que ya estaba en una cuenta y la app no sabía.
+ *
+ * Va como 'Ajuste': no es plata que entró, es la app poniéndose al día. Por
+ * eso no cuenta en el resultado del mes.
+ */
+router.post('/cuentas/ajuste', function (req, res) {
+  var monto = Number(req.body.monto) || 0;
+  if (!monto) return res.status(400).json({ error: 'Decime cuánta plata hay' });
+
+  var cuenta = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?')
+    .get(req.body.cuenta_id, req.user.id);
+  if (!cuenta) return res.status(404).json({ error: 'No encontré esa cuenta' });
+
+  db.prepare(
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
+    " VALUES (?, ?, ?, ?, 'Ajuste', 'Ajuste', ?)"
+  ).run(
+    req.user.id,
+    new Date().toISOString().slice(0, 10),
+    'Lo que ya había en ' + cuenta.name,
+    monto,
+    cuenta.id
+  );
+
+  res.json({ ok: true, cuentas: cuentas.listar(req.user.id) });
+});
+
 router.post('/cuentas/traspaso', function (req, res) {
   try {
     var r = cuentas.traspasar(

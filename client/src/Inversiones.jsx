@@ -867,6 +867,10 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
   const [desde, setDesde] = useState(String(origenes[0]?.id || ''))
   const [monto, setMonto] = useState('')
   const [guardando, setGuardando] = useState(false)
+  // Si la plata YA está en el broker y la app no la sabe, no hay que moverla
+  // de ninguna cuenta: hay que decirle que existe. Sin esto, cargar «tengo un
+  // palo esperando para invertir» dejaba la otra cuenta en un millón negativo.
+  const [yaLaTengo, setYaLaTengo] = useState(origenes.length === 0)
 
   const cuenta = origenes.find((c) => String(c.id) === String(desde))
   const importe = montoDesde(monto)
@@ -881,29 +885,33 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
       if (!hasta) {
         hasta = await api('/cuentas', {
           method: 'POST',
-          body: JSON.stringify({ name: 'Para invertir', tipo: 'inversion', color: '#0E8A51' }),
+          body: JSON.stringify({
+            name: 'Para invertir',
+            tipo: 'inversion',
+            color: '#0E8A51',
+            // Si ya la tenés, la cuenta nace con esa plata y no se toca nada más.
+            saldo_inicial: yaLaTengo ? importe : 0,
+          }),
+        })
+      } else if (yaLaTengo) {
+        // La cuenta ya existía: anotamos la plata que faltaba conocer.
+        await api('/cuentas/ajuste', {
+          method: 'POST',
+          body: JSON.stringify({ cuenta_id: hasta.id, monto: importe }),
         })
       }
-      await api('/cuentas/traspaso', {
-        method: 'POST',
-        body: JSON.stringify({ desde, hasta: hasta.id, monto: importe }),
-      })
+
+      if (!yaLaTengo) {
+        await api('/cuentas/traspaso', {
+          method: 'POST',
+          body: JSON.stringify({ desde, hasta: hasta.id, monto: importe }),
+        })
+      }
       onHecho()
     } catch (err) {
       onError(err.message)
       setGuardando(false)
     }
-  }
-
-  if (origenes.length === 0) {
-    return (
-      <Modal titulo="Agregar plata" onCerrar={onCerrar}>
-        <p className="hint">Todavía no tenés ninguna cuenta de dónde sacar la plata.</p>
-        <div className="dialogo-botones">
-          <button type="button" className="dialogo-btn principal" onClick={onCerrar}>Entendido</button>
-        </div>
-      </Modal>
-    )
   }
 
   return (
@@ -913,6 +921,36 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
       onCerrar={onCerrar}
     >
       <form onSubmit={pasar}>
+        <div className="field">
+          <span className="field-label">¿De dónde sale?</span>
+          <div className="tipos tipos-chicos">
+            <button
+              type="button"
+              className={`tipo ${!yaLaTengo ? 'elegido' : ''}`}
+              onClick={() => setYaLaTengo(false)}
+              disabled={origenes.length === 0}
+            >
+              <span className="tipo-ico">↦</span>
+              <span className="tipo-txt">
+                <span className="tipo-nombre">De una cuenta mía</span>
+                <small>Se descuenta de ahí</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`tipo ${yaLaTengo ? 'elegido' : ''}`}
+              onClick={() => setYaLaTengo(true)}
+            >
+              <span className="tipo-ico">✓</span>
+              <span className="tipo-txt">
+                <span className="tipo-nombre">Ya la tengo ahí</span>
+                <small>La app todavía no la sabía</small>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {!yaLaTengo && (
         <label className="field">
           <span className="field-label">¿De qué cuenta?</span>
           <select value={desde} onChange={(e) => setDesde(e.target.value)}>
@@ -921,6 +959,7 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
             ))}
           </select>
         </label>
+        )}
 
         <label className="field">
           <span className="field-label">¿Cuánto?</span>
@@ -930,7 +969,13 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
             value={monto}
             onChange={(e) => setMonto(soloPlata(e.target.value))}
           />
-          {cuenta && (
+          {yaLaTengo && (
+            <span className="hint" style={{ marginTop: 6 }}>
+              No se descuenta de ninguna cuenta: esta plata ya era tuya, la app
+              recién se entera. No cuenta como un ingreso del mes.
+            </span>
+          )}
+          {!yaLaTengo && cuenta && (
             <span className="hint" style={{ marginTop: 6 }}>
               En {cuenta.name} hay <span className="monto-sensible">{money(cuenta.saldo)}</span>.
               Podés pasar una parte.
@@ -948,8 +993,12 @@ function SumarPlata({ cuentas, destino, onCerrar, onHecho, onError }) {
 
         <div className="dialogo-botones">
           <button type="button" className="dialogo-btn" onClick={onCerrar}>Cancelar</button>
-          <button type="submit" className="dialogo-btn principal" disabled={!importe || guardando}>
-            {guardando ? 'Pasando…' : 'Pasar'}
+          <button
+            type="submit"
+            className="dialogo-btn principal"
+            disabled={!importe || guardando || (!yaLaTengo && !desde)}
+          >
+            {guardando ? 'Guardando…' : yaLaTengo ? 'Anotarla' : 'Pasar'}
           </button>
         </div>
       </form>

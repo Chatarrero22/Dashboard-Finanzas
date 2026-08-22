@@ -20,7 +20,7 @@ const TIPOS = [
 ]
 
 const COLORES = ['#EE8A17', '#3B5AA8', '#0E8A51', '#7A5AC9', '#C1372F', '#6B5634']
-const VACIA = { name: '', tipo: 'ahorro', color: COLORES[1] }
+const VACIA = { name: '', tipo: 'ahorro', color: COLORES[1], saldo_inicial: '' }
 
 function tipoDe(id) {
   return TIPOS.find((t) => t.id === id) || TIPOS[0]
@@ -62,8 +62,14 @@ export default function Cuentas({ cuentas, accion, onReload, onError, onSaved })
     e.preventDefault()
     if (!form.name.trim()) return onError('Ponele un nombre a la cuenta')
     try {
-      if (editando) await api(`/cuentas/${editando.id}`, { method: 'PATCH', body: JSON.stringify(form) })
-      else await api('/cuentas', { method: 'POST', body: JSON.stringify(form) })
+      if (editando) {
+        await api(`/cuentas/${editando.id}`, { method: 'PATCH', body: JSON.stringify(form) })
+      } else {
+        await api('/cuentas', {
+          method: 'POST',
+          body: JSON.stringify({ ...form, saldo_inicial: montoDesde(form.saldo_inicial) }),
+        })
+      }
       setAbierto(false)
       setEditando(null)
       setForm(VACIA)
@@ -195,6 +201,24 @@ export default function Cuentas({ cuentas, accion, onReload, onError, onSaved })
                 ))}
               </div>
             </div>
+
+            {!editando && (
+              <label className="field">
+                <span className="field-label">¿Cuánta plata hay ahí ahora? (opcional)</span>
+                <input
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={form.saldo_inicial}
+                  onChange={(e) => setForm({ ...form, saldo_inicial: soloPlata(e.target.value) })}
+                />
+                <span className="hint" style={{ marginTop: 6 }}>
+                  Si esa plata ya existe pero la app todavía no la sabe, ponela
+                  acá. No cuenta como un ingreso del mes: es la app poniéndose
+                  al día. Si la vas a pasar desde otra cuenta tuya, dejalo en
+                  blanco y usá «Mover plata».
+                </span>
+              </label>
+            )}
 
             <div className="field">
               <span className="field-label">Color</span>

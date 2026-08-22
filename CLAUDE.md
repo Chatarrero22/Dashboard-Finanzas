@@ -181,6 +181,19 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
+**Un `Ajuste` NO es un gasto ni un ingreso, y hay que acordarse en TODAS las
+consultas.** `byCategory`, `topExpenses` y `byDay` ya lo excluían, pero
+`totals`, `monthTotals` y `byMonth` no: solo sacaban `Traspaso`. Resultado:
+Emanuel ajustó su saldo en −$1.009.114 y el ahorro del mes se le desplomó de
+$1.118.481 a $109.367, porque la app contó la corrección como si hubiera
+gastado un millón. Si agregás una consulta de totales, sacá las dos.
+
+**La plata que ya tenías y la app no sabía se anota como `Ajuste`.** Una
+cuenta nueva puede nacer con saldo (`saldo_inicial` en `POST /cuentas`), y en
+Inversiones podés decir «ya la tengo ahí» en vez de moverla de otro lado.
+Antes la única forma de llenar una cuenta era transferir, así que cargar
+«tengo un palo en el broker» dejaba la otra cuenta en un millón negativo.
+
 **El resultado del mes no dice cuánto de eso ya tiene destino.** «Ahorré 300k
 pero 200k los mandé a invertir, me quedan 100k»: eso es lo que la gente quiere
 saber. El resultado del mes es un flujo y **no cambia** cuando movés plata de
