@@ -15,11 +15,12 @@ const COLORES = [
 
 /* ------------------------------------------------------------ el número */
 
-function Titular({ dashboard, mes }) {
+function Titular({ dashboard, mes, onGo }) {
   const neto = dashboard.income - dashboard.expense
   const enRojo = neto < 0
   // Lo que ya mandaste a ahorro, a invertir o a comprar titulos este mes.
   const apartado = dashboard.apartado || 0
+  const potes = dashboard.potes
   const libre = neto - apartado
 
   // El porcentaje solo significa algo si entró plata.
@@ -58,6 +59,32 @@ function Titular({ dashboard, mes }) {
                 ? <>Te quedan <b className="monto-sensible">{money(libre)}</b> sin destino</>
                 : <>Apartaste <b className="monto-sensible">{money(-libre)}</b> más de lo que ahorraste este mes: salió de lo que traías</>}
             </span>
+          </div>
+        )}
+
+        {/*
+          * Un flujo y un saldo, uno abajo del otro.
+          *
+          * «Resultado de agosto» es cómo te fue ESTE MES: entró menos salió.
+          * «Disponible» es cuánta plata tenés. Son cosas distintas y se
+          * confunden fácil porque las dos son un peso con signo — Emanuel
+          * preguntó tres veces por qué no coinciden, la última con -$16.997
+          * arriba y $50.000 en el banco.
+          *
+          * Así que lo decimos acá, al lado del número que confunde, en vez de
+          * esperar a que lo deduzca.
+          */}
+        {potes && (
+          <div className="titular-aclara">
+            Esto es cómo te fue en {mesNombre(mes)}, no cuánta plata tenés:
+            {' '}en tus cuentas hay <b className="monto-sensible">{money(potes.liquidez + potes.ahorro)}</b>
+            {potes.deudaTarjeta > 0 && (
+              <> y debés <b className="monto-sensible">{money(potes.deudaTarjeta)}</b> de tarjeta,
+                que sale cuando pagues el resumen</>
+            )}.
+            {onGo && (
+              <button className="titular-link" onClick={() => onGo('patrimonio')}>Ver dónde está</button>
+            )}
           </div>
         )}
 
@@ -261,7 +288,7 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
     <>
       {/* fila 1: el número grande + los cuatro KPI */}
       <div className="fila-titular">
-        <Titular dashboard={dashboard} mes={mes} />
+        <Titular dashboard={dashboard} mes={mes} onGo={onGo} />
         <Kpis dashboard={dashboard} />
       </div>
 

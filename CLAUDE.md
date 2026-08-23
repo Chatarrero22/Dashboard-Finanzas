@@ -376,6 +376,16 @@ anteriores (los traspasos no cuentan porque se anulan entre sí). Emanuel vio
 $1.157.159 y $1.097.792 y preguntó por qué; la pantalla ahora lo explica sola
 en vez de dejarte hacer la cuenta.
 
+**Preguntó tres veces**, la última con **-$16.997** de resultado del mes y
+**$50.000** en el banco. No es un problema de números: los dos estaban bien.
+Es que un flujo y un saldo se parecen —los dos son un peso con signo— y el
+grande está arriba de todo sin decir cuál de los dos es.
+
+Por eso la aclaración va **pegada al número que confunde** (`.titular-aclara`
+en el Resumen), no en otra pantalla: «esto es cómo te fue en agosto, no
+cuánta plata tenés: en tus cuentas hay $50.000». **Si una pregunta vuelve
+tres veces, la respuesta tiene que estar donde se hace la pregunta.**
+
 Ese cartel decía «Toda tu plata» y era mentira: con $50.000 en el banco y ocho
 millones en títulos, mostraba $50.000. **Si un título dice «todo», que sea
 todo.**
