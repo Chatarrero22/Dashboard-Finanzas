@@ -1442,7 +1442,8 @@ router.get('/saldo', function (req, res) {
     porVencer: futuro.monto,
     porVencerN: futuro.n,
     // Con su saldo, para poder ajustar UNA y no el total.
-    cuentas: cuentas.listar(uid)
+    cuentas: cuentas.listar(uid),
+    potes: cuentas.potes(uid)
   });
 });
 
@@ -1469,7 +1470,11 @@ router.post('/saldo', function (req, res) {
     : cuentas.asegurarPrincipal(req.user.id);
   if (!cuenta) return res.status(400).json({ error: 'No encontré esa cuenta' });
 
-  var saldo = cuentas.saldoDe(req.user.id, cuenta.id);
+  // El saldo del BANCO, que es el que muestra la pantalla y el que la persona
+  // puede mirar. Si comparáramos contra el contable, ajustar corregiría una
+  // diferencia que es solo la tarjeta que todavía no venció.
+  var fila = cuentas.listar(req.user.id).find(function (c) { return c.id === cuenta.id; });
+  var saldo = fila ? fila.saldo : cuentas.saldoDe(req.user.id, cuenta.id);
   var real = Number(req.body.saldoReal);
   var diferencia = real - saldo;
 

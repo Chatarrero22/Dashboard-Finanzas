@@ -115,6 +115,73 @@ function resumenesPendientes(userId, tarjeta, hoy) {
   return pendientes.reverse();
 }
 
+/**
+ * Lo que ya gastaste con tarjeta y TODAVIA NO SALIO de tu cuenta.
+ *
+ * El gasto se anota el dia de la compra —que es lo correcto para categorias,
+ * presupuestos y P&L— pero la plata no se va ese dia: se va cuando pagas el
+ * resumen. Sin esta cuenta, el saldo del banco baja apenas comprás y muestra
+ * menos de lo que tenés.
+ *
+ * Emanuel: «lo que pago con tarjeta me esta descontando mi liquidez y no
+ * tiene que ser asi». Tenia razon: decia que tenia -$17.019 con $50.000 en el
+ * banco.
+ *
+ * Cuenta como pendiente TODO lo que no este en un resumen ya pagado: el
+ * periodo abierto, los resumenes que cerraron y no marcaste, y las cuotas con
+ * fecha futura. Se calcula como el total gastado con esa tarjeta menos lo que
+ * cae dentro de los resumenes pagados, asi no depende de cuantos meses para
+ * atras miremos.
+ *
+ * Devuelve el total y el desglose por cuenta: la plata vuelve a la cuenta a
+ * la que se le habia descontado, no a cualquiera.
+ */
+function deudaPendiente(userId) {
+  var tarjetas = db.prepare('SELECT * FROM cards WHERE user_id = ?').all(userId);
+  var base = db.prepare('SELECT id FROM accounts WHERE user_id = ? AND es_default = 1').get(userId)
+    || db.prepare('SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1').get(userId);
+  var baseId = base ? base.id : null;
+
+  var gastosDe = db.prepare(
+    'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
+    ' FROM transactions WHERE user_id = ? AND card_id = ? AND amount < 0' +
+    ' GROUP BY cuenta'
+  );
+  var gastosEnRango = db.prepare(
+    'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
+    ' FROM transactions WHERE user_id = ? AND card_id = ? AND amount < 0' +
+    ' AND date >= ? AND date <= ? GROUP BY cuenta'
+  );
+  var pagosDe = db.prepare('SELECT period_close FROM card_payments WHERE user_id = ? AND card_id = ?');
+
+  var porCuenta = {};
+  var total = 0;
+
+  function sumar(cuenta, monto) {
+    var k = String(cuenta);
+    porCuenta[k] = (porCuenta[k] || 0) + monto;
+    total += monto;
+  }
+
+  tarjetas.forEach(function (t) {
+    gastosDe.all(baseId, userId, t.id).forEach(function (r) { sumar(r.cuenta, r.total); });
+
+    // Y le restamos lo que ya pagaste: cada resumen cubre desde el dia
+    // siguiente al cierre anterior hasta su propio cierre.
+    pagosDe.all(userId, t.id).forEach(function (pago) {
+      var cierre = new Date(pago.period_close);
+      var anterior = diaDelMes(cierre.getFullYear(), cierre.getMonth() - 1, t.close_day);
+      var desde = new Date(anterior);
+      desde.setDate(desde.getDate() + 1);
+
+      gastosEnRango.all(baseId, userId, t.id, aISO(desde), aISO(cierre))
+        .forEach(function (r) { sumar(r.cuenta, -r.total); });
+    });
+  });
+
+  return { total: total, porCuenta: porCuenta };
+}
+
 /** Las tarjetas con lo que va gastado en el período abierto. */
 function listar(userId, hoy) {
   var filas = db.prepare('SELECT * FROM cards WHERE user_id = ? ORDER BY id').all(userId);
@@ -221,6 +288,7 @@ function todas(userId) {
 }
 
 module.exports = {
+  deudaPendiente: deudaPendiente,
   listar: listar,
   porDefecto: porDefecto,
   marcarPorDefecto: marcarPorDefecto,

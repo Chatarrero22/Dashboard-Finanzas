@@ -131,7 +131,15 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
             <div className={`pote-monto monto-sensible ${potes.liquidez < 0 ? 'negativo' : ''}`}>
               {money(potes.liquidez)}
             </div>
-            <p className="hint">La que podés usar hoy</p>
+            {/* Lo que hay en el banco HOY: las compras con tarjeta todavía no
+                salieron. El gasto se anota el día de la compra —está bien
+                para el mes y los presupuestos— pero la plata se va cuando
+                pagás el resumen. */}
+            <p className="hint">
+              {potes.deudaTarjeta > 0
+                ? 'Lo que hay en el banco hoy. Lo de tarjeta todavía no salió.'
+                : 'La que podés usar hoy'}
+            </p>
           </div>
           <div className="pote">
             <div className="pote-label">🏦 Ahorro</div>
@@ -147,6 +155,18 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
               <button className="chip" onClick={crearAhorro}>Crear la cuenta de Ahorro</button>
             )}
           </div>
+          {potes.deudaTarjeta > 0 && (
+            <div className="pote pote-deuda">
+              <div className="pote-label">💳 Tarjeta sin pagar</div>
+              <div className="pote-monto monto-sensible negativo">
+                −{money(potes.deudaTarjeta)}
+              </div>
+              <p className="hint">
+                Ya lo gastaste y está contado en tu mes, pero la plata sale
+                cuando pagues el resumen. El patrimonio de arriba ya lo resta.
+              </p>
+            </div>
+          )}
         </section>
       )}
 
@@ -179,8 +199,16 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
                   </div>
                   <div className="cuenta-tipo">{tipoDe(tipoQueMuestra(c)).icono} {tipoDe(tipoQueMuestra(c)).nombre}</div>
                 </div>
+                {/* El saldo es lo que hay en el banco. Si parte ya está
+                    gastada con tarjeta, se dice acá abajo en vez de restarla
+                    del número: la plata todavía está. */}
                 <div className={`cuenta-saldo monto-sensible ${c.saldo < 0 ? 'negativo' : ''}`}>
                   {money(c.saldo)}
+                  {c.deudaTarjeta > 0 && (
+                    <span className="cuenta-deuda monto-sensible">
+                      −{money(c.deudaTarjeta)} de tarjeta
+                    </span>
+                  )}
                 </div>
                 {/* «Mover» al lado de cada cuenta: es donde lo buscás, no en
                     un chip chiquito arriba del todo. A 320 los botones bajan

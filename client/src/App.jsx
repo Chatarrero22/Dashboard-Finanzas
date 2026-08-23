@@ -1256,7 +1256,11 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
         </p>
         {desglose && (
           <p className="hint">
-            Sumando todas tus cuentas hay <span className="monto-sensible">{money(desglose.saldo)}</span>.
+            Sumando todas tus cuentas hay <span className="monto-sensible">{money(desglose.potes ? desglose.potes.liquidez + desglose.potes.ahorro + desglose.potes.invertido : desglose.saldo)}</span> en el banco
+            {desglose.potes && desglose.potes.deudaTarjeta > 0 && (
+              <>, de los cuales <span className="monto-sensible">{money(desglose.potes.deudaTarjeta)}</span> ya
+              los gastaste con tarjeta y salen cuando pagues el resumen</>
+            )}.
             Sale de <span className="monto-sensible">{money(desglose.ingresos)}</span> que
             entraron menos <span className="monto-sensible">{money(desglose.gastos)}</span> que
             salieron, en {desglose.movimientos} movimientos

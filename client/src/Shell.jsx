@@ -20,6 +20,10 @@ export function Lateral({ marca, grupos, tab, onGo, onNuevo, potes, usuario }) {
    */
   const liquidez = potes ? potes.liquidez : 0
   const guardado = potes ? potes.ahorro : 0
+  // Lo que ya gastaste con tarjeta y todavía no salió: está en tu cuenta,
+  // pero ya tiene dueño. Se avisa acá o el número de arriba miente por otro
+  // lado — decir que tenés $50.000 sin decir que $67.000 ya están vendidos.
+  const deuda = potes ? (potes.deudaTarjeta || 0) : 0
   const enRojo = liquidez < 0
   // Cuánto de tu plata en cuentas está disponible. Si no hay nada, no hay
   // barra que dibujar: un 0% lleno se lee como un error.
@@ -61,6 +65,11 @@ export function Lateral({ marca, grupos, tab, onGo, onNuevo, potes, usuario }) {
           <div className="ahorro-mini-barra" title={pct == null ? '' : `${pct}% de tu plata está disponible`}>
             <div style={{ width: `${ancho}%` }} />
           </div>
+          {deuda > 0 && (
+            <div className="ahorro-mini-deuda">
+              De eso, <b className="monto-sensible">{money(deuda)}</b> son de tarjeta sin pagar
+            </div>
+          )}
         </div>
       )}
 

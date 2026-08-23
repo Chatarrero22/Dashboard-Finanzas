@@ -168,6 +168,39 @@ ahí salvo que digas lo contrario («…en efectivo», «…con la Naranja»). P
 crédito y si no, cada gasto le entra al resumen y hay que corregirlo a mano.
 Se elige en Tarjetas.
 
+**Lo que pagaste con tarjeta TODAVÍA ESTÁ en tu cuenta.** El gasto se anota
+el día de la compra —correcto para el mes, las categorías, los presupuestos y
+el P&L— pero la plata se va cuando **pagás el resumen**. Son dos fechas
+distintas y confundirlas rompe el número que la persona puede verificar.
+
+Por eso `cuentas.listar()` devuelve dos saldos:
+
+- **`saldo`** — la plata que hay **en el banco hoy**. Es la suma de los
+  movimientos MÁS lo de tarjeta que todavía no venció. Es lo que se muestra
+  en todos lados: el pote de Liquidez, la fila de la cuenta, el ajuste de
+  saldo.
+- **`saldoContable`** — la suma cruda. La usa el patrimonio, donde la deuda
+  **sí** tiene que estar restada: esa plata ya tiene dueño.
+
+`tarjetas.deudaPendiente()` es quien decide qué está sin pagar: **todo lo que
+no caiga en un resumen ya marcado como pagado** —el período abierto, los
+resúmenes cerrados sin pagar y las cuotas con fecha futura—. Se calcula como
+el total gastado con esa tarjeta menos lo que cae dentro de los resúmenes
+pagados, así no depende de cuántos meses para atrás miremos.
+
+Sin esto, el saldo del banco bajaba apenas comprabas: Emanuel vio **-$17.019
+con $50.000 en el banco**. «Lo que pago con tarjeta me está descontando mi
+liquidez y no tiene que ser así.» Tenía razón.
+
+Y peor: **el ajuste de saldo comparaba contra el contable**, así que poner
+«tengo $50.000» inventaba un movimiento por el monto de la tarjeta. Ahora
+compara contra el banco y contesta «ya cerraba, no hizo falta ajustar».
+
+**Los dos números salen de un solo lado.** Cuando el pote decía $50.000 y la
+fila de la misma cuenta decía -$17.019, la pantalla se contradecía sola en
+la misma vista. Si dos lugares muestran el saldo de una cuenta, tienen que
+pedirlo a la misma función.
+
 **El pago del resumen de la tarjeta NO es un movimiento.** Las compras ya están
 cargadas una por una; si además anotáramos el pago, el mes contaría el doble.
 Por eso existe `card_payments`, que solo marca "el resumen que cerró tal día
@@ -496,8 +529,9 @@ Queda:
    tu cuenta este mes" (el resumen que vence + lo que no es tarjeta). Los datos
    ya están; falta mostrarlos. Lo que **sí** se hizo es el reparto de lo
    ahorrado: cuánto ya apartaste y cuánto queda sin destino.
-4. **La deuda de tarjeta en Patrimonio** — hoy resta bien el total pero no dice
-   cuánto de eso es tarjeta sin pagar.
+4. ~~La deuda de tarjeta en Patrimonio~~ — hecho: hay un pote «Tarjeta sin
+   pagar» al lado de Liquidez y Ahorro, y la barra lateral avisa cuánto de lo
+   disponible ya está gastado.
 
 ### Cosas del pasado que conviene saber
 

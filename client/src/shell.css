@@ -168,6 +168,20 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* La tarjeta sin pagar: chiquita, pero tiene que estar. Solo aparece si
+     hay deuda, asi que no empuja el menu cuando no la hay. */
+  .ahorro-mini-deuda {
+    margin-top: 8px;
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: var(--text-tertiary);
+  }
+
+  .ahorro-mini-deuda b {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
   .ahorro-mini.bien  .ahorro-mini-pct { color: var(--good); }
   .ahorro-mini.bien  .ahorro-mini-barra > div { background: linear-gradient(90deg, var(--good), var(--accent-2)); }
   .ahorro-mini.rojo  .ahorro-mini-pct { color: var(--critical); }

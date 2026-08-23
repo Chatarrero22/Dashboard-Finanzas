@@ -21,6 +21,14 @@ var crypto = require('crypto');
 var db_module = require('./db.js');
 var db = db_module.db;
 
+/*
+ * tarjetas.js se pide adentro de la funcion y no arriba: los dos modulos se
+ * necesitan y pedirlo aca dejaria uno de los dos a medio cargar.
+ */
+function tarjetas() {
+  return require('./tarjetas.js');
+}
+
 var TIPOS = {
   gasto: { nombre: 'Liquidez', orden: 1 },
   ahorro: { nombre: 'Ahorro', orden: 2 },
@@ -75,13 +83,30 @@ function saldoDe(userId, cuentaId) {
   ).get(userId, cuentaId).t;
 }
 
-/** Las cuentas con su saldo. */
+/**
+ * Las cuentas con su saldo.
+ *
+ * `saldo` es LA PLATA QUE HAY EN EL BANCO, que es lo que la persona puede
+ * mirar y verificar. Lo que pagaste con tarjeta y todavia no salio se le
+ * devuelve: el gasto se anota el dia de la compra —correcto para el mes, los
+ * presupuestos y el P&L— pero la plata se va cuando pagas el resumen.
+ *
+ * `saldoContable` es la suma cruda de los movimientos, que es lo que usa el
+ * patrimonio: ahi la deuda SI tiene que estar restada, porque esa plata ya
+ * tiene dueño.
+ *
+ * Los dos numeros salen de aca y no cada pantalla por su cuenta: cuando el
+ * pote decia $50.000 y la fila de la misma cuenta decia -$17.019, la pantalla
+ * se contradecia sola.
+ */
 function listar(userId) {
   asegurarPrincipal(userId);
+  var deuda = tarjetas().deudaPendiente(userId);
 
   return db.prepare('SELECT * FROM accounts WHERE user_id = ? ORDER BY id').all(userId)
     .map(function (c) {
-      var saldo = saldoDe(userId, c.id);
+      var contable = saldoDe(userId, c.id);
+      var debe = deuda.porCuenta[String(c.id)] || 0;
 
       return {
         id: c.id,
@@ -90,7 +115,9 @@ function listar(userId) {
         tipoNombre: (TIPOS[c.tipo] || TIPOS.gasto).nombre,
         color: c.color,
         es_default: Boolean(c.es_default),
-        saldo: saldo
+        saldo: contable + debe,
+        saldoContable: contable,
+        deudaTarjeta: debe
       };
     })
     .sort(function (a, b) {
@@ -118,13 +145,29 @@ function potes(userId) {
   var baseId = base ? base.id : -1;
   var r = { liquidez: 0, ahorro: 0, invertido: 0 };
 
+  /*
+   * Lo que pagaste con tarjeta TODAVIA ESTA en tu cuenta.
+   *
+   * El gasto se anota el dia de la compra, asi que el saldo contable ya lo
+   * resto; pero la plata recien se va cuando pagas el resumen. Se la
+   * devolvemos a la cuenta a la que se le habia descontado.
+   *
+   * Sin esto, el saldo del banco baja apenas comprás: Emanuel vio -$17.019
+   * con $50.000 en el banco.
+   */
   listar(userId).forEach(function (c) {
+    // c.saldo ya es la plata que hay en el banco: listar() le devolvio lo de
+    // la tarjeta que todavia no salio.
     if (c.id === baseId || c.tipo === 'gasto') r.liquidez += c.saldo;
     else if (c.tipo === 'inversion') r.invertido += c.saldo;
     else r.ahorro += c.saldo;
+    r.deudaTarjeta = (r.deudaTarjeta || 0) + c.deudaTarjeta;
   });
 
-  r.enCuentas = r.liquidez + r.ahorro + r.invertido;
+  r.deudaTarjeta = r.deudaTarjeta || 0;
+
+  // Lo que de verdad es tuyo: lo que hay en el banco menos lo que ya debés.
+  r.enCuentas = r.liquidez + r.ahorro + r.invertido - r.deudaTarjeta;
   return r;
 }
 
