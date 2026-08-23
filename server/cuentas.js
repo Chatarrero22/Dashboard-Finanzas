@@ -155,19 +155,30 @@ function potes(userId) {
    * Sin esto, el saldo del banco baja apenas comprás: Emanuel vio -$17.019
    * con $50.000 en el banco.
    */
+  var contable = 0;
   listar(userId).forEach(function (c) {
     // c.saldo ya es la plata que hay en el banco: listar() le devolvio lo de
     // la tarjeta que todavia no salio.
     if (c.id === baseId || c.tipo === 'gasto') r.liquidez += c.saldo;
     else if (c.tipo === 'inversion') r.invertido += c.saldo;
     else r.ahorro += c.saldo;
-    r.deudaTarjeta = (r.deudaTarjeta || 0) + c.deudaTarjeta;
+    contable += c.saldoContable;
   });
 
-  r.deudaTarjeta = r.deudaTarjeta || 0;
+  /*
+   * Lo que DEBES a la tarjeta: el resumen abierto mas los que cerraron sin
+   * pagar. Es el mismo numero que muestra Tarjetas, y no el que usamos para
+   * reconstruir el saldo del banco: ese va con raya y es mas chico.
+   */
+  r.deudaTarjeta = tarjetas().deudaTotal(userId);
 
-  // Lo que de verdad es tuyo: lo que hay en el banco menos lo que ya debés.
-  r.enCuentas = r.liquidez + r.ahorro + r.invertido - r.deudaTarjeta;
+  /*
+   * Y esto es la suma cruda de los movimientos, que es lo que ve el
+   * patrimonio. NO se le vuelve a restar la deuda: cada compra con tarjeta ya
+   * esta anotada una por una y restada aca. Restarla otra vez la contaria dos
+   * veces.
+   */
+  r.enCuentas = contable;
   return r;
 }
 

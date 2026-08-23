@@ -868,6 +868,9 @@
 
 .a-pagar-txt { flex: 1; min-width: 0; }
 
+/* Los dos botones juntos, y que bajen solos cuando no entran. */
+.a-pagar-botones { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
+
 .a-pagar-label {
   font-size: 10.5px;
   letter-spacing: 0.8px;

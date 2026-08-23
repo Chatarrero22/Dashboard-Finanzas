@@ -22,7 +22,7 @@ const COLORES = [
 
 const VACIA = { name: '', last4: '', color: COLORES[0].valor, limit_amount: '', close_day: '1', due_day: '10', es_default: false }
 
-function Tarjeta({ t, onEditar, onBorrar, onPagar, onOrdenar }) {
+function Tarjeta({ t, onEditar, onBorrar, onPagar, onPagarTodos, onOrdenar }) {
   const pct = t.pct == null ? null : Math.min(t.pct, 100)
 
   return (
@@ -74,10 +74,22 @@ function Tarjeta({ t, onEditar, onBorrar, onPagar, onOrdenar }) {
               <div className="a-pagar-monto monto-sensible">{money(t.aPagar.monto)}</div>
               <div className="a-pagar-sub">
                 cerró el {t.aPagar.cierreTexto} · vence el {t.aPagar.venceTexto}
-                {t.pendientes.length > 1 && ` · y ${t.pendientes.length - 1} resumen más atrasado`}
+                {t.pendientes.length > 1 && (t.pendientes.length === 2
+                  ? ' · y 1 resumen más atrasado'
+                  : ` · y ${t.pendientes.length - 1} resúmenes más atrasados`)}
               </div>
             </div>
-            <button className="chip" onClick={() => onPagar(t)}>Ya lo pagué</button>
+            <div className="a-pagar-botones">
+              <button className="chip" onClick={() => onPagar(t)}>Ya lo pagué</button>
+              {/* Si arrancás con meses de resúmenes que ya pagaste en la vida
+                  real, ir de a uno son ocho clics para decir algo que sabés
+                  de una sola vez. */}
+              {t.pendientes.length > 1 && (
+                <button className="chip" onClick={() => onPagarTodos(t)}>
+                  Pagué todos ({t.pendientes.length})
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -189,6 +201,26 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
     }
   }
 
+  async function pagarTodos(t) {
+    const total = t.pendientes.reduce((a, r) => a + r.monto, 0)
+    const ok = await confirmar({
+      titulo: `¿Ya pagaste los ${t.pendientes.length} resúmenes?`,
+      detalle: `Son ${money(total)} en total, desde el que cerró el ` +
+        `${t.pendientes[0].cierreTexto}. No los cuento como gasto nuevo: esas ` +
+        'compras ya están anotadas una por una. Solo dejo de mostrártelas como ' +
+        'pendientes.',
+      aceptar: 'Sí, los pagué todos',
+    })
+    if (!ok) return
+    try {
+      const r = await api(`/cards/${t.id}/pagar-anteriores`, { method: 'POST', body: JSON.stringify({}) })
+      onSaved(`${r.marcados} resúmenes marcados como pagados`)
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   // Los gastos que cargaste antes de tener tarjeta quedaron sin ninguna.
   async function ordenarSueltos(t) {
     try {
@@ -285,7 +317,7 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
 
           <div className="tarjetas-grid">
             {cards.map((t) => (
-              <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} onOrdenar={ordenarSueltos} />
+              <Tarjeta key={t.id} t={t} onEditar={abrirEditar} onBorrar={borrar} onPagar={pagar} onPagarTodos={pagarTodos} onOrdenar={ordenarSueltos} />
             ))}
           </div>
         </>

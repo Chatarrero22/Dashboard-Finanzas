@@ -202,6 +202,32 @@ function deudaPendiente(userId, rayaForzada) {
   return { total: total, porCuenta: porCuenta, desde: raya };
 }
 
+/**
+ * LO QUE DEBES en las tarjetas. Que no es lo mismo que `deudaPendiente()`.
+ *
+ * Son dos preguntas distintas y usar un solo numero para las dos deja la app
+ * contradiciendose:
+ *
+ *   deudaPendiente()  ¿cuanto de lo que la contabilidad ya descontó todavia
+ *                     NO salio del banco? Va con raya (desde el ultimo
+ *                     ajuste), porque sirve para reconstruir el saldo que la
+ *                     persona declaro. Es un numero interno.
+ *
+ *   deudaTotal()      ¿cuanto le debo a la tarjeta? El resumen abierto mas
+ *                     los que cerraron y no pague. SIN raya: que hayas dicho
+ *                     cuanto tenes en el banco no cancela el resumen que
+ *                     vence la semana que viene.
+ *
+ * Emanuel vio "Tarjeta sin pagar $59.367" mientras Tarjetas decia "consumo
+ * del resumen $773.033" y pregunto, con razon, cual de los dos era. El que
+ * se muestra tiene que ser este, que es el que cierra con Tarjetas.
+ */
+function deudaTotal(userId, hoy) {
+  return listar(userId, hoy).reduce(function (a, t) {
+    return a + t.consumo + t.deuda;
+  }, 0);
+}
+
 /** Las tarjetas con lo que va gastado en el período abierto. */
 function listar(userId, hoy) {
   var filas = db.prepare('SELECT * FROM cards WHERE user_id = ? ORDER BY id').all(userId);
@@ -309,6 +335,7 @@ function todas(userId) {
 
 module.exports = {
   deudaPendiente: deudaPendiente,
+  deudaTotal: deudaTotal,
   listar: listar,
   porDefecto: porDefecto,
   marcarPorDefecto: marcarPorDefecto,

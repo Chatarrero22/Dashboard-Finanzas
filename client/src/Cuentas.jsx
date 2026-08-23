@@ -161,16 +161,17 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
               <div className="pote-monto monto-sensible negativo">
                 −{money(potes.deudaTarjeta)}
               </div>
+              {/* Es el mismo numero que muestra Tarjetas: el resumen abierto
+                  mas los que cerraron y no pagaste. Decirlo evita la pregunta
+                  «¿y esto de dónde sale?». */}
               <p className="hint">
-                Ya lo gastaste y está contado en tu mes, pero la plata sale
-                cuando pagues el resumen. El patrimonio de arriba ya lo resta.
+                Lo que le debés a tus tarjetas: el resumen que está abierto más
+                los que cerraron y no pagaste. Es el mismo número que ves en
+                Tarjetas.
               </p>
-              {/* Si el numero no cierra con lo que la persona sabe que debe,
-                  tiene que poder arreglarlo sin adivinar. */}
               <p className="hint">
-                ¿No es lo que debés? Marcá los resúmenes que ya pagaste en
-                Tarjetas, o poné el saldo real de la cuenta en Ajustes: eso
-                da por saldado todo lo anterior.
+                No baja tu Liquidez: la plata sale recién cuando pagás el
+                resumen. Cuando lo pagues, marcalo en Tarjetas.
               </p>
             </div>
           )}
@@ -206,16 +207,14 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
                   </div>
                   <div className="cuenta-tipo">{tipoDe(tipoQueMuestra(c)).icono} {tipoDe(tipoQueMuestra(c)).nombre}</div>
                 </div>
-                {/* El saldo es lo que hay en el banco. Si parte ya está
-                    gastada con tarjeta, se dice acá abajo en vez de restarla
-                    del número: la plata todavía está. */}
+                {/* El saldo es lo que hay en el banco: lo de tarjeta no se
+                    resta hasta que pagues el resumen. Cuánto debés se dice
+                    UNA vez, en el pote de arriba — cuando también estaba acá,
+                    los dos números no coincidían y no había forma de saber
+                    cuál era cuál. */}
                 <div className={`cuenta-saldo monto-sensible ${c.saldo < 0 ? 'negativo' : ''}`}>
                   {money(c.saldo)}
-                  {c.deudaTarjeta > 0 && (
-                    <span className="cuenta-deuda monto-sensible">
-                      −{money(c.deudaTarjeta)} de tarjeta
-                    </span>
-                  )}
+
                 </div>
                 {/* «Mover» al lado de cada cuenta: es donde lo buscás, no en
                     un chip chiquito arriba del todo. A 320 los botones bajan

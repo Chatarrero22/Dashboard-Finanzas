@@ -188,7 +188,26 @@ resúmenes cerrados sin pagar y las cuotas con fecha futura—. Se calcula como
 el total gastado con esa tarjeta menos lo que cae dentro de los resúmenes
 pagados, así no depende de cuántos meses para atrás miremos.
 
-**Y hay una raya: sólo cuenta lo posterior al último `Ajuste`.** «Poner el
+**Son DOS números distintos y usar uno solo dejaba la app contradiciéndose:**
+
+- **`deudaPendiente()`** — ¿cuánto de lo que la contabilidad ya descontó
+  todavía **no salió del banco**? Va **con raya** (ver abajo). Es interno:
+  sirve para reconstruir el saldo que la persona declaró.
+- **`deudaTotal()`** — **¿cuánto le debo a la tarjeta?** El resumen abierto
+  más los que cerraron y no pagaste. **Sin raya:** que hayas dicho cuánto
+  tenés en el banco no cancela el resumen que vence la semana que viene.
+
+**El que se muestra es `deudaTotal()`**, porque es el que cierra con la
+pantalla de Tarjetas. Emanuel vio «Tarjeta sin pagar $59.367» mientras
+Tarjetas decía «consumo del resumen $773.033» y preguntó, con razón, cuál de
+los dos era.
+
+Y **`potes.enCuentas` es la suma cruda de los movimientos**, sin restarle la
+deuda otra vez: cada compra con tarjeta ya está anotada una por una y restada
+ahí. Restarla de nuevo la contaría dos veces.
+
+**Y hay una raya: `deudaPendiente()` sólo cuenta lo posterior al último
+`Ajuste`.** «Poner el
 saldo real» es la persona diciendo *esto es lo que tengo hoy*, así que todo lo
 de antes está saldado por definición, lo hayas marcado o no. Si pagaste seis
 resúmenes y nunca los marcaste en la app, tu saldo real ya los tiene
@@ -197,6 +216,12 @@ descontados.
 Sin la raya la app sumaba **un año de resúmenes ya pagados**: le mostró a
 Emanuel $815.381 de disponible cuando tenía $50.000 en el banco. El mecanismo
 estaba bien; lo que faltaba era desde dónde empezar a contar.
+
+**Y hace falta poder saldar los viejos de una.** Si venís usando la app desde
+hace meses y nunca marcaste un pago, la deuda arranca con un año de resúmenes
+que en la vida real ya pagaste. Ir de a uno son ocho clics para decir algo
+que sabés de una: por eso está «Pagué todos (N)» al lado de «Ya lo pagué»
+(`POST /cards/:id/pagar-anteriores`).
 
 **Ojo con el orden al ajustar:** ajustar *mueve* la raya, así que el saldo al
 que hay que llegar es el contable más lo de tarjeta que quede **después** de

@@ -1198,6 +1198,33 @@ router.post('/cards/:id/pagar', function (req, res) {
   res.json({ pagado: cual, tarjetas: tarjetas.listar(req.user.id) });
 });
 
+/**
+ * Marcar como pagados TODOS los resúmenes que ya cerraron.
+ *
+ * Si venís usando la app desde hace meses y nunca marcaste un pago, la deuda
+ * arranca con un año de resúmenes que en la vida real ya pagaste. Ir de a uno
+ * son ocho clics para decir algo que sabés de una: «todo lo que cerró, está
+ * pagado».
+ *
+ * No crea movimientos: las compras ya están anotadas una por una.
+ */
+router.post('/cards/:id/pagar-anteriores', function (req, res) {
+  var tarjeta = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user.id);
+  if (!tarjeta) return res.status(404).json({ error: 'No existe esa tarjeta' });
+
+  var pendientes = tarjetas.resumenesPendientes(req.user.id, tarjeta);
+  pendientes.forEach(function (r) {
+    tarjetas.pagarResumen(req.user.id, tarjeta.id, r.cierre, r.monto, req.body.fecha);
+  });
+
+  res.json({
+    marcados: pendientes.length,
+    total: pendientes.reduce(function (a, r) { return a + r.monto; }, 0),
+    tarjetas: tarjetas.listar(req.user.id)
+  });
+});
+
 router.delete('/cards/:id/pagar/:cierre', function (req, res) {
   db.prepare('DELETE FROM card_payments WHERE user_id = ? AND card_id = ? AND period_close = ?')
     .run(req.user.id, req.params.id, req.params.cierre);
