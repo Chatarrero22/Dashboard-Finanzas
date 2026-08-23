@@ -1233,6 +1233,14 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
           que nunca cargaste, cree que tenés esa plata y no la tenés. Decime
           cuánto tenés de verdad y anoto un solo movimiento por la diferencia.
         </p>
+        {/* Ajustar traza una raya: lo de tarjeta de antes queda saldado. Hay
+            que decirlo, o el número de "tarjeta sin pagar" cambia solo y no
+            se entiende por qué. */}
+        <p className="hint">
+          Además da por <b>pagado</b> todo lo que hayas comprado con tarjeta
+          hasta hoy: si el saldo que decís ya lo tiene descontado, la app no
+          te lo puede volver a contar como deuda.
+        </p>
         {/* El numero solo no alcanza: Emanuel vio $1.059.114 cuando en el
             banco tenia $50.000 y no habia forma de saber de donde salia la
             diferencia. Mostrar de que esta hecho la vuelve evidente. */}

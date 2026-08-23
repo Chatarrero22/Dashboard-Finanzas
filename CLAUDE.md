@@ -188,6 +188,22 @@ resúmenes cerrados sin pagar y las cuotas con fecha futura—. Se calcula como
 el total gastado con esa tarjeta menos lo que cae dentro de los resúmenes
 pagados, así no depende de cuántos meses para atrás miremos.
 
+**Y hay una raya: sólo cuenta lo posterior al último `Ajuste`.** «Poner el
+saldo real» es la persona diciendo *esto es lo que tengo hoy*, así que todo lo
+de antes está saldado por definición, lo hayas marcado o no. Si pagaste seis
+resúmenes y nunca los marcaste en la app, tu saldo real ya los tiene
+descontados.
+
+Sin la raya la app sumaba **un año de resúmenes ya pagados**: le mostró a
+Emanuel $815.381 de disponible cuando tenía $50.000 en el banco. El mecanismo
+estaba bien; lo que faltaba era desde dónde empezar a contar.
+
+**Ojo con el orden al ajustar:** ajustar *mueve* la raya, así que el saldo al
+que hay que llegar es el contable más lo de tarjeta que quede **después** de
+la raya nueva (normalmente nada). Comparar contra el saldo de hoy es morderse
+la cola: la diferencia se calcula con la deuda vieja adentro y después la raya
+la borra, dejando el número peor de lo que estaba.
+
 Sin esto, el saldo del banco bajaba apenas comprabas: Emanuel vio **-$17.019
 con $50.000 en el banco**. «Lo que pago con tarjeta me está descontando mi
 liquidez y no tiene que ser así.» Tenía razón.

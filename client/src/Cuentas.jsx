@@ -165,6 +165,13 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
                 Ya lo gastaste y está contado en tu mes, pero la plata sale
                 cuando pagues el resumen. El patrimonio de arriba ya lo resta.
               </p>
+              {/* Si el numero no cierra con lo que la persona sabe que debe,
+                  tiene que poder arreglarlo sin adivinar. */}
+              <p className="hint">
+                ¿No es lo que debés? Marcá los resúmenes que ya pagaste en
+                Tarjetas, o poné el saldo real de la cuenta en Ajustes: eso
+                da por saldado todo lo anterior.
+              </p>
             </div>
           )}
         </section>

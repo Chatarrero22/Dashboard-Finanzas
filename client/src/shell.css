@@ -171,9 +171,13 @@
   /* La tarjeta sin pagar: chiquita, pero tiene que estar. Solo aparece si
      hay deuda, asi que no empuja el menu cuando no la hay. */
   .ahorro-mini-deuda {
-    margin-top: 8px;
-    font-size: 10.5px;
-    line-height: 1.35;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 9px;
+    font-size: 11px;
+    line-height: 1.2;
     color: var(--text-tertiary);
   }
 

@@ -62,12 +62,19 @@ export function Lateral({ marca, grupos, tab, onGo, onNuevo, potes, usuario }) {
             </span>
           </div>
           <div className="ahorro-mini-monto monto-sensible">{money(liquidez)}</div>
-          <div className="ahorro-mini-barra" title={pct == null ? '' : `${pct}% de tu plata está disponible`}>
-            <div style={{ width: `${ancho}%` }} />
-          </div>
-          {deuda > 0 && (
+          {/* La deuda va EN LUGAR de la barra, no debajo: la barra es adorno
+              y la deuda es información, y la tarjeta no puede crecer o el
+              menú de abajo se corta («Árbol» se salió dos veces por esto).
+              Y nada de «de eso»: la deuda puede ser mayor que lo disponible
+              —el resumen se paga con lo que entra después— y la frase quedaba
+              diciendo una mentira. */}
+          {deuda > 0 ? (
             <div className="ahorro-mini-deuda">
-              De eso, <b className="monto-sensible">{money(deuda)}</b> son de tarjeta sin pagar
+              Tarjeta sin pagar <b className="monto-sensible">{money(deuda)}</b>
+            </div>
+          ) : (
+            <div className="ahorro-mini-barra" title={pct == null ? '' : `${pct}% de tu plata está disponible`}>
+              <div style={{ width: `${ancho}%` }} />
             </div>
           )}
         </div>

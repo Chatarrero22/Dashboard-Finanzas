@@ -136,16 +136,32 @@ function resumenesPendientes(userId, tarjeta, hoy) {
  * Devuelve el total y el desglose por cuenta: la plata vuelve a la cuenta a
  * la que se le habia descontado, no a cualquiera.
  */
-function deudaPendiente(userId) {
+function deudaPendiente(userId, rayaForzada) {
   var tarjetas = db.prepare('SELECT * FROM cards WHERE user_id = ?').all(userId);
   var base = db.prepare('SELECT id FROM accounts WHERE user_id = ? AND es_default = 1').get(userId)
     || db.prepare('SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1').get(userId);
   var baseId = base ? base.id : null;
 
+  /*
+   * LA RAYA: desde cuando contamos.
+   *
+   * «Poner el saldo real» es la persona diciendo "esto es lo que tengo HOY".
+   * Todo lo de antes ya esta saldado por definicion, lo hayas marcado o no:
+   * si pagaste seis resumenes y nunca los marcaste en la app, tu saldo real
+   * ya los tiene descontados.
+   *
+   * Sin esta raya la app sumaba UN AÑO de resumenes ya pagados: a Emanuel le
+   * mostro $815.381 de disponible cuando tenia $50.000 en el banco. El
+   * mecanismo estaba bien, lo que faltaba era desde donde empezar a contar.
+   */
+  var raya = rayaForzada || db.prepare(
+    "SELECT MAX(date) d FROM transactions WHERE user_id = ? AND category = 'Ajuste'"
+  ).get(userId).d || '0000-01-01';
+
   var gastosDe = db.prepare(
     'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
     ' FROM transactions WHERE user_id = ? AND card_id = ? AND amount < 0' +
-    ' GROUP BY cuenta'
+    ' AND date > ? GROUP BY cuenta'
   );
   var gastosEnRango = db.prepare(
     'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
@@ -164,7 +180,7 @@ function deudaPendiente(userId) {
   }
 
   tarjetas.forEach(function (t) {
-    gastosDe.all(baseId, userId, t.id).forEach(function (r) { sumar(r.cuenta, r.total); });
+    gastosDe.all(baseId, userId, t.id, raya).forEach(function (r) { sumar(r.cuenta, r.total); });
 
     // Y le restamos lo que ya pagaste: cada resumen cubre desde el dia
     // siguiente al cierre anterior hasta su propio cierre.
@@ -174,12 +190,16 @@ function deudaPendiente(userId) {
       var desde = new Date(anterior);
       desde.setDate(desde.getDate() + 1);
 
-      gastosEnRango.all(baseId, userId, t.id, aISO(desde), aISO(cierre))
+      // Nunca antes de la raya: lo de antes ya no lo estabamos contando.
+      var desdeISO = aISO(desde) > raya ? aISO(desde) : raya;
+      if (desdeISO >= aISO(cierre)) return;
+
+      gastosEnRango.all(baseId, userId, t.id, desdeISO, aISO(cierre))
         .forEach(function (r) { sumar(r.cuenta, -r.total); });
     });
   });
 
-  return { total: total, porCuenta: porCuenta };
+  return { total: total, porCuenta: porCuenta, desde: raya };
 }
 
 /** Las tarjetas con lo que va gastado en el período abierto. */

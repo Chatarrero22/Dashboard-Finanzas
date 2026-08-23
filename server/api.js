@@ -1470,19 +1470,29 @@ router.post('/saldo', function (req, res) {
     : cuentas.asegurarPrincipal(req.user.id);
   if (!cuenta) return res.status(400).json({ error: 'No encontré esa cuenta' });
 
-  // El saldo del BANCO, que es el que muestra la pantalla y el que la persona
-  // puede mirar. Si comparáramos contra el contable, ajustar corregiría una
-  // diferencia que es solo la tarjeta que todavía no venció.
-  var fila = cuentas.listar(req.user.id).find(function (c) { return c.id === cuenta.id; });
-  var saldo = fila ? fila.saldo : cuentas.saldoDe(req.user.id, cuenta.id);
+  var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
+
+  /*
+   * Contra qué comparamos.
+   *
+   * Ajustar mueve la raya: a partir de hoy, lo de tarjeta de antes queda
+   * saldado. Así que el saldo al que hay que llegar es el contable MÁS lo de
+   * tarjeta que quede después de la raya (normalmente nada: solo cuotas con
+   * fecha futura).
+   *
+   * Comparar contra el saldo de HOY sería morderse la cola: la diferencia se
+   * calcularía con la deuda vieja adentro y después la raya la borraría,
+   * dejando el número peor de lo que estaba.
+   */
+  var deudaDespues = tarjetas.deudaPendiente(req.user.id, fecha).porCuenta[String(cuenta.id)] || 0;
+  var destino = cuentas.saldoDe(req.user.id, cuenta.id) + deudaDespues;
+
   var real = Number(req.body.saldoReal);
-  var diferencia = real - saldo;
+  var diferencia = real - destino;
 
   if (Math.abs(diferencia) < 1) {
-    return res.json({ ajustado: false, saldo: saldo, mensaje: 'Ya cerraba, no hizo falta ajustar' });
+    return res.json({ ajustado: false, saldo: destino, mensaje: 'Ya cerraba, no hizo falta ajustar' });
   }
-
-  var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
   var texto = req.body.motivo
     ? String(req.body.motivo).trim()
     : (diferencia < 0 ? 'Ajuste de ' + cuenta.name : 'Ajuste de ' + cuenta.name + ' (a favor)');
