@@ -909,6 +909,32 @@ router.get('/mercado/buscar', async function (req, res) {
   }
 });
 
+/**
+ * El precio de compra de dos tandas del mismo activo.
+ *
+ * Comprar mas de lo mismo no es otra posicion: es la misma, mas grande y con
+ * otro precio promedio. 100 a US$2 y 100 a US$1 son 200 a US$1,50.
+ *
+ * Si a alguna de las dos partes le falta el precio de compra, el promedio no
+ * existe y NO lo inventamos: queda en 0, que es como la app dice «no se». La
+ * ganancia ya sabe mostrar «—» cuando no hay costo, y meterle el precio de
+ * una sola tanda haria aparecer una ganancia que nadie calculo.
+ */
+function promediarCompra(qA, cA, qB, cB) {
+  var q = (Number(qA) || 0) + (Number(qB) || 0);
+  if (!q) return { quantity: 0, avg_price: 0 };
+  if (!cA || !cB) return { quantity: q, avg_price: 0 };
+  return { quantity: q, avg_price: (qA * cA + qB * cB) / q };
+}
+
+/** El mismo activo ya cargado: mismo simbolo, mismo tipo y misma moneda. */
+function mismoActivo(userId, simbolo, tipo, moneda) {
+  return db.prepare(
+    'SELECT * FROM portfolio_assets WHERE user_id = ? AND UPPER(symbol) = ?' +
+    ' AND asset_type = ? AND COALESCE(currency, ?) = ? ORDER BY id LIMIT 1'
+  ).get(userId, simbolo, tipo, moneda, moneda) || null;
+}
+
 router.post('/portfolio', async function (req, res) {
   var b = req.body;
   if (!b.symbol) return res.status(400).json({ error: 'Falta el símbolo' });
@@ -919,16 +945,36 @@ router.post('/portfolio', async function (req, res) {
   // La cripto cotiza en dólares y punto; el resto, en lo que diga la persona.
   var moneda = tipo === 'crypto' ? 'USD' : (String(b.currency).toUpperCase() === 'USD' ? 'USD' : 'ARS');
 
-  var info = db.prepare(
-    'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(
-    req.user.id, String(b.symbol).toUpperCase().trim(), b.name || b.symbol, tipo,
-    Number(b.quantity) || 0, Number(b.avg_price) || Number(b.buy_price) || 0, moneda
-  );
+  var simbolo = String(b.symbol).toUpperCase().trim();
+  var cantidad = Number(b.quantity) || 0;
+  var precio = Number(b.avg_price) || Number(b.buy_price) || 0;
+
+  /*
+   * Si ya lo tenés, esto es una compra MAS, no otra posición.
+   *
+   * Antes cada carga creaba una fila nueva y la misma moneda aparecía dos
+   * veces en la lista, cada una con su ganancia: no había forma de saber
+   * cuánto tenías en total ni a qué precio promedio habías comprado.
+   */
+  var existente = mismoActivo(req.user.id, simbolo, tipo, moneda);
+  var fusionado = false;
+  var info = null;
+
+  if (existente) {
+    var junto = promediarCompra(existente.quantity, existente.avg_price, cantidad, precio);
+    db.prepare('UPDATE portfolio_assets SET quantity = ?, avg_price = ? WHERE id = ?')
+      .run(junto.quantity, junto.avg_price, existente.id);
+    fusionado = true;
+  } else {
+    info = db.prepare(
+      'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency)' +
+      ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.user.id, simbolo, b.name || b.symbol, tipo, cantidad, precio, moneda);
+  }
   arbol.alAgregarInversion(req.user.id);
 
-  var creado = db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(info.lastInsertRowid);
+  var creado = db.prepare('SELECT * FROM portfolio_assets WHERE id = ?')
+    .get(existente ? existente.id : info.lastInsertRowid);
 
   // Si dijiste de qué cuenta salió la plata, la descontamos. Sin esto la
   // misma plata se contaba dos veces: como pesos en la cuenta Y como título.
@@ -936,7 +982,9 @@ router.post('/portfolio', async function (req, res) {
   if (b.account_id) {
     try {
       var lamina = (TIPOS_ACTIVO[tipo] || {}).lamina || 1;
-      var costo = mercado.valuar(creado.quantity, creado.avg_price, lamina);
+      // Solo lo que acabás de comprar, no la posición entera: si le sumaste
+      // a algo que ya tenías, lo de antes ya se había descontado.
+      var costo = mercado.valuar(cantidad, precio, lamina);
       // Lo que pagaste en dólares hay que pasarlo a pesos: las cuentas son
       // en pesos.
       if (moneda === 'USD') {
@@ -952,7 +1000,55 @@ router.post('/portfolio', async function (req, res) {
     }
   }
 
-  res.json({ ...creado, pago: pago });
+  res.json({ ...creado, pago: pago, fusionado: fusionado });
+});
+
+/**
+ * Juntar las posiciones repetidas que ya estaban cargadas.
+ *
+ * Lo de arriba arregla de acá en adelante, pero el que ya tiene la misma
+ * moneda cargada dos veces se queda con las dos y sin forma de unirlas. Es
+ * la misma regla: se suman las cantidades y el precio de compra se promedia
+ * ponderado por lo que pesa cada tanda.
+ */
+router.post('/portfolio/juntar', function (req, res) {
+  var todos = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ? ORDER BY id')
+    .all(req.user.id);
+
+  var grupos = {};
+  todos.forEach(function (a) {
+    var k = String(a.symbol).toUpperCase() + '|' + a.asset_type + '|' + (a.currency || 'ARS');
+    (grupos[k] = grupos[k] || []).push(a);
+  });
+
+  var juntados = 0;
+  var borrados = 0;
+
+  Object.keys(grupos).forEach(function (k) {
+    var g = grupos[k];
+    if (g.length < 2) return;
+
+    var acc = { quantity: g[0].quantity, avg_price: g[0].avg_price };
+    g.slice(1).forEach(function (a) {
+      acc = promediarCompra(acc.quantity, acc.avg_price, a.quantity, a.avg_price);
+    });
+
+    db.transaction(function () {
+      db.prepare('UPDATE portfolio_assets SET quantity = ?, avg_price = ? WHERE id = ?')
+        .run(acc.quantity, acc.avg_price, g[0].id);
+      g.slice(1).forEach(function (a) {
+        // Las compras pagadas desde una cuenta pasan a colgar del que queda:
+        // esa plata salió igual, y borrarlas la haría aparecer de la nada.
+        db.prepare('UPDATE transactions SET asset_id = ? WHERE user_id = ? AND asset_id = ?')
+          .run(g[0].id, req.user.id, a.id);
+        db.prepare('DELETE FROM portfolio_assets WHERE id = ? AND user_id = ?').run(a.id, req.user.id);
+        borrados++;
+      });
+    })();
+    juntados++;
+  });
+
+  res.json({ juntados: juntados, borrados: borrados });
 });
 
 router.patch('/portfolio/:id', function (req, res) {

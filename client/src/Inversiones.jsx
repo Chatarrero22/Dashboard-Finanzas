@@ -100,7 +100,7 @@ function Variacion({ pct }) {
   )
 }
 
-export default function InversionesScreen({ portfolio, accion, cuentas, onError, onReload }) {
+export default function InversionesScreen({ portfolio, accion, cuentas, onError, onReload, onSaved }) {
   const { confirmar } = useDialogos()
   const [abierto, setAbierto] = useState(false)
   const [editando, setEditando] = useState(null)
@@ -163,6 +163,40 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
 
   const conPlata = TIPOS.filter((t) => (porTipo || {})[t.id])
 
+  /*
+   * Posiciones repetidas: el mismo simbolo, tipo y moneda cargado dos veces.
+   * Comprar mas de lo mismo ahora engorda la posicion, pero las que ya
+   * estaban cargadas siguen partidas hasta que se junten.
+   */
+  const repetidos = (() => {
+    const cuenta = {}
+    assets.forEach((a) => {
+      const k = `${String(a.symbol).toUpperCase()}|${a.asset_type}|${a.currency || 'ARS'}`
+      cuenta[k] = (cuenta[k] || 0) + 1
+    })
+    return Object.keys(cuenta).filter((k) => cuenta[k] > 1).map((k) => k.split('|')[0])
+  })()
+
+  async function juntarRepetidos() {
+    const ok = await confirmar({
+      titulo: repetidos.length === 1
+        ? `¿Junto las posiciones de ${repetidos[0]}?`
+        : `¿Junto las posiciones repetidas?`,
+      detalle: 'Se suman las cantidades y el precio de compra queda promediado ' +
+        'por lo que pesa cada tanda. No se pierde nada: es la misma tenencia, ' +
+        'en una sola fila.',
+      aceptar: 'Juntar',
+    })
+    if (!ok) return
+    try {
+      const r = await api('/portfolio/juntar', { method: 'POST', body: JSON.stringify({}) })
+      onSaved(`${r.juntados === 1 ? 'Posición juntada' : `${r.juntados} posiciones juntadas`}`)
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   // Las cuentas de tipo inversión son la plata que espera para comprar.
   const cuentasBroker = (cuentas || []).filter((c) => c.tipo === 'inversion')
   const disponible = cuentasBroker.reduce((a, c) => a + c.saldo, 0)
@@ -192,6 +226,19 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
           )}
         </div>
       </section>
+
+      {/* Lo que ya estaba cargado dos veces. Se avisa donde se ve el
+          problema —la lista— y con el arreglo al lado, no en Ajustes. */}
+      {repetidos.length > 0 && (
+        <section className="card aviso-repetidos">
+          <div className="aviso-repetidos-txt">
+            <b>{repetidos.join(', ')}</b> {repetidos.length === 1 ? 'está' : 'están'} cargado
+            {repetidos.length === 1 ? '' : 's'} más de una vez. Son la misma tenencia partida
+            en dos filas, así que el precio de compra y la ganancia salen por separado.
+          </div>
+          <button className="chip" onClick={juntarRepetidos}>Juntar en uno</button>
+        </section>
+      )}
 
       <div className="hero">
         <div className="label">Tu cartera</div>

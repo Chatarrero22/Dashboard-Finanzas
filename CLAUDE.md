@@ -460,6 +460,24 @@ el título aparece del otro lado valuado a mercado.
 Sin esto la misma plata se contaba dos veces: como pesos en la cuenta y como
 título en la cartera.
 
+**Comprar más de lo mismo NO es otra posición.** Es la misma, más grande y
+con otro precio promedio: 100 a US$2 más 100 a US$1 son 200 a US$1,50. Se
+junta por **símbolo + tipo + moneda** (`mismoActivo()` en `api.js`), y el
+precio se promedia ponderado por lo que pesa cada tanda.
+
+Antes cada carga creaba una fila nueva: Emanuel tenía RON dos veces, cada una
+con su precio de compra y su ganancia, y no había forma de saber cuánto tenía
+en total. Lo que ya quedó partido se une con **«Juntar en uno»**, el aviso
+que aparece arriba de la lista (`POST /portfolio/juntar`).
+
+**Si a una de las dos tandas le falta el precio de compra, el promedio queda
+sin cargar.** No se hereda el precio de la otra: eso haría aparecer una
+ganancia que nadie calculó, que es el mismo bug del +110%. La cantidad sí se
+suma, y la ganancia muestra «—» hasta que lo cargues.
+
+**Y al pagar desde una cuenta se descuenta solo lo nuevo**, no la posición
+entera: lo de antes ya se había descontado cuando lo compraste.
+
 **Sacar un activo son dos cosas distintas y no se pueden adivinar.** O lo
 vendiste —y vuelve a una cuenta el **valor de hoy**, que es donde se hace real
 la ganancia— o te equivocaste al cargarlo, y entonces se deshace la compra y la

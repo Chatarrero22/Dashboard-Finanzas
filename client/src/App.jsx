@@ -2047,6 +2047,7 @@ export default function App() {
               accion={accionDe('invest')}
               onReload={reloadPortfolio}
               onError={(m) => notify(m, 'error')}
+              onSaved={notify}
             />
           )}
         </main>

@@ -1760,6 +1760,25 @@
 /* Agregar y sacar van juntos: una accion sin su inversa es una trampa. */
 .disponible-botones { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
 
+/* Aviso de posiciones repetidas, con el arreglo al lado. */
+.aviso-repetidos {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.aviso-repetidos-txt {
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.aviso-repetidos .chip { flex: none; }
+
 /* Los dos potes: la plata que usas y la que apartaste. */
 .potes {
   display: grid;
