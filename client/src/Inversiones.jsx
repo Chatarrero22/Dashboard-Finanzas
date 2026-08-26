@@ -345,7 +345,25 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
                   <div className="activo-dato">
                     <span className="activo-rotulo">Compra</span>
                     {a.avg_price ? (
-                      <span className="activo-valor monto-sensible">{precio(a.avg_price, a.currency)}</span>
+                      <>
+                        <span className="activo-valor monto-sensible">{precio(a.avg_price, a.currency)}</span>
+                        {/* El precio es POR UNIDAD, y el total que sale de ahí
+                            es lo único contra lo que se puede comparar «¿puse
+                            eso?». Sin este renglón, un precio cargado como
+                            total en vez de por unidad no se ve en ningún lado:
+                            solo aparece una pérdida enorme que no existió. */}
+                        {a.cost != null && (
+                          <span className="activo-sub monto-sensible">pusiste {money(a.cost)}</span>
+                        )}
+                        {/* Preguntarlo es mejor que mostrar una pérdida que
+                            no pasó. No lo corregimos solos: no sabemos qué
+                            quiso poner. */}
+                        {a.sospechoso && (
+                          <button className="activo-ojo" onClick={() => setEditando(a)}>
+                            ⚠ {a.sospechoso}× el precio de hoy — ¿es por unidad?
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <button className="activo-falta" onClick={() => setEditando(a)}>
                         ponelo

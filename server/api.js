@@ -537,6 +537,22 @@ router.get('/dashboard', function (req, res) {
     "   AND (a.id IS NULL OR a.id = ? OR a.tipo NOT IN ('ahorro','inversion'))"
   ).get(uid, month, baseId).x;
 
+  /*
+   * Todos los gastos del mes, de mayor a menor.
+   *
+   * Es lo que permite tocar una categoria de la torta y ver QUE la compone
+   * sin ir a otra pantalla. Se manda entero y no filtrado del lado del
+   * cliente contra la lista de movimientos: esa lista trae los ultimos 500 de
+   * siempre, asi que en un mes viejo faltarian gastos y nadie se enteraria.
+   *
+   * Va con tope por las dudas, pero un mes no llega ni cerca.
+   */
+  var gastosDelMes = db.prepare(
+    'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial')" +
+    ' AND substr(date,1,7) = ? ORDER BY total DESC LIMIT 300'
+  ).all(uid, month);
+
   // Los 5 gastos mas grandes del mes, para el ranking del Resumen.
   var topExpenses = db.prepare(
     'SELECT id, date, description, category, ABS(amount) total FROM transactions' +
@@ -599,6 +615,8 @@ router.get('/dashboard', function (req, res) {
     byCategory: byCategory,
     byMonth: byMonth.reverse(),
     topExpenses: topExpenses,
+    // Para poder abrir una categoría y ver de qué está hecha.
+    gastosDelMes: gastosDelMes,
     byDay: byDay,
     diasDelMes: diasDelMes,
     proyeccion: proyeccion,
@@ -863,7 +881,22 @@ async function valuarCartera(userId) {
       // un activo sin costo cargado tiene costo 0, no nulo, y con esa condición
       // toda su tenencia aparecía como ganancia pura.
       pnl: value != null && cost ? value - cost : null,
-      pnl_pct: value != null && cost ? ((value - cost) / cost) * 100 : null
+      pnl_pct: value != null && cost ? ((value - cost) / cost) * 100 : null,
+      /*
+       * El precio de compra no puede ser CUALQUIER numero.
+       *
+       * Los dos errores de carga que dan una perdida enorme que no existio:
+       * poner el TOTAL invertido en vez del precio por unidad, y elegir la
+       * moneda equivocada (un CEDEAR cotiza en pesos; cargarlo en dolares lo
+       * multiplica por el MEP). Los dos dejan un costo decenas o miles de
+       * veces mas grande que el precio de hoy.
+       *
+       * No lo corregimos solos -no sabemos que quiso poner- pero preguntarlo
+       * es mejor que mostrarle un -88% que no le paso.
+       */
+      sospechoso: precio && a.avg_price && a.avg_price / precio > 25
+        ? Math.round(a.avg_price / precio)
+        : null
     };
   });
 

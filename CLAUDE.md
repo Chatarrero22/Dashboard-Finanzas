@@ -339,6 +339,15 @@ contaban como si los hubiera apartado: el Resumen le decía «apartaste
 $1.187.059» un mes en el que no había invertido nada. Un sueldo que cae en una
 cuenta no es apartar, y un `Ajuste` mucho menos.
 
+**«¿A dónde va la plata?» se abre.** Tocar una categoría de la torta muestra
+abajo los gastos de esa categoría, de mayor a menor. La pregunta que sigue a
+«¿a dónde va?» es siempre «¿en qué?», y antes había que ir a Movimientos y
+filtrar a mano.
+
+Los datos salen de `dashboard.gastosDelMes` y **no** de filtrar la lista de
+movimientos en el navegador: esa lista trae los últimos 500 de siempre, así
+que en un mes viejo faltarían gastos y nadie se enteraría.
+
 **Arriba de todo va la plata que TENÉS, no cómo te fue en el mes.** La
 tarjeta de la barra lateral decía «Ahorro del mes» y mostraba ingresos menos
 gastos: un flujo. Ese número no coincide nunca con lo que hay en el banco —no
@@ -747,6 +756,18 @@ la conversión.
 botón ARS/US$ convierte solo al dibujar. `/api/portfolio` devolvía dólares
 cuando solo había cripto; si volviera a hacerlo, el mismo número se
 convertiría dos veces.
+
+**El precio de compra es POR UNIDAD, y hay que poder verlo.** Los dos errores
+de carga que dan una pérdida enorme que nunca pasó son poner el **total
+invertido** en vez del precio de cada unidad, y **elegir la moneda
+equivocada** (un CEDEAR cotiza en pesos; cargarlo en dólares lo multiplica
+por el MEP). Los dos dejan un costo decenas o miles de veces más grande que
+el precio de hoy, y en la fila no se ve: solo aparece un −98%.
+
+Por eso cada activo dice **cuánto pusiste en total** debajo del precio, y si
+el precio de compra es más de **25 veces** el de hoy, se pregunta: «105× el
+precio de hoy — ¿es por unidad?». No se corrige solo —no sabemos qué quiso
+poner— pero preguntarlo es mejor que mostrar una pérdida que no existió.
 
 **La ganancia se mide solo sobre lo que tiene precio de compra.** Si un activo
 sin costo cargado suma su valor al P&L, aparece como ganancia pura: la cartera

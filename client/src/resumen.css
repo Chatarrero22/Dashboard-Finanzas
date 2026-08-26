@@ -287,6 +287,35 @@
   gap: 14px;
 }
 
+/* Cada categoria es un boton: abre lo que la compone en el ranking de al
+   lado. Se le saca todo el chrome de boton y se le deja el area tocable. */
+.adonde-item {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  min-height: 0;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.adonde-item:hover { background: var(--surface-2); }
+
+.adonde-item.elegida {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.adonde-pista {
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+
 .adonde-head {
   display: flex;
   align-items: center;

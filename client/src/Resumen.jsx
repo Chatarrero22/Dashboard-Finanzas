@@ -5,6 +5,7 @@
  * grande del mes con los cuatro KPI al costado, después la proyección, después
  * a dónde va la plata y la tendencia, y abajo el detalle.
  */
+import { useEffect, useState } from 'react'
 import { money, monthLabel, mesNombre, dayLabel, icono, Empty } from './comunes.jsx'
 import Numero from './Numero.jsx'
 
@@ -163,7 +164,7 @@ function Proyeccion({ p, mes }) {
 
 /* ------------------------------------------------- a dónde va la plata */
 
-function ADondeVa({ cats }) {
+function ADondeVa({ cats, elegida, onElegir }) {
   const total = cats.reduce((a, c) => a + c.total, 0)
   if (!total) return <Empty icon="◔" text="Sin gastos este mes." />
 
@@ -189,8 +190,17 @@ function ADondeVa({ cats }) {
         </div>
       </div>
       <div className="adonde-lista">
+        {/* Tocar una categoría abre lo que la compone en el ranking de al
+            lado. Es un <button> y no un <div> con onClick: se llega con el
+            teclado y el lector de pantalla lo anuncia como lo que es. */}
         {top.map((c, i) => (
-          <div className="adonde-item" key={c.category}>
+          <button
+            type="button"
+            className={`adonde-item ${elegida === c.category ? 'elegida' : ''}`}
+            key={c.category}
+            aria-pressed={elegida === c.category}
+            onClick={() => onElegir(elegida === c.category ? null : c.category)}
+          >
             <div className="adonde-head">
               <span className="adonde-nombre">
                 <span className="adonde-punto" style={{ background: COLORES[i % COLORES.length] }} />
@@ -204,7 +214,7 @@ function ADondeVa({ cats }) {
                 style={{ width: `${(c.total / total) * 100}%`, background: COLORES[i % COLORES.length] }}
               />
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -279,7 +289,25 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
   if (!dashboard) return <div className="spinner" />
 
   const cats = dashboard.byCategory || []
-  const top = dashboard.topExpenses || []
+
+  /*
+   * La categoría abierta. Tocar «Gustitos» en la torta muestra abajo los
+   * gastos de Gustitos, de mayor a menor: la pregunta que sigue a «¿a dónde
+   * va la plata?» es siempre «¿en qué?», y antes había que ir a otra pantalla
+   * y filtrar a mano.
+   */
+  const [abierta, setAbierta] = useState(null)
+
+  // Si cambiás de mes, la categoría abierta puede ya no existir.
+  const catsNombres = cats.map((c) => c.category).join('|')
+  useEffect(() => {
+    setAbierta((a) => (a && catsNombres.split('|').includes(a) ? a : null))
+  }, [catsNombres])
+
+  const delMes = dashboard.gastosDelMes || []
+  const top = abierta
+    ? delMes.filter((g) => g.category === abierta)
+    : (dashboard.topExpenses || [])
   const ultimos = (transactions || []).slice(0, 5)
   const diaDeHoy = new Date().getDate()
   const promedio = dashboard.expense / Math.max(Math.min(diaDeHoy, dashboard.diasDelMes || 31), 1)
@@ -298,7 +326,14 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
       <div className="fila-dos">
         <section className="card">
           <div className="card-rotulo">A DÓNDE VA LA PLATA</div>
-          <ADondeVa cats={cats} />
+          <ADondeVa cats={cats} elegida={abierta} onElegir={setAbierta} />
+          {cats.length > 0 && (
+            <p className="hint adonde-pista">
+              {abierta
+                ? `Estás viendo los gastos de ${abierta}. Tocala de nuevo para ver todo.`
+                : 'Tocá una categoría para ver en qué se te fue.'}
+            </p>
+          )}
         </section>
 
         <section className="card">
@@ -316,9 +351,16 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
       {/* fila 3: top 5 gastos + gasto por día */}
       <div className="fila-dos pareja">
         <section className="card">
-          <div className="card-rotulo">LOS 5 GASTOS MÁS GRANDES</div>
+          <div className="card-rotulo-fila">
+            <span className="card-rotulo">
+              {abierta ? `GASTOS EN ${abierta.toUpperCase()}` : 'LOS 5 GASTOS MÁS GRANDES'}
+            </span>
+            {abierta && (
+              <button className="chip" onClick={() => setAbierta(null)}>Ver todos</button>
+            )}
+          </div>
           {top.length === 0 ? (
-            <Empty icon="◔" text="Sin gastos este mes." />
+            <Empty icon="◔" text={abierta ? `Sin gastos en ${abierta} este mes.` : 'Sin gastos este mes.'} />
           ) : (
             <div className="ranking">
               {top.map((g, i) => (

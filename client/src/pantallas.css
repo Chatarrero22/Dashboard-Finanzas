@@ -1254,6 +1254,33 @@
 }
 
 .activo-valor.fuerte { font-size: 15px; font-weight: 600; }
+
+/* Cuanto pusiste en total. Va abajo del precio por unidad: es lo unico que
+   hace visible un precio cargado como total en vez de por unidad. */
+.activo-sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La duda sobre un precio de compra que no puede ser de una unidad. */
+.activo-ojo {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: none;
+  color: var(--critical);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 520;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .activo-valor.positive { color: var(--good); }
 .activo-valor.negative { color: var(--critical); }
 .activo-valor.apagado { color: var(--text-muted); }
