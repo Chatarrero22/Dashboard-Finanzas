@@ -2,7 +2,7 @@
  * El armazón que envuelve a todas las pantallas: barra lateral, barra de
  * arriba y encabezado de página. Sale del diseño de Claude Design.
  */
-import { money } from './comunes.jsx'
+import { money, pesos } from './comunes.jsx'
 
 /* ------------------------------------------------------- barra lateral */
 
@@ -161,7 +161,10 @@ export function Topbar({
       {dolar > 0 && (
         <div className="chip-info dolar">
           <span className="punto-vivo" />
-          Dólar {dolarNombre || 'MEP'} <strong className="monto-sensible">{money(dolar)}</strong>
+          {/* La cotización va SIEMPRE en pesos: es cuántos pesos vale un
+              dólar. Convertida a dólares decía «Dólar MEP US$1,00», que es
+              verdad y no sirve para nada. */}
+          Dólar {dolarNombre || 'MEP'} <strong className="monto-sensible">{pesos(dolar)}</strong>
         </div>
       )}
 

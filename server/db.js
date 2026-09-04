@@ -307,6 +307,16 @@ function initDB() {
     db.exec('ALTER TABLE transactions ADD COLUMN asset_id INTEGER');
   }
 
+  // En que moneda ve la app cada persona.
+  //
+  // Es SOLO como se dibujan los montos: los datos se siguen guardando en
+  // pesos y la conversion pasa al mostrar (ver moneda.js). Pero tiene que ser
+  // por persona y quedar guardado: Mariel maneja su plata en dolares, y
+  // tener que apretar US$ cada vez que abre la app es una funcion a medias.
+  if (!tieneColumna('users', 'moneda')) {
+    db.exec("ALTER TABLE users ADD COLUMN moneda TEXT DEFAULT 'ars'");
+  }
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
 }

@@ -265,6 +265,19 @@ bien:**
 No confundir nada de esto con el botón **ARS/US$** de la barra de arriba: ese es
 una forma de *mirar* lo mismo, usa la cotización de hoy y vive en `moneda.js`.
 
+**En qué moneda ve la app es de cada persona, y queda guardado**
+(`users.moneda`). Mariel maneja su plata en dólares: tener que apretar US$
+cada vez que abre la app es una función a medias. El botón de la barra dejó
+de ser algo que se apaga al recargar y pasó a ser una preferencia — la elige
+una vez y el alta de movimientos también arranca ahí. **No cambia nada de lo
+guardado:** los datos siguen en pesos y la conversión pasa al dibujar.
+
+**La cotización del dólar va SIEMPRE en pesos**, mire lo que mire la persona:
+es cuántos pesos vale un dólar. Pasada por `money()` decía «Dólar MEP
+US$1,00», que es verdad y no sirve para nada — y lo mismo en el alta («Son
+US$20 al dólar de hoy (US$1,00)»). Para eso está `pesos()` en `comunes.jsx`,
+que no convierte nunca.
+
 **El signo del `Ajuste` cambia lo que significa.** Son tres cosas, no dos:
 
 - **`Ajuste` negativo** — la app decía que tenías **más** de lo que tenés.

@@ -28,6 +28,22 @@ export function money(n, opciones) {
 }
 
 /**
+ * Un monto SIEMPRE en pesos, mire lo que mire la persona.
+ *
+ * Es para lo poco que no es «plata tuya» sino un precio en pesos: la
+ * cotización del dólar. Pasada por `money()` decía «Dólar MEP US$1,00», que
+ * es verdad y no sirve para nada.
+ */
+export function pesos(n) {
+  const v = Number(n) || 0
+  const txt = Math.abs(v).toLocaleString('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+  return (v < 0 ? '-$' : '$') + txt
+}
+
+/**
  * Lo que se puede tipear en un campo de plata.
  *
  * Dejamos pasar los puntos y las comas mientras escribís, porque la gente

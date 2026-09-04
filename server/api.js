@@ -86,9 +86,23 @@ router.get('/me', auth.opcional, function (req, res) {
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN),
     // Si esta persona ya conectó su Telegram, y con qué bot tiene que hablar.
     telegramVinculado: Boolean(req.user.telegramVinculado),
+    // En qué moneda ve los montos: ars o usd.
+    moneda: req.user.moneda === 'usd' ? 'usd' : 'ars',
     telegramBot: bot.quienEsElBot(),
     version: version.actual()
   });
+});
+
+/**
+ * En qué moneda ve la app esta persona.
+ *
+ * El botón ARS/US$ de la barra deja de ser algo que se apaga al recargar y
+ * pasa a ser una preferencia: quien maneja su plata en dólares lo pone una
+ * vez. No cambia NADA de lo guardado, solo cómo se dibuja.
+ */
+router.post('/moneda', auth.requerido, function (req, res) {
+  var valor = auth.guardarMoneda(req.user.id, req.body.moneda);
+  res.json({ moneda: valor });
 });
 
 router.post('/password', auth.requerido, function (req, res) {

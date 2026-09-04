@@ -85,7 +85,7 @@ function usuarioDeSesion(token) {
   if (!token) return null;
   var fila = db.prepare(
     'SELECT s.token, s.expires_at, u.id, u.username, u.display_name, u.is_admin, u.simple_ui,' +
-    ' u.telegram_chat_id' +
+    ' u.telegram_chat_id, u.moneda' +
     ' FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
   ).get(token);
 
@@ -104,8 +104,24 @@ function usuarioDeSesion(token) {
     telegramVinculado: Boolean(fila.telegram_chat_id),
     displayName: fila.display_name,
     isAdmin: Boolean(fila.is_admin),
-    simpleUi: Boolean(fila.simple_ui)
+    simpleUi: Boolean(fila.simple_ui),
+    // En qué moneda ve la app. Solo afecta cómo se dibujan los montos.
+    moneda: fila.moneda === 'usd' ? 'usd' : 'ars'
   };
+}
+
+/**
+ * En qué moneda ve la app esta persona.
+ *
+ * Es solo cómo se dibujan los montos —los datos se guardan siempre en pesos—
+ * pero tiene que quedar guardado por persona: Mariel maneja su plata en
+ * dólares, y tener que apretar US$ cada vez que abre la app es una función
+ * a medias.
+ */
+function guardarMoneda(userId, moneda) {
+  var valor = moneda === 'usd' ? 'usd' : 'ars';
+  db.prepare('UPDATE users SET moneda = ? WHERE id = ?').run(valor, userId);
+  return valor;
 }
 
 function cerrarSesion(token) {
@@ -134,7 +150,8 @@ function login(username, password) {
       username: user.username,
       displayName: user.display_name,
       isAdmin: Boolean(user.is_admin),
-      simpleUi: Boolean(user.simple_ui)
+      simpleUi: Boolean(user.simple_ui),
+      moneda: user.moneda === 'usd' ? 'usd' : 'ars'
     }
   };
 }
@@ -214,6 +231,7 @@ function usuarioPorChatId(chatId) {
 }
 
 module.exports = {
+  guardarMoneda: guardarMoneda,
   hashPassword: hashPassword,
   verifyPassword: verifyPassword,
   crearUsuario: crearUsuario,

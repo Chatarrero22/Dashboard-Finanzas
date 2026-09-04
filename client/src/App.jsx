@@ -14,7 +14,7 @@ import { Lateral, Topbar, PaginaHead, mesLargo, correrMes } from './Shell.jsx'
 import Guia, { hayGuia, yaLoVio, olvidarTutoriales } from './Ayuda.jsx'
 import ConectarTelegram, { InvitacionTelegram } from './Telegram.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
-import { icono, montoDesde, soloPlata } from './comunes.jsx'
+import { icono, montoDesde, soloPlata, pesos } from './comunes.jsx'
 import { configurar as configurarMoneda } from './moneda.js'
 import { formatear } from './moneda.js'
 
@@ -288,8 +288,11 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
         {moneda === 'usd' && dolar > 0 && (
           <span className="hint" style={{ marginTop: 6 }}>
             {montoDesde(amount) > 0
-              ? `Son ${money(montoDesde(amount) * dolar)} al dólar de hoy (${money(dolar)}). Se guarda ese valor.`
-              : `Se pasa a pesos al dólar de hoy (${money(dolar)}) y queda fijo.`}
+              /* En pesos aunque estés mirando en dólares: la frase explica
+                 justamente a cuántos pesos se convierte. Con money() decía
+                 «Son US$20 al dólar de hoy (US$1,00)», que no dice nada. */
+              ? `Son ${pesos(montoDesde(amount) * dolar)} al dólar de hoy (${pesos(dolar)}). Se guarda ese valor.`
+              : `Se pasa a pesos al dólar de hoy (${pesos(dolar)}) y queda fijo.`}
           </span>
         )}
       </label>
@@ -666,7 +669,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
             {form.moneda === 'usd' && dolar > 0 && (
               <p className="hint">
                 Se guarda en dólares y cada mes se pasa a pesos al cambio de ese
-                día. Hoy serían {money(montoDesde(form.amount) * dolar)} por mes.
+                día. Hoy serían {pesos(montoDesde(form.amount) * dolar)} por mes.
               </p>
             )}
 
@@ -703,7 +706,7 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
                     ? `US$${Math.abs(s.amount).toLocaleString('es-AR')}`
                     : money(s.amount)}
                   {s.moneda === 'usd' && dolar > 0 && (
-                    <small className="item-sub monto-sensible">≈ {money(Math.abs(s.amount) * dolar)}</small>
+                    <small className="item-sub monto-sensible">≈ {pesos(Math.abs(s.amount) * dolar)}</small>
                   )}
                 </div>
                 <button className="danger" aria-label={`Borrar ${s.name}`} onClick={() => remove(s)}>✕</button>
@@ -1521,7 +1524,23 @@ export default function App() {
 
   // Controles de la barra de arriba, como en el diseño.
   const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7))
+  /*
+   * En qué moneda ves los montos. Es una preferencia de la persona, no del
+   * navegador: quien maneja su plata en dólares lo elige una vez y queda.
+   * Arranca en pesos hasta que llega `/me` con lo suyo.
+   */
   const [moneda, setMoneda] = useState('ars')
+
+  useEffect(() => {
+    if (config && config.moneda) setMoneda(config.moneda)
+  }, [config])
+
+  const cambiarMoneda = useCallback((m) => {
+    setMoneda(m)
+    // Si falla el guardado no pasa nada grave: la sesión sigue en la moneda
+    // elegida y la próxima vez vuelve a la guardada.
+    api('/moneda', { method: 'POST', body: JSON.stringify({ moneda: m }) }).catch(() => {})
+  }, [])
   const [oculto, setOculto] = useState(false)
   // El tema arranca siguiendo al sistema; si lo tocás, queda guardado.
   const [tema, setTema] = useState(() => {
@@ -1587,6 +1606,8 @@ export default function App() {
       telegram: me.telegram,
       telegramVinculado: me.telegramVinculado,
       telegramBot: me.telegramBot,
+      // En qué moneda ve los montos esta persona.
+      moneda: me.moneda,
       version: me.version,
     })
   }, [])
@@ -1917,7 +1938,7 @@ export default function App() {
       <div className="columna">
         <Topbar
           moneda={moneda}
-          onMoneda={setMoneda}
+          onMoneda={cambiarMoneda}
           mes={mes}
           onMes={setMes}
           mesTope={mesTope}
