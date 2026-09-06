@@ -88,8 +88,14 @@ export function montoDesde(texto) {
   } else if ((s.match(/\./g) || []).length > 1) {
     // 1.000.000 -> los puntos son miles
     s = s.replace(/\./g, '')
-  } else if (/^\d{1,3}\.\d{3}$/.test(s)) {
-    // 15.400 son quince mil cuatrocientos, no quince con cuatro
+  } else if (/^(?!0\.)\d{1,3}\.\d{3}$/.test(s)) {
+    // 15.400 son quince mil cuatrocientos, no quince con cuatro.
+    //
+    // Salvo que empiece en CERO: «0.809» no puede ser «cero mil ochocientos
+    // nueve», un separador de miles nunca va detrás de un cero solo. Es
+    // 0,809, y es como se escribe el precio de una cripto. Sin esta
+    // excepción, Emanuel cargó SUI a US$0,809 y la app leyó US$809: por el
+    // MEP, le descontó $457 millones de la cuenta.
     s = s.replace('.', '')
   } else {
     s = s.replace(/,/g, '')

@@ -38,8 +38,11 @@ function numeroSuelto(token) {
     s = s.replace(/\./g, '').replace(',', '.');
   } else if ((s.match(/\./g) || []).length > 1) {
     s = s.replace(/\./g, '');            // 1.234.567
-  } else if (/^\d{1,3}\.\d{3}$/.test(s)) {
-    s = s.replace('.', '');               // 15.400 son quince mil, no 15,4
+  } else if (/^(?!0\.)\d{1,3}\.\d{3}$/.test(s)) {
+    // 15.400 son quince mil, no 15,4. Pero «0.809» no puede ser «cero mil
+    // ochocientos nueve»: un separador de miles nunca va detrás de un cero
+    // solo, asi que es 0,809 (el precio de una cripto).
+    s = s.replace('.', '');
   } else {
     s = s.replace(/,/g, '');
   }

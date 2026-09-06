@@ -423,6 +423,15 @@ formas: `300.000` daba **300** —movía trescientos pesos sin avisar— y
 `1.000.000` daba `NaN`, que apagaba el botón de guardar y parecía que la app
 «no dejaba» con ciertos montos.
 
+**Un punto detrás de un cero solo NO es separador de miles.** `15.400` son
+quince mil cuatrocientos, y esa regla está bien; pero `0.809` no puede ser
+«cero mil ochocientos nueve». Es 0,809 — y así se escribe el precio de una
+cripto.
+
+Sin esa excepción, Emanuel cargó SUI a **US$0,809** y la app leyó **US$809**:
+370,81 unidades por el MEP le descontaron **$457 millones** de la cuenta. El
+regex lleva `(?!0\.)` en los dos lados.
+
 **Los negativos siempre con el menos.** `money()` no puede comerse el signo: un
 saldo en rojo se lee igual que uno a favor.
 
