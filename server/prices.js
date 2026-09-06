@@ -90,6 +90,37 @@ async function getDolar() {
   }
 }
 
+/*
+ * CADA MERCADO TIENE SU DOLAR.
+ *
+ * El MEP es el cambio con el que se compran y venden bonos, acciones y
+ * CEDEARs: para eso esta bien. Pero la cripto NO se compra al MEP, se compra
+ * al dolar cripto, que es mas caro.
+ *
+ * Emanuel puso $650.000 y le dieron US$408: eso es $1.593 por dolar, no los
+ * $1.525 del MEP. Valuar su cripto al MEP le agrandaba la tenencia y le
+ * descontaba de menos al comprar.
+ */
+function tasaMercado(d) {
+  if (!d) return 0;
+  return (d.bolsa && d.bolsa.venta)
+    || (d.blue && d.blue.venta)
+    || (d.oficial && d.oficial.venta) || 0;
+}
+
+function tasaCripto(d) {
+  if (!d) return 0;
+  // Si no viene el cripto, el CCL es el que mas se le parece.
+  return (d.cripto && d.cripto.venta)
+    || (d.contadoconliqui && d.contadoconliqui.venta)
+    || tasaMercado(d);
+}
+
+/** El dolar que corresponde a un tipo de activo. */
+function tasaPara(d, assetType) {
+  return assetType === 'crypto' ? tasaCripto(d) : tasaMercado(d);
+}
+
 /**
  * El último dólar que trajimos, sin ir a la red.
  *
@@ -98,9 +129,14 @@ async function getDolar() {
  * ninguno devuelve 0, y quien lo use tiene que bancarse eso.
  */
 function ultimoDolar() {
-  var d = dolarCache.data;
-  if (!d) return 0;
-  return (d.bolsa && d.bolsa.venta) || (d.blue && d.blue.venta) || 0;
+  return tasaMercado(dolarCache.data);
 }
 
-module.exports = { getPrices: getPrices, getDolar: getDolar, ultimoDolar: ultimoDolar };
+module.exports = {
+  getPrices: getPrices,
+  getDolar: getDolar,
+  ultimoDolar: ultimoDolar,
+  tasaMercado: tasaMercado,
+  tasaCripto: tasaCripto,
+  tasaPara: tasaPara
+};

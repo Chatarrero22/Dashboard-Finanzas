@@ -17,7 +17,7 @@
  *   cotizan por cada 100 nominales. Está explicado en el formulario.
  */
 import { useEffect, useRef, useState } from 'react'
-import { api, money, Empty, montoDesde, soloPlata, Privado } from './comunes.jsx'
+import { api, money, pesos, Empty, montoDesde, soloPlata, Privado } from './comunes.jsx'
 import { Modal, useDialogos } from './Dialogos.jsx'
 import Numero from './Numero.jsx'
 
@@ -423,6 +423,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
         <AgregarActivo
           cuentas={cuentas}
           dolar={portfolio.dolar}
+          dolarCripto={portfolio.dolarCripto}
           onCerrar={() => setAbierto(false)}
           onHecho={() => { setAbierto(false); onReload() }}
           onError={onError}
@@ -593,7 +594,7 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
 
 /* ------------------------------------------------------- alta de un activo */
 
-function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
+function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError }) {
   const { confirmar } = useDialogos()
   const [tipo, setTipo] = useState('cedear')
   const [texto, setTexto] = useState('')
@@ -652,8 +653,12 @@ function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
   const cantidadNum = montoDesde(cantidad)
   const precioNum = montoDesde(compra)
   const costoPropio = (cantidadNum * precioNum) / lamina
+  // Cada mercado tiene su dólar: la cripto se compra al dólar cripto, no al
+  // MEP. Es el mismo criterio que usa el server para descontar.
+  const cambio = esCripto ? (dolarCripto || dolar) : dolar
+  const nombreCambio = esCripto ? 'dólar cripto' : 'MEP'
   const costoPesos = monedaPrecio === 'USD'
-    ? (dolar > 0 ? costoPropio * dolar : null)
+    ? (cambio > 0 ? costoPropio * cambio : null)
     : costoPropio
 
   const cuentaElegida = (cuentas || []).find((c) => String(c.id) === String(desdeCuenta))
@@ -673,7 +678,7 @@ function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
         titulo: `¿Descontar ${money(costoPesos)} de ${cuentaElegida.name}?`,
         detalle: `En esa cuenta hay ${money(cuentaElegida.saldo)}, así que va a quedar en rojo. ` +
           (monedaPrecio === 'USD'
-            ? 'Ojo: el precio de compra va en DÓLARES, y se pasa a pesos al MEP. Si pusiste el precio en pesos, el número se multiplica por mil y pico.'
+            ? `Ojo: el precio de compra va en DÓLARES, y se pasa a pesos al ${nombreCambio}. Si pusiste el precio en pesos, el número se multiplica por mil y pico.`
             : 'Fijate que el precio sea el de CADA unidad y no el total invertido.'),
         aceptar: 'Descontar igual',
         peligro: true,
@@ -849,7 +854,7 @@ function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
             {desdeCuenta && costoPesos > 0 && (
               <span className={`compra-previa ${noAlcanza ? 'mal' : ''}`}>
                 Se descuentan <b className="monto-sensible">{money(costoPesos)}</b>
-                {monedaPrecio === 'USD' && dolar > 0 && ' (al MEP de hoy)'}
+                {monedaPrecio === 'USD' && cambio > 0 && ` (al ${nombreCambio} de hoy, ${pesos(cambio)})`}
                 {cuentaElegida && (
                   noAlcanza
                     ? ` — en ${cuentaElegida.name} hay ${money(cuentaElegida.saldo)}, queda en rojo`
@@ -857,7 +862,7 @@ function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
                 )}
               </span>
             )}
-            {desdeCuenta && monedaPrecio === 'USD' && !dolar && (
+            {desdeCuenta && monedaPrecio === 'USD' && !cambio && (
               <span className="compra-previa mal">
                 Sin cotización del dólar no puedo decirte cuánto se va a descontar.
               </span>

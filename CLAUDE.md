@@ -439,8 +439,18 @@ saldo en rojo se lee igual que uno a favor.
 cotiza en dólares contra CoinMarketCap. Todo lo demás —acciones argentinas,
 CEDEARs, bonos, letras y ONs— cotiza en la Bolsa de Buenos Aires y casi
 siempre en pesos (`mercado-arg.js`, data912, sin clave). Cada activo guarda en
-qué moneda está: **no se adivina por el ticker**. Los totales salen siempre en
-pesos, convirtiendo lo que está en dólares al MEP.
+qué moneda está: **no se adivina por el ticker**.
+
+**Y cada mercado tiene SU dólar.** El MEP es con el que se compran y venden
+bonos, acciones y CEDEARs. La cripto **no**: se compra al **dólar cripto**,
+que es más caro. Emanuel puso $650.000 y le dieron US$408 —$1.593 por dólar,
+no los $1.525 del MEP—, así que valuarle la cripto al MEP le agrandaba la
+tenencia y le descontaba de menos al comprar.
+
+La elección vive en `prices.tasaPara(dolar, assetType)`, y la usan los tres
+lugares que la necesitan: la valuación de la cartera, el descuento al comprar
+y la previa del formulario. Si se separaran, la pantalla diría un número y la
+cuenta bajaría otro.
 
 **«Ahorro» no existe más como sección.** Con una sola cuenta mostraba un
 número que ya estaba en la barra lateral, dos recuadros con uno en cero, una

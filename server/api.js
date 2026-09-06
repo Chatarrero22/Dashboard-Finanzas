@@ -803,11 +803,16 @@ async function valuarCartera(userId) {
   var quotesArg = pedidos[1];
   var dolar = pedidos[2];
 
-  // El MEP es el cambio con el que se compran y venden estos activos, así que
-  // es el que corresponde para valuarlos.
-  var mep = (dolar.bolsa && dolar.bolsa.venta)
-    || (dolar.blue && dolar.blue.venta)
-    || (dolar.oficial && dolar.oficial.venta) || 0;
+  /*
+   * Cada mercado tiene su dólar.
+   *
+   * El MEP es con el que se compran y venden bonos, acciones y CEDEARs. La
+   * cripto NO: se compra al dólar cripto, que es más caro. Emanuel puso
+   * $650.000 y le dieron US$408 —$1.593 por dólar, no los $1.525 del MEP—,
+   * así que valuarle la cripto al MEP le agrandaba la tenencia.
+   */
+  var mep = prices.tasaMercado(dolar);
+  var cripto = prices.tasaCripto(dolar);
 
   var totalValue = 0;
   var totalCost = 0;
@@ -841,10 +846,11 @@ async function valuarCartera(userId) {
 
     // A pesos. Sin cotización del dólar no se puede convertir lo que está en
     // dólares, y preferimos que falte el dato antes que inventarlo.
+    var tasa = esCripto ? cripto : mep;
     var aPesos = function (n) {
       if (n == null) return null;
       if (moneda === 'ARS') return n;
-      return mep ? n * mep : null;
+      return tasa ? n * tasa : null;
     };
 
     var value = aPesos(valorPropio);
@@ -928,6 +934,9 @@ async function valuarCartera(userId) {
     cambio24h: cambio24h,
     cambio24hPct: valorConCambio ? (cambio24h / (valorConCambio - cambio24h)) * 100 : 0,
     dolar: mep,
+    // Los dos cambios, porque cada mercado tiene el suyo: la pantalla de
+    // carga tiene que descontar con el mismo que usa el server.
+    dolarCripto: cripto,
     // Qué no pudimos cotizar, para poder decirlo en vez de mostrar un cero.
     sinPrecio: sinPrecio,
     pricesAvailable: lista.length === 0 || sinPrecio.length < lista.length,
@@ -1036,9 +1045,11 @@ router.post('/portfolio', async function (req, res) {
       // en pesos.
       if (moneda === 'USD') {
         var d = await prices.getDolar();
-        var mep = (d.bolsa && d.bolsa.venta) || (d.blue && d.blue.venta) || 0;
-        if (!mep) throw new Error('No tengo la cotización del dólar para descontar la compra');
-        costo = costo * mep;
+        // Al dólar del mercado en el que compraste: la cripto NO se compra
+        // al MEP. Con el MEP le descontábamos de menos.
+        var cambio = prices.tasaPara(d, tipo);
+        if (!cambio) throw new Error('No tengo la cotización del dólar para descontar la compra');
+        costo = costo * cambio;
       }
       pago = cuentas.pagarInversion(req.user.id, b.account_id, costo, creado.symbol, creado.id);
     } catch (err) {
@@ -1173,7 +1184,10 @@ router.get('/networth', async function (req, res) {
       if (a.asset_type === 'crypto') cryptoArs += a.value;
       else mercadoArs += a.value;
     });
-    var cryptoUsd = venta ? cryptoArs / venta : 0;
+    // La cripto se pasa a dólares al dólar CRIPTO, que es al que la comprás
+    // y la vendés. Con el MEP el número dice más dólares de los que tenés.
+    var tasaCripto = prices.tasaCripto(dolar);
+    var cryptoUsd = tasaCripto ? cryptoArs / tasaCripto : 0;
 
     // Cuanto se movio el patrimonio en los ultimos 30 dias. Solo podemos
     // medir la parte en pesos: de la cripto no guardamos precios viejos, asi
@@ -1209,6 +1223,9 @@ router.get('/networth', async function (req, res) {
       cambio30: cambio30,
       cryptoUsd: cryptoUsd,
       cryptoArs: cryptoArs,
+      // Los dos cambios: el de la bolsa y el de la cripto. La compra de un
+      // activo descuenta al que corresponde, y la pantalla lo dice.
+      dolarCripto: tasaCripto,
       // Acciones, CEDEARs, bonos, letras y ONs, ya pasados a pesos.
       mercadoArs: mercadoArs,
       porTipo: cartera.porTipo,
