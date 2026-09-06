@@ -422,6 +422,7 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
       {abierto && (
         <AgregarActivo
           cuentas={cuentas}
+          dolar={portfolio.dolar}
           onCerrar={() => setAbierto(false)}
           onHecho={() => { setAbierto(false); onReload() }}
           onError={onError}
@@ -592,7 +593,8 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
 
 /* ------------------------------------------------------- alta de un activo */
 
-function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
+function AgregarActivo({ cuentas, dolar, onCerrar, onHecho, onError }) {
+  const { confirmar } = useDialogos()
   const [tipo, setTipo] = useState('cedear')
   const [texto, setTexto] = useState('')
   const [elegido, setElegido] = useState(null)
@@ -634,10 +636,51 @@ function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
 
   const simbolo = esCripto ? texto.trim().toUpperCase() : (elegido ? elegido.symbol : '')
 
+  /*
+   * CUANTO SE VA A DESCONTAR, antes de guardar.
+   *
+   * La misma cuenta que hace el server. Sin esto, la compra salia sin que
+   * nadie viera el numero: Emanuel cargo SUI poniendo el precio en pesos, el
+   * server lo tomo como dolares —la cripto cotiza en dolares y punto— lo
+   * multiplico por el MEP y le dejo la cuenta en -$456 millones.
+   *
+   * Mostrarlo no es un adorno: es la unica forma de que un precio en la
+   * moneda equivocada se vea ANTES y no despues.
+   */
+  const monedaPrecio = esCripto ? 'USD' : moneda
+  const lamina = POR_LAMINA.includes(tipo) ? 100 : 1
+  const cantidadNum = montoDesde(cantidad)
+  const precioNum = montoDesde(compra)
+  const costoPropio = (cantidadNum * precioNum) / lamina
+  const costoPesos = monedaPrecio === 'USD'
+    ? (dolar > 0 ? costoPropio * dolar : null)
+    : costoPropio
+
+  const cuentaElegida = (cuentas || []).find((c) => String(c.id) === String(desdeCuenta))
+  // Se descuenta mas de lo que hay: casi siempre es el precio en la moneda
+  // equivocada, o el total puesto en el lugar del precio por unidad.
+  const noAlcanza = Boolean(
+    cuentaElegida && costoPesos != null && costoPesos > 0 && costoPesos > cuentaElegida.saldo
+  )
+
   async function guardar(e) {
     e.preventDefault()
     if (!simbolo) return onError('Elegí qué compraste')
     if (!montoDesde(cantidad)) return onError(`Poné cuántos ${t.unidad} tenés`)
+
+    if (noAlcanza) {
+      const ok = await confirmar({
+        titulo: `¿Descontar ${money(costoPesos)} de ${cuentaElegida.name}?`,
+        detalle: `En esa cuenta hay ${money(cuentaElegida.saldo)}, así que va a quedar en rojo. ` +
+          (monedaPrecio === 'USD'
+            ? 'Ojo: el precio de compra va en DÓLARES, y se pasa a pesos al MEP. Si pusiste el precio en pesos, el número se multiplica por mil y pico.'
+            : 'Fijate que el precio sea el de CADA unidad y no el total invertido.'),
+        aceptar: 'Descontar igual',
+        peligro: true,
+      })
+      if (!ok) return
+    }
+
     try {
       await api('/portfolio', {
         method: 'POST',
@@ -757,13 +800,24 @@ function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
             />
           </label>
           <label className="field">
-            <span className="field-label">Precio de compra (opcional)</span>
+            {/* La moneda va EN LA ETIQUETA. La cripto cotiza en dólares y
+                punto, así que el campo no deja elegir: si no lo dice, el que
+                paga en pesos escribe el precio en pesos y el número se
+                multiplica por el MEP sin que nadie lo vea. */}
+            <span className="field-label">
+              Precio por {t.unidad.replace(/e?s$/, '')} en {monedaPrecio === 'USD' ? 'US$' : 'pesos'} (opcional)
+            </span>
             <input
               inputMode="decimal"
               placeholder="0"
               value={compra}
               onChange={(e) => setCompra(soloPlata(e.target.value))}
             />
+            {esCripto && (
+              <span className="hint" style={{ marginTop: 6 }}>
+                La cripto cotiza en dólares: poné el precio en US$, no en pesos.
+              </span>
+            )}
           </label>
         </div>
 
@@ -791,6 +845,23 @@ function AgregarActivo({ cuentas, onCerrar, onHecho, onError }) {
                 ? 'Se descuenta de esa cuenta. No cuenta como gasto: cambiaste pesos por un título, no gastaste nada.'
                 : 'Si no elegís ninguna, la plata sigue figurando en tus cuentas Y el título en tu cartera, o sea contada dos veces.'}
             </span>
+            {/* El numero que se va a descontar, mientras escribis. */}
+            {desdeCuenta && costoPesos > 0 && (
+              <span className={`compra-previa ${noAlcanza ? 'mal' : ''}`}>
+                Se descuentan <b className="monto-sensible">{money(costoPesos)}</b>
+                {monedaPrecio === 'USD' && dolar > 0 && ' (al MEP de hoy)'}
+                {cuentaElegida && (
+                  noAlcanza
+                    ? ` — en ${cuentaElegida.name} hay ${money(cuentaElegida.saldo)}, queda en rojo`
+                    : ` — quedan ${money(cuentaElegida.saldo - costoPesos)}`
+                )}
+              </span>
+            )}
+            {desdeCuenta && monedaPrecio === 'USD' && !dolar && (
+              <span className="compra-previa mal">
+                Sin cotización del dólar no puedo decirte cuánto se va a descontar.
+              </span>
+            )}
           </label>
         )}
 

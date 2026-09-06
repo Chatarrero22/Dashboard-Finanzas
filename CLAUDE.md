@@ -469,6 +469,22 @@ Por eso el hero de Ahorro dice **«En tus cuentas»** y no «Toda tu plata»: co
 las inversiones afuera, ese título mentía. La tarjeta de abajo suma las dos
 cosas para que nada desaparezca.
 
+**Al cargar una compra hay que ver CUÁNTO se va a descontar, antes.** La
+cripto cotiza en dólares y punto, así que el precio se toma en dólares y se
+pasa a pesos al MEP. Emanuel cargó SUI con el precio **en pesos** —pagó en
+pesos, escribió pesos— y la app lo multiplicó por 1.525: le dejó la cuenta en
+**-$456 millones** y el patrimonio en rojo.
+
+El error de carga no se puede evitar, pero salir sin que nadie vea el número
+sí. Ahora el campo dice en qué moneda va («Precio por unidad en US$»), abajo
+se ve **«Se descuentan $X — quedan $Y»** mientras escribís, y si el monto no
+entra en la cuenta hay que confirmarlo con el motivo explicado.
+
+**Se arregla sacando el activo con «me equivoqué»** (`DELETE /portfolio/:id`
+sin `vendido=1`): borra el movimiento atado por `asset_id` y la cuenta vuelve
+a como estaba. Verificado reproduciendo el caso: -$457.290.000 y de vuelta a
+$300.000.
+
 **Comprar un título saca la plata de una cuenta, y NO es un gasto.** Cuando
 cargás un activo elegís de qué cuenta salió, y se anota **una sola pata** de
 `-monto` con categoría `Traspaso`, atada al activo por `transactions.asset_id`.

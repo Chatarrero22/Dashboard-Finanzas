@@ -1265,6 +1265,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Cuanto se va a descontar de la cuenta, mientras cargas la compra. */
+.compra-previa {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.compra-previa b { color: var(--text-primary); }
+
+.compra-previa.mal {
+  background: color-mix(in srgb, var(--critical) 12%, transparent);
+  color: var(--critical);
+}
+
+.compra-previa.mal b { color: var(--critical); }
+
 /* La duda sobre un precio de compra que no puede ser de una unidad. */
 .activo-ojo {
   display: block;
