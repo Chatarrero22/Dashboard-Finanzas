@@ -943,9 +943,13 @@ function SacarActivo({ activo, compra, cuentas, onCerrar, onHecho, onError }) {
             <span className="tipo-ico">💵</span>
             <span className="tipo-txt">
               <span className="tipo-nombre">Lo vendí</span>
+              {/* Que la compra QUEDA anotada hay que decirlo. Emanuel cargó
+                  una compra con el precio en la moneda equivocada, eligió
+                  «lo vendí» para deshacerla, y le quedaron los dos
+                  movimientos: el disparate y una venta chica encima. */}
               <small>
                 {valeHoy != null
-                  ? `Vuelven ${money(valeHoy)} a la cuenta que elijas`
+                  ? `Vuelven ${money(valeHoy)} a la cuenta que elijas. Lo que pagaste (${money(loQuePagaste)}) queda anotado.`
                   : 'Sin precio de mercado no puedo calcular cuánto vuelve'}
               </small>
             </span>

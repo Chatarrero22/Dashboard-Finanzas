@@ -485,6 +485,16 @@ sin `vendido=1`): borra el movimiento atado por `asset_id` y la cuenta vuelve
 a como estaba. Verificado reproduciendo el caso: -$457.290.000 y de vuelta a
 $300.000.
 
+**Ojo con la otra opción: «lo vendí» NO deshace la compra**, y es lo
+correcto —vender es un hecho nuevo, no un borrado— pero deja los dos
+movimientos: el disparate y una venta chica encima. Emanuel eligió esa y
+siguió roto. Por eso la opción ahora dice qué queda anotado, y no solo
+cuánto vuelve.
+
+Cuando ya pasó, la salida es **Movimientos → buscar el símbolo → borrar los
+dos**. La lista no filtra los `Traspaso`, así que aparecen y se pueden
+borrar; la verificación de que esto funciona vale más que el aviso.
+
 **Comprar un título saca la plata de una cuenta, y NO es un gasto.** Cuando
 cargás un activo elegís de qué cuenta salió, y se anota **una sola pata** de
 `-monto` con categoría `Traspaso`, atada al activo por `transactions.asset_id`.
