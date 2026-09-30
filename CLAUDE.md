@@ -452,6 +452,21 @@ lugares que la necesitan: la valuación de la cartera, el descuento al comprar
 y la previa del formulario. Si se separaran, la pantalla diría un número y la
 cuenta bajaría otro.
 
+**Una contraseña olvidada no se recupera, se reemplaza.** Se guardan con
+scrypt, que va para un solo lado: no la sabe nadie, ni la app. Camila se
+olvidó la suya, y la única salida honesta es que el admin le ponga una nueva
+(`POST /users/:id/password`, botón «Clave nueva» en Ajustes → Personas).
+
+El campo de esa clave va **a la vista**, al revés que el de cambiar la
+propia: no estás escribiendo tu secreto, estás eligiendo uno para otra
+persona y se lo tenés que poder leer. La confirmación la repite para que se
+anote antes de aceptar.
+
+**Es la acción más fuerte que tiene la app**: quien la usa puede entrar a la
+cuenta de otro y ver sus movimientos. Por eso es solo admin (403 si no lo
+sos, 401 sin sesión) y hay que decir de quién. Al cambiarla se cierran las
+sesiones de esa persona, que ya lo hacía `cambiarPassword()`.
+
 **«Ahorro» no existe más como sección.** Con una sola cuenta mostraba un
 número que ya estaba en la barra lateral, dos recuadros con uno en cero, una
 tarjeta que repetía Inversiones y una lista de un elemento. Emanuel: «no

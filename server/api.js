@@ -143,6 +143,33 @@ router.delete('/users/:id', auth.requerido, auth.soloAdmin, function (req, res) 
   res.json({ success: true });
 });
 
+/**
+ * Ponerle una contraseña nueva a otra persona.
+ *
+ * Las contraseñas se guardan con scrypt, que va para un solo lado: NO se
+ * pueden recuperar, ni yo ni nadie. Camila se olvido la suya y la unica
+ * salida honesta es ponerle una nueva.
+ *
+ * Solo admin, y hace falta decir de quien: es la accion mas fuerte que tiene
+ * la app -quien la usa puede entrar a la cuenta de otro y ver sus
+ * movimientos- asi que no se hace por descuido.
+ *
+ * Al cambiarla se cierran las sesiones de esa persona (lo hace
+ * cambiarPassword): si alguien estaba adentro, se tiene que volver a
+ * identificar.
+ */
+router.post('/users/:id/password', auth.requerido, auth.soloAdmin, function (req, res) {
+  var destino = db.prepare('SELECT id, display_name FROM users WHERE id = ?').get(req.params.id);
+  if (!destino) return res.status(404).json({ error: 'No existe esa persona' });
+
+  try {
+    auth.cambiarPassword(destino.id, req.body.password);
+    res.json({ success: true, nombre: destino.display_name });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 /** Código para vincular Telegram con esta cuenta. */
 router.post('/telegram/code', auth.requerido, function (req, res) {
   res.json({

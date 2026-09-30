@@ -936,7 +936,7 @@ function MetasScreen({ goals, accion, onReload, onError, onSaved }) {
 }
 
 function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, onConectarTelegram }) {
-  const { confirmar } = useDialogos()
+  const { confirmar, pedirTexto } = useDialogos()
   const [orden, setOrden] = useState(null)
   const [ordenando, setOrdenando] = useState(false)
   const [reglas, setReglas] = useState(null)
@@ -1113,6 +1113,45 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
       setNuevo({ username: '', display_name: '', password: '' })
       onSaved('Usuario creado')
       cargarUsuarios()
+    } catch (err) { onError(err.message) }
+  }
+
+  /*
+   * Ponerle una contraseña nueva a otra persona.
+   *
+   * No se puede "ver" la que tenía: se guardan con scrypt, que va para un
+   * solo lado. Camila se olvidó la suya y la única salida honesta es
+   * ponerle una nueva y decírsela.
+   *
+   * El campo va a la vista a propósito, al revés que el de cambiar la
+   * propia: acá no estás escribiendo tu secreto, estás eligiendo uno para
+   * otra persona y se lo tenés que poder leer.
+   */
+  async function cambiarClaveDe(u) {
+    const nueva = await pedirTexto({
+      titulo: `Nueva contraseña para ${u.display_name}`,
+      detalle: 'La de antes no se puede recuperar: se guardan cifradas de una sola vía. ' +
+        'Elegí una nueva, pasásela y que la cambie cuando entre. ' +
+        'Si estaba con la sesión abierta, se le cierra.',
+      placeholder: 'Al menos 6 caracteres',
+      aceptar: 'Cambiar',
+    })
+    if (!nueva) return
+
+    const ok = await confirmar({
+      titulo: `¿Ponerle «${nueva}» a ${u.display_name}?`,
+      detalle: 'Con esa clave va a poder entrar a su cuenta y ver sus movimientos. ' +
+        'Anotala antes de aceptar: después no la podés volver a ver.',
+      aceptar: 'Sí, cambiarla', peligro: true,
+    })
+    if (!ok) return
+
+    try {
+      await api(`/users/${u.id}/password`, {
+        method: 'POST',
+        body: JSON.stringify({ password: nueva }),
+      })
+      onSaved(`Contraseña de ${u.display_name} cambiada`)
     } catch (err) { onError(err.message) }
   }
 
@@ -1410,6 +1449,11 @@ function AjustesScreen({ config, onError, onSaved, onLogout, onDatosCambiados, o
                         {u.telegram_linked ? <span className="tag">Telegram</span> : null}
                       </div>
                     </div>
+                    {/* La propia se cambia en «Cambiar contraseña», acá
+                        arriba: repetirla sería dos caminos para lo mismo. */}
+                    {u.username !== config.username && (
+                      <button className="chip" onClick={() => cambiarClaveDe(u)}>Clave nueva</button>
+                    )}
                     {u.id !== 1 && (
                       <button className="danger" aria-label={`Borrar ${u.display_name}`} onClick={() => borrarUsuario(u)}>✕</button>
                     )}
