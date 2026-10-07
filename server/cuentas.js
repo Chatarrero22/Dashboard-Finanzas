@@ -101,7 +101,7 @@ function saldoDe(userId, cuentaId) {
  */
 function listar(userId) {
   asegurarPrincipal(userId);
-  var deuda = tarjetas().deudaPendiente(userId);
+  var deuda = tarjetas().deuda(userId);
 
   return db.prepare('SELECT * FROM accounts WHERE user_id = ? ORDER BY id').all(userId)
     .map(function (c) {

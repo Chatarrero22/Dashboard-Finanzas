@@ -1657,7 +1657,21 @@ router.get('/saldo', function (req, res) {
     porVencerN: futuro.n,
     // Con su saldo, para poder ajustar UNA y no el total.
     cuentas: cuentas.listar(uid),
-    potes: cuentas.potes(uid)
+    potes: cuentas.potes(uid),
+    /*
+     * Resúmenes que cerraron y no están marcados como pagados.
+     *
+     * Hay que avisarlo ACÁ: el saldo del banco los cuenta como plata que
+     * todavía tenés, así que si en realidad ya los pagaste, ajustar anota un
+     * gasto por una plata que sí salió pero por otro motivo. Marcarlos
+     * primero deja el número bien sin inventar nada.
+     */
+    resumenesSinPagar: tarjetas.listar(uid).reduce(function (acc, t) {
+      (t.pendientes || []).forEach(function (r) {
+        acc.push({ tarjeta: t.name, cierre: r.cierreTexto, monto: r.monto, vencido: r.vencido });
+      });
+      return acc;
+    }, [])
   });
 });
 
@@ -1687,19 +1701,14 @@ router.post('/saldo', function (req, res) {
   var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
 
   /*
-   * Contra qué comparamos.
+   * Contra qué comparamos: el saldo del BANCO, que es lo que la persona mira.
    *
-   * Ajustar mueve la raya: a partir de hoy, lo de tarjeta de antes queda
-   * saldado. Así que el saldo al que hay que llegar es el contable MÁS lo de
-   * tarjeta que quede después de la raya (normalmente nada: solo cuotas con
-   * fecha futura).
-   *
-   * Comparar contra el saldo de HOY sería morderse la cola: la diferencia se
-   * calcularía con la deuda vieja adentro y después la raya la borraría,
-   * dejando el número peor de lo que estaba.
+   * O sea el contable más lo de tarjeta que todavía no salió. Ajustar no
+   * cancela esa deuda: si debés el resumen que vence la semana que viene, lo
+   * seguís debiendo después de decir cuánto tenés en el banco.
    */
-  var deudaDespues = tarjetas.deudaPendiente(req.user.id, fecha).porCuenta[String(cuenta.id)] || 0;
-  var destino = cuentas.saldoDe(req.user.id, cuenta.id) + deudaDespues;
+  var deudaDeLaCuenta = tarjetas.deuda(req.user.id).porCuenta[String(cuenta.id)] || 0;
+  var destino = cuentas.saldoDe(req.user.id, cuenta.id) + deudaDeLaCuenta;
 
   var real = Number(req.body.saldoReal);
   var diferencia = real - destino;

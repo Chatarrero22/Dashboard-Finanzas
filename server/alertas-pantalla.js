@@ -141,11 +141,45 @@ function mesEnRojo(userId) {
   return [{ id: 'rojo-' + mes, ico: '◊', tono: 'malo', titulo: 'Gastás más de lo que entra', txt: txt }];
 }
 
+/**
+ * Resumenes que vencieron y siguen sin marcar como pagados.
+ *
+ * Es el aviso que le faltaba a Emanuel: pago la tarjeta en el banco, no lo
+ * marco en la app, y su Disponible siguio contando esa plata como si todavia
+ * la tuviera. La app no puede saber que pago -el banco no le avisa- pero si
+ * puede darse cuenta de que un resumen vencio y nadie dijo nada.
+ */
+function resumenSinMarcar(userId) {
+  var tarjetas = require('./tarjetas.js');
+
+  return tarjetas.listar(userId)
+    .filter(function (t) { return t.vencido; })
+    .map(function (t) {
+      var vencidos = t.pendientes.filter(function (r) { return r.vencido; });
+      var monto = vencidos.reduce(function (a, r) { return a + r.monto; }, 0);
+      var cuantos = vencidos.length;
+
+      return {
+        id: 'resumen-' + t.id + '-' + vencidos[vencidos.length - 1].cierre,
+        ico: '▭',
+        tono: 'ojo',
+        titulo: cuantos === 1
+          ? 'El resumen de ' + t.name + ' venció y no lo marcaste'
+          : cuantos + ' resúmenes de ' + t.name + ' vencidos sin marcar',
+        txt: 'Son ' + money(monto) + '. Si ya ' +
+          (cuantos === 1 ? 'lo pagaste, marcalo' : 'los pagaste, marcalos') +
+          ' en Tarjetas: hasta que lo hagas, tu Disponible sigue contando esa ' +
+          'plata como si la tuvieras.'
+      };
+    });
+}
+
 /** Todo junto, lo más urgente primero. */
 function paraPantalla(userId) {
   var orden = { malo: 0, ojo: 1, acento: 2 };
   return []
     .concat(mesEnRojo(userId))
+    .concat(resumenSinMarcar(userId))
     .concat(presupuestosApretados(userId))
     .concat(fijosQueSeVienen(userId))
     .concat(rachaEnRiesgo(userId))

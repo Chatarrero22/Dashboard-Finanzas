@@ -182,52 +182,48 @@ Por eso `cuentas.listar()` devuelve dos saldos:
 - **`saldoContable`** — la suma cruda. La usa el patrimonio, donde la deuda
   **sí** tiene que estar restada: esa plata ya tiene dueño.
 
-`tarjetas.deudaPendiente()` es quien decide qué está sin pagar: **todo lo que
-no caiga en un resumen ya marcado como pagado** —el período abierto, los
-resúmenes cerrados sin pagar y las cuotas con fecha futura—. Se calcula como
-el total gastado con esa tarjeta menos lo que cae dentro de los resúmenes
-pagados, así no depende de cuántos meses para atrás miremos.
+**`tarjetas.deuda()` es UN SOLO número, y el mismo en todos lados.** Son las
+compras con tarjeta que **no caen en un resumen ya marcado como pagado**: el
+período abierto, los resúmenes cerrados sin pagar y las cuotas con fecha
+futura. Se calcula como el total gastado con esa tarjeta menos lo que cae
+dentro de los resúmenes pagados, así no depende de cuántos meses para atrás
+miremos.
 
-**Son DOS números distintos y usar uno solo dejaba la app contradiciéndose:**
+Sirve para las dos preguntas a la vez, que son la misma mirada de los dos
+lados:
 
-- **`deudaPendiente()`** — ¿cuánto de lo que la contabilidad ya descontó
-  todavía **no salió del banco**? Va **con raya** (ver abajo). Es interno:
-  sirve para reconstruir el saldo que la persona declaró.
-- **`deudaTotal()`** — **¿cuánto le debo a la tarjeta?** El resumen abierto
-  más los que cerraron y no pagaste. **Sin raya:** que hayas dicho cuánto
-  tenés en el banco no cancela el resumen que vence la semana que viene.
+- **cuánto le debo a la tarjeta** — es lo que muestra Patrimonio, y cierra
+  con la pantalla de Tarjetas;
+- **cuánto de lo que la contabilidad ya descontó todavía no salió del
+  banco** — es lo que hay que devolverle al saldo de la cuenta.
 
-**El que se muestra es `deudaTotal()`**, porque es el que cierra con la
-pantalla de Tarjetas. Emanuel vio «Tarjeta sin pagar $59.367» mientras
-Tarjetas decía «consumo del resumen $773.033» y preguntó, con razón, cuál de
-los dos era.
+Cuando fueron dos funciones distintas, pagar el resumen bajaba una y no la
+otra. Emanuel vio «Tarjeta sin pagar $59.367» mientras Tarjetas decía
+«consumo del resumen $773.033» y preguntó, con razón, cuál de los dos era.
+
+**HUBO UNA RAYA Y LA SAQUÉ, aunque la había puesto yo.** Contaba sólo lo
+posterior al último «poner el saldo real», con el argumento de que lo
+anterior ya estaba saldado. El efecto real fue peor que el problema: Emanuel
+pagó su resumen, lo marcó, «Tarjeta sin pagar» bajó de $393.619 a $100.000 y
+su **Disponible no se movió ni un peso** —esas compras eran anteriores a la
+raya, así que nunca habían estado sumadas—. «No es mi liquidez real», y
+tenía razón.
+
+Lo que la raya tapaba —arrancar con un año de resúmenes que pagaste en la
+vida real y nunca marcaste— se resuelve **diciéndolo**: el botón «Pagué
+todos» en Tarjetas. **Marcar un pago es un dato; olvidarse la deuda, no.**
+
+**Y hay que avisar cuando falta marcar un pago**, porque es el paso que se
+olvida: la app no puede saber que pagaste —el banco no le avisa— pero sí
+puede darse cuenta de que un resumen venció y nadie dijo nada. El aviso está
+en Alertas (`resumenSinMarcar()`) y, sobre todo, **en el formulario de
+ajustar el saldo**: ahí la deuda sin marcar hace daño de verdad, porque el
+saldo del banco la cuenta como plata que todavía tenés y ajustar anotaría un
+gasto por una plata que sí salió, pero por otro motivo.
 
 Y **`potes.enCuentas` es la suma cruda de los movimientos**, sin restarle la
 deuda otra vez: cada compra con tarjeta ya está anotada una por una y restada
 ahí. Restarla de nuevo la contaría dos veces.
-
-**Y hay una raya: `deudaPendiente()` sólo cuenta lo posterior al último
-`Ajuste`.** «Poner el
-saldo real» es la persona diciendo *esto es lo que tengo hoy*, así que todo lo
-de antes está saldado por definición, lo hayas marcado o no. Si pagaste seis
-resúmenes y nunca los marcaste en la app, tu saldo real ya los tiene
-descontados.
-
-Sin la raya la app sumaba **un año de resúmenes ya pagados**: le mostró a
-Emanuel $815.381 de disponible cuando tenía $50.000 en el banco. El mecanismo
-estaba bien; lo que faltaba era desde dónde empezar a contar.
-
-**Y hace falta poder saldar los viejos de una.** Si venís usando la app desde
-hace meses y nunca marcaste un pago, la deuda arranca con un año de resúmenes
-que en la vida real ya pagaste. Ir de a uno son ocho clics para decir algo
-que sabés de una: por eso está «Pagué todos (N)» al lado de «Ya lo pagué»
-(`POST /cards/:id/pagar-anteriores`).
-
-**Ojo con el orden al ajustar:** ajustar *mueve* la raya, así que el saldo al
-que hay que llegar es el contable más lo de tarjeta que quede **después** de
-la raya nueva (normalmente nada). Comparar contra el saldo de hoy es morderse
-la cola: la diferencia se calcula con la deuda vieja adentro y después la raya
-la borra, dejando el número peor de lo que estaba.
 
 Sin esto, el saldo del banco bajaba apenas comprabas: Emanuel vio **-$17.019
 con $50.000 en el banco**. «Lo que pago con tarjeta me está descontando mi
@@ -236,6 +232,8 @@ liquidez y no tiene que ser así.» Tenía razón.
 Y peor: **el ajuste de saldo comparaba contra el contable**, así que poner
 «tengo $50.000» inventaba un movimiento por el monto de la tarjeta. Ahora
 compara contra el banco y contesta «ya cerraba, no hizo falta ajustar».
+Ajustar **no** cancela la deuda: si debés el resumen que vence la semana que
+viene, lo seguís debiendo después de decir cuánto tenés en el banco.
 
 **Los dos números salen de un solo lado.** Cuando el pote decía $50.000 y la
 fila de la misma cuenta decía -$17.019, la pantalla se contradecía sola en

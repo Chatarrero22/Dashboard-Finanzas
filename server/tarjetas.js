@@ -136,32 +136,46 @@ function resumenesPendientes(userId, tarjeta, hoy) {
  * Devuelve el total y el desglose por cuenta: la plata vuelve a la cuenta a
  * la que se le habia descontado, no a cualquiera.
  */
-function deudaPendiente(userId, rayaForzada) {
+/**
+ * LO QUE DEBES EN LAS TARJETAS. Un solo numero, y el mismo en todos lados.
+ *
+ * Son las compras con tarjeta que NO caen en un resumen ya marcado como
+ * pagado: el periodo abierto, los resumenes cerrados sin pagar y las cuotas
+ * con fecha futura.
+ *
+ * Sirve para las dos preguntas a la vez:
+ *
+ *   - cuanto le debo a la tarjeta (es lo que muestra Patrimonio, y cierra
+ *     con la pantalla de Tarjetas);
+ *   - cuanto de lo que la contabilidad ya desconto TODAVIA no salio del
+ *     banco, que es lo que hay que devolverle al saldo de la cuenta.
+ *
+ * Son la misma cosa mirada de los dos lados, y por eso tiene que ser un solo
+ * numero: cuando fueron dos, pagar el resumen bajaba uno y no el otro.
+ *
+ * ANTES HABIA UNA RAYA y la saque, aunque la habia puesto yo. Contaba solo
+ * lo posterior al ultimo "poner el saldo real", con el argumento de que lo
+ * anterior ya estaba saldado. El efecto real fue peor que el problema:
+ * Emanuel pago su resumen, lo marco, "Tarjeta sin pagar" bajo de $393.619 a
+ * $100.000 y su Disponible no se movio ni un peso -esas compras eran
+ * anteriores a la raya, asi que nunca habian estado sumadas-. «No es mi
+ * liquidez real», y tenia razon.
+ *
+ * Lo que la raya tapaba -arrancar con un año de resumenes que pagaste en la
+ * vida real y nunca marcaste- se resuelve diciendolo: el boton «Pagué todos»
+ * en Tarjetas. Marcar un pago es un dato; olvidarse la deuda, no.
+ */
+
+function deuda(userId) {
   var tarjetas = db.prepare('SELECT * FROM cards WHERE user_id = ?').all(userId);
   var base = db.prepare('SELECT id FROM accounts WHERE user_id = ? AND es_default = 1').get(userId)
     || db.prepare('SELECT id FROM accounts WHERE user_id = ? ORDER BY id LIMIT 1').get(userId);
   var baseId = base ? base.id : null;
 
-  /*
-   * LA RAYA: desde cuando contamos.
-   *
-   * «Poner el saldo real» es la persona diciendo "esto es lo que tengo HOY".
-   * Todo lo de antes ya esta saldado por definicion, lo hayas marcado o no:
-   * si pagaste seis resumenes y nunca los marcaste en la app, tu saldo real
-   * ya los tiene descontados.
-   *
-   * Sin esta raya la app sumaba UN AÑO de resumenes ya pagados: a Emanuel le
-   * mostro $815.381 de disponible cuando tenia $50.000 en el banco. El
-   * mecanismo estaba bien, lo que faltaba era desde donde empezar a contar.
-   */
-  var raya = rayaForzada || db.prepare(
-    "SELECT MAX(date) d FROM transactions WHERE user_id = ? AND category = 'Ajuste'"
-  ).get(userId).d || '0000-01-01';
-
   var gastosDe = db.prepare(
     'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
     ' FROM transactions WHERE user_id = ? AND card_id = ? AND amount < 0' +
-    ' AND date > ? GROUP BY cuenta'
+    ' GROUP BY cuenta'
   );
   var gastosEnRango = db.prepare(
     'SELECT COALESCE(account_id, ?) cuenta, COALESCE(SUM(ABS(amount)),0) total' +
@@ -180,52 +194,28 @@ function deudaPendiente(userId, rayaForzada) {
   }
 
   tarjetas.forEach(function (t) {
-    gastosDe.all(baseId, userId, t.id, raya).forEach(function (r) { sumar(r.cuenta, r.total); });
+    gastosDe.all(baseId, userId, t.id).forEach(function (r) { sumar(r.cuenta, r.total); });
 
-    // Y le restamos lo que ya pagaste: cada resumen cubre desde el dia
-    // siguiente al cierre anterior hasta su propio cierre.
+    // Menos lo que ya pagaste: cada resumen cubre desde el dia siguiente al
+    // cierre anterior hasta su propio cierre.
     pagosDe.all(userId, t.id).forEach(function (pago) {
       var cierre = new Date(pago.period_close);
       var anterior = diaDelMes(cierre.getFullYear(), cierre.getMonth() - 1, t.close_day);
       var desde = new Date(anterior);
       desde.setDate(desde.getDate() + 1);
 
-      // Nunca antes de la raya: lo de antes ya no lo estabamos contando.
-      var desdeISO = aISO(desde) > raya ? aISO(desde) : raya;
-      if (desdeISO >= aISO(cierre)) return;
-
-      gastosEnRango.all(baseId, userId, t.id, desdeISO, aISO(cierre))
+      gastosEnRango.all(baseId, userId, t.id, aISO(desde), aISO(cierre))
         .forEach(function (r) { sumar(r.cuenta, -r.total); });
     });
   });
 
-  return { total: total, porCuenta: porCuenta, desde: raya };
+  return { total: total, porCuenta: porCuenta };
 }
 
-/**
- * LO QUE DEBES en las tarjetas. Que no es lo mismo que `deudaPendiente()`.
- *
- * Son dos preguntas distintas y usar un solo numero para las dos deja la app
- * contradiciendose:
- *
- *   deudaPendiente()  ¿cuanto de lo que la contabilidad ya descontó todavia
- *                     NO salio del banco? Va con raya (desde el ultimo
- *                     ajuste), porque sirve para reconstruir el saldo que la
- *                     persona declaro. Es un numero interno.
- *
- *   deudaTotal()      ¿cuanto le debo a la tarjeta? El resumen abierto mas
- *                     los que cerraron y no pague. SIN raya: que hayas dicho
- *                     cuanto tenes en el banco no cancela el resumen que
- *                     vence la semana que viene.
- *
- * Emanuel vio "Tarjeta sin pagar $59.367" mientras Tarjetas decia "consumo
- * del resumen $773.033" y pregunto, con razon, cual de los dos era. El que
- * se muestra tiene que ser este, que es el que cierra con Tarjetas.
- */
-function deudaTotal(userId, hoy) {
-  return listar(userId, hoy).reduce(function (a, t) {
-    return a + t.consumo + t.deuda;
-  }, 0);
+
+/** El total, que es lo que pide casi todo el mundo. */
+function deudaTotal(userId) {
+  return deuda(userId).total;
 }
 
 /** Las tarjetas con lo que va gastado en el período abierto. */
@@ -334,7 +324,7 @@ function todas(userId) {
 }
 
 module.exports = {
-  deudaPendiente: deudaPendiente,
+  deuda: deuda,
   deudaTotal: deudaTotal,
   listar: listar,
   porDefecto: porDefecto,

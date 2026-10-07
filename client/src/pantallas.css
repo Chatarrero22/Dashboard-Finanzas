@@ -1265,6 +1265,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* El aviso de resumenes sin marcar, en el ajuste de saldo. */
+.aviso-resumenes {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--critical) 10%, transparent);
+  color: var(--text-secondary);
+}
+
 /* Cuanto se va a descontar de la cuenta, mientras cargas la compra. */
 .compra-previa {
   display: block;
