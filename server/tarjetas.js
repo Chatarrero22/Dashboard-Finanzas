@@ -193,8 +193,30 @@ function deuda(userId) {
     total += monto;
   }
 
+  /*
+   * DE QUE ESTA HECHA esa deuda. Tres cosas distintas, y hay que poder
+   * verlas: el total solo deja a la persona adivinando.
+   *
+   * Emanuel pago su resumen, lo marco, y siguio viendo $633.279 de deuda
+   * cuando la pantalla de Tarjetas decia $293.619. La diferencia eran
+   * $339.660 de cuotas que todavia no vencieron -reales, las debe- pero no
+   * aparecian en ningun lado, asi que el unico cierre posible era "el pago
+   * no me desconto".
+   */
+  var hoyISO = aISO(new Date());
+  var partes = { abierto: 0, cerradoSinPagar: 0, cuotasFuturas: 0 };
+
+  var futurasDe = db.prepare(
+    'SELECT COALESCE(SUM(ABS(amount)),0) t FROM transactions' +
+    ' WHERE user_id = ? AND card_id = ? AND amount < 0 AND date > ?'
+  );
+
   tarjetas.forEach(function (t) {
     gastosDe.all(baseId, userId, t.id).forEach(function (r) { sumar(r.cuenta, r.total); });
+
+    partes.cuotasFuturas += futurasDe.get(userId, t.id, hoyISO).t;
+    partes.cerradoSinPagar += resumenesPendientes(userId, t)
+      .reduce(function (a, r) { return a + r.monto; }, 0);
 
     // Menos lo que ya pagaste: cada resumen cubre desde el dia siguiente al
     // cierre anterior hasta su propio cierre.
@@ -209,7 +231,17 @@ function deuda(userId) {
     });
   });
 
-  return { total: total, porCuenta: porCuenta };
+  // Lo que queda despues de sacar las dos puntas es el periodo abierto.
+  partes.abierto = total - partes.cerradoSinPagar - partes.cuotasFuturas;
+
+  return {
+    total: total,
+    porCuenta: porCuenta,
+    // Las tres partes suman `total`, siempre.
+    abierto: partes.abierto,
+    cerradoSinPagar: partes.cerradoSinPagar,
+    cuotasFuturas: partes.cuotasFuturas
+  };
 }
 
 

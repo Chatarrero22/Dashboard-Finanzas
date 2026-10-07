@@ -213,6 +213,21 @@ Lo que la raya tapaba —arrancar con un año de resúmenes que pagaste en la
 vida real y nunca marcaste— se resuelve **diciéndolo**: el botón «Pagué
 todos» en Tarjetas. **Marcar un pago es un dato; olvidarse la deuda, no.**
 
+**Un total sin desglose deja a la persona adivinando.** La deuda tiene tres
+partes, y `deuda()` las devuelve por separado porque son cosas distintas:
+
+- **Resumen abierto** — lo que va del período actual. Es el mismo número que
+  muestra la pantalla de Tarjetas.
+- **Cerrados sin marcar como pagados** — va en rojo: es lo único accionable.
+- **Cuotas que todavía no vencieron** — reales, las debés, pero no hay nada
+  que hacer con ellas hoy.
+
+Las tres **suman el total, siempre**. Emanuel pagó su resumen, lo marcó, y
+siguió viendo $633.279 de deuda mientras Tarjetas decía $293.619: la
+diferencia eran **$339.660 de cuotas futuras**, que `deuda()` contaba y la
+pantalla de Tarjetas no muestra ahí. Sin el desglose, el único cierre posible
+era «el pago no me descontó».
+
 **Y hay que avisar cuando falta marcar un pago**, porque es el paso que se
 olvida: la app no puede saber que pagaste —el banco no le avisa— pero sí
 puede darse cuenta de que un resumen venció y nadie dijo nada. El aviso está

@@ -170,7 +170,14 @@ function potes(userId) {
    * pagar. Es el mismo numero que muestra Tarjetas, y no el que usamos para
    * reconstruir el saldo del banco: ese va con raya y es mas chico.
    */
-  r.deudaTarjeta = tarjetas().deudaTotal(userId);
+  var tj = tarjetas().deuda(userId);
+  r.deudaTarjeta = tj.total;
+  // De qué está hecha, para poder mostrarlo: el total solo deja adivinando.
+  r.deudaDetalle = {
+    abierto: tj.abierto,
+    cerradoSinPagar: tj.cerradoSinPagar,
+    cuotasFuturas: tj.cuotasFuturas
+  };
 
   /*
    * Y esto es la suma cruda de los movimientos, que es lo que ve el

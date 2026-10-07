@@ -161,13 +161,32 @@ export default function Cuentas({ cuentas, potes, accion, onReload, onError, onS
               <div className="pote-monto monto-sensible negativo">
                 −{money(potes.deudaTarjeta)}
               </div>
-              {/* Es el mismo numero que muestra Tarjetas: el resumen abierto
-                  mas los que cerraron y no pagaste. Decirlo evita la pregunta
-                  «¿y esto de dónde sale?». */}
+              {/* DE QUE ESTA HECHO. Sin esto el total deja adivinando:
+                  Emanuel pagó su resumen, lo marcó, y siguió viendo una
+                  deuda que no entendía — eran cuotas que no vencieron. */}
+              <ul className="deuda-partes">
+                {potes.deudaDetalle && potes.deudaDetalle.abierto > 0 && (
+                  <li>
+                    <span>Resumen abierto</span>
+                    <b className="monto-sensible">{money(potes.deudaDetalle.abierto)}</b>
+                  </li>
+                )}
+                {potes.deudaDetalle && potes.deudaDetalle.cerradoSinPagar > 0 && (
+                  <li className="mal">
+                    <span>Cerrados sin marcar como pagados</span>
+                    <b className="monto-sensible">{money(potes.deudaDetalle.cerradoSinPagar)}</b>
+                  </li>
+                )}
+                {potes.deudaDetalle && potes.deudaDetalle.cuotasFuturas > 0 && (
+                  <li>
+                    <span>Cuotas que todavía no vencieron</span>
+                    <b className="monto-sensible">{money(potes.deudaDetalle.cuotasFuturas)}</b>
+                  </li>
+                )}
+              </ul>
               <p className="hint">
-                Lo que le debés a tus tarjetas: el resumen que está abierto más
-                los que cerraron y no pagaste. Es el mismo número que ves en
-                Tarjetas.
+                Lo que le debés a tus tarjetas. El «resumen abierto» es el
+                mismo número que ves en Tarjetas.
               </p>
               <p className="hint">
                 No baja tu Liquidez: la plata sale recién cuando pagás el

@@ -1265,6 +1265,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* De que esta hecha la deuda de tarjeta. Las partes suman el total. */
+.deuda-partes {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deuda-partes li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.deuda-partes b {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.deuda-partes li.mal, .deuda-partes li.mal b { color: var(--critical); }
+
 /* El aviso de resumenes sin marcar, en el ajuste de saldo. */
 .aviso-resumenes {
   padding: 10px 12px;
