@@ -112,10 +112,10 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 |---|---|
 | `App.jsx` | El grande: estado, navegación, y las pantallas que no salieron a un archivo |
 | `Shell.jsx` | Barra lateral, barra de arriba y encabezado de pantalla |
-| `Dialogos.jsx` | `<Modal>` y los diálogos propios (`confirmar`, `pedirTexto`) |
+| `Dialogos.jsx` | `<Modal>` y los diálogos propios (`confirmar`, `pedirTexto`, `pedirOpcion`) |
 | `Numero.jsx` | Un monto que sube solo hasta su valor |
 | `comunes.jsx` | `money`, fechas, `ICONOS` por categoría, `Empty` |
-| `moneda.js` | Si los montos se muestran en pesos o dólares (botón ARS/US$) |
+| `moneda.js` | Si los montos se muestran en pesos o dólares. La elección se guarda en `users.moneda` |
 | `Resumen.jsx` `Patrimonio.jsx` `Alertas.jsx` `Gastos.jsx` | Pantallas |
 | `Tarjetas.jsx` `Presupuestos.jsx` `Pnl.jsx` | Pantallas |
 | `Cuentas.jsx` | Tus cuentas y mover plata. Vive **dentro de Patrimonio** |
@@ -807,10 +807,14 @@ Queda:
 1. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
 2. **WhatsApp** — viable (hay dirección pública). Necesita webhook, número
    aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
-3. **Los dos números del Resumen** — "gastaste este mes" (lo de hoy) vs "sale de
-   tu cuenta este mes" (el resumen que vence + lo que no es tarjeta). Los datos
-   ya están; falta mostrarlos. Lo que **sí** se hizo es el reparto de lo
-   ahorrado: cuánto ya apartaste y cuánto queda sin destino.
+3. **«Sale de tu cuenta este mes»** — cuánta plata te va a salir de verdad
+   en el mes: el resumen de tarjeta que vence más lo que no es tarjeta. Es
+   distinto de «gastaste este mes», que es lo que ya muestra el KPI de
+   Resultado. Los datos están todos (`deuda()` ya separa el resumen abierto
+   de lo que vence); falta la pantalla.
+
+   Lo que **sí** se hizo: el titular dejó de ser un flujo y pasó a ser el
+   **Disponible**, que era la mitad confusa del problema.
 4. ~~La deuda de tarjeta en Patrimonio~~ — hecho: hay un pote «Tarjeta sin
    pagar» al lado de Liquidez y Ahorro, y la barra lateral avisa cuánto de lo
    disponible ya está gastado.
@@ -882,7 +886,15 @@ revisá `Get-NetTCPConnection -State Listen -LocalPort 3999` antes que el códig
 
 **Los tests dejan basura.** Si no reiniciás la base entre corridas, una prueba
 que "falla" puede ser una fila que dejó la corrida anterior. Antes de dudar del
-código, mirá si el dato ya estaba.
+código, mirá si el dato ya estaba. Si el script corre el mismo caso a varios
+anchos, que **rearme el fixture en cada vuelta**: la primera vuelta marca el
+pago / cambia el precio y la segunda "falla" por eso.
+
+**Cuando un test falla, el sospechoso número uno es el test.** En una sola
+sesión: una aserción que esperaba `expense === 0` cuando el gasto venía de un
+`Ajuste` legítimo, un selector `.rank` que agarraba dos listas a la vez, y un
+`:has-text("Ver todos")` que resolvía a dos botones. Ninguno era un bug de la
+app. Antes de tocar el código, leé lo que estás afirmando.
 
 ### El backend
 
@@ -914,6 +926,22 @@ encima: Camila paga casi todo con débito y no tenía forma de zafar, cada gasto
 le entraba al resumen de crédito. Ahora hay un selector explícito en Tarjetas
 —«Con qué pagás casi siempre», con «Débito o efectivo» como opción— y el
 endpoint acepta `card_id: null`.
+
+**Dos caminos que no se pueden adivinar se PREGUNTAN.** Aparece una y otra
+vez, siempre con la misma forma: la app tiene dos interpretaciones posibles
+del mismo gesto, elegir mal rompe un número que la persona conoce de memoria,
+y el dato que falta lo tiene ella.
+
+- Sacar un activo: **¿lo vendiste o te equivocaste al cargarlo?**
+- Sacar plata de Inversiones: **¿la pasás a otra cuenta o nunca estuvo ahí?**
+- Marcar un resumen pagado: **¿tu saldo ya lo tiene descontado o todavía no?**
+- Cargar cripto: **¿pagaste en dólares o en pesos?**
+
+La regla que hace que la pregunta sirva: **que se pueda contestar mirando, no
+entendiendo el modelo.** «¿El Disponible de ahora coincide con tu banco?» se
+responde mirando un número; «¿querés compensar el ajuste contable?» no se
+responde nunca. Y cada opción dice **qué va a pasar**, no sólo cómo se llama
+(para eso está `pedirOpcion()`).
 
 **Una acción que aparece sola cuando "ya tenés lo necesario" no existe.**
 El botón «Mover plata» de Ahorro estaba detrás de `lista.length > 1`: con una
@@ -1020,6 +1048,11 @@ horizontal a 320px. Hay que ponerles `min-width: 0` (está en `shell.css`).
 con flex; si el formulario no entra, el botón de guardar queda fuera de la vista
 y no hay forma de llegar. `.dialogo` lleva `max-height: calc(100dvh - 40px)` +
 `overflow-y: auto`, y `.dialogo-botones` va `sticky` abajo.
+
+**Un comentario `{/* */}` entre los props de un elemento JSX no compila.**
+Dentro de la lista de atributos no se admiten expresiones sueltas: el parser
+corta con «Unexpected token». Va antes del elemento, o se calcula la variable
+arriba con un comentario normal.
 
 **Una acción pendiente que no se limpia abre modales solos.** Los botones del
 encabezado (`+ Nuevo…`) viven en `App` y las pantallas los reciben por props. Si
