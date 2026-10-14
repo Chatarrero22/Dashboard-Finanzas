@@ -66,15 +66,23 @@ function enPalabras(fecha) {
 }
 
 /**
- * Los resúmenes que ya cerraron y todavía no marcaste como pagados.
+ * TODOS los resúmenes de una tarjeta: los que cerraron y el que está abierto.
  *
- * Miramos 12 meses para atrás: más que eso, si quedó sin pagar, no es un
- * olvido de la app. Devuelve el más viejo primero.
+ * Cada uno con su consumo, su vencimiento y si ya lo marcaste como pagado.
+ * Miramos 12 cierres para atrás: más que eso, si quedó sin pagar, no es un
+ * olvido de la app. Devuelve el más viejo primero y el abierto al final.
+ *
+ * Esta es la función que camina los períodos, y es la única. Antes el paseo
+ * vivía adentro de `resumenesPendientes()`, que solo devolvía los impagos;
+ * cuando hubo que preguntar «¿cuáles vencen este mes?» —y la respuesta
+ * incluye los que SÍ pagaste, porque esa plata también salió— no había de
+ * dónde agarrarla sin copiar el recorrido. Copiarlo es exactamente así como
+ * los dos números de la deuda se habían separado.
  */
-function resumenesPendientes(userId, tarjeta, hoy) {
+function resumenes(userId, tarjeta, hoy, cuantos) {
   var ahora = hoy ? new Date(hoy) : new Date();
   var abierto = periodoActual(tarjeta.close_day, hoy);
-  var pendientes = [];
+  var lista = [];
 
   var buscarGasto = db.prepare(
     'SELECT COALESCE(SUM(ABS(amount)),0) total, COUNT(*) n FROM transactions' +
@@ -84,35 +92,55 @@ function resumenesPendientes(userId, tarjeta, hoy) {
     'SELECT * FROM card_payments WHERE card_id = ? AND period_close = ?'
   );
 
+  function armar(desde, cierre, esAbierto) {
+    var gasto = buscarGasto.get(userId, tarjeta.id, aISO(desde), aISO(cierre));
+    var vence = vencimientoDe(cierre, tarjeta.due_day);
+    return {
+      cierre: aISO(cierre),
+      cierreTexto: enPalabras(cierre),
+      desde: aISO(desde),
+      monto: gasto.total,
+      movimientos: gasto.n,
+      vence: aISO(vence),
+      venceTexto: enPalabras(vence),
+      // El que está abierto todavía no se puede pagar: no cerró.
+      abierto: Boolean(esAbierto),
+      pagado: Boolean(buscarPago.get(tarjeta.id, aISO(cierre))),
+      vencido: !esAbierto && vence < ahora
+    };
+  }
+
   // Arrancamos en el cierre anterior al período abierto y vamos hacia atrás.
   var cierre = new Date(abierto.cierre);
   cierre = diaDelMes(cierre.getFullYear(), cierre.getMonth() - 1, tarjeta.close_day);
 
-  for (var i = 0; i < 12; i++) {
+  for (var i = 0; i < (cuantos || 12); i++) {
     var anterior = diaDelMes(cierre.getFullYear(), cierre.getMonth() - 1, tarjeta.close_day);
     var desde = new Date(anterior);
     desde.setDate(desde.getDate() + 1);
 
-    var gasto = buscarGasto.get(userId, tarjeta.id, aISO(desde), aISO(cierre));
-
-    if (gasto.total > 0 && !buscarPago.get(tarjeta.id, aISO(cierre))) {
-      var vence = vencimientoDe(cierre, tarjeta.due_day);
-      pendientes.push({
-        cierre: aISO(cierre),
-        cierreTexto: enPalabras(cierre),
-        desde: aISO(desde),
-        monto: gasto.total,
-        movimientos: gasto.n,
-        vence: aISO(vence),
-        venceTexto: enPalabras(vence),
-        vencido: vence < ahora
-      });
-    }
-
+    lista.push(armar(desde, cierre, false));
     cierre = anterior;
   }
 
-  return pendientes.reverse();
+  lista.reverse();
+
+  var desdeAbierto = new Date(abierto.desde);
+  lista.push(armar(desdeAbierto, abierto.cierre, true));
+
+  return lista;
+}
+
+/**
+ * Los resúmenes que ya cerraron y todavía no marcaste como pagados.
+ *
+ * Devuelve el más viejo primero. Sale de `resumenes()`, que es donde vive el
+ * recorrido de los períodos.
+ */
+function resumenesPendientes(userId, tarjeta, hoy) {
+  return resumenes(userId, tarjeta, hoy).filter(function (r) {
+    return !r.abierto && !r.pagado && r.monto > 0;
+  });
 }
 
 /**
@@ -422,6 +450,7 @@ module.exports = {
   todas: todas,
   periodoActual: periodoActual,
   vencimientoDe: vencimientoDe,
+  resumenes: resumenes,
   resumenesPendientes: resumenesPendientes,
   pagarResumen: pagarResumen,
   cuotasQueSeVienen: cuotasQueSeVienen

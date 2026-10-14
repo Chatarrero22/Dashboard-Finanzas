@@ -59,9 +59,18 @@ export function olvidarTutoriales() {
 export const GUIAS = {
   home: [
     {
-      titulo: 'Esto es tu mes, de un vistazo',
-      texto: 'Arriba está lo que te quedó: lo que entró menos lo que salió. Si está en verde, este mes ahorraste.',
+      // El titular dejó de ser un flujo: ahora es el Disponible, que es el
+      // número que se puede verificar mirando el banco. El tutorial seguía
+      // explicando el viejo («lo que entró menos lo que salió»), así que
+      // enseñaba a leer mal justo el número más grande de la pantalla.
+      titulo: 'Arriba está tu plata',
+      texto: 'Es lo que tenés en tus cuentas para usar hoy. Tiene que coincidir con lo que ves en el banco: si no coincide, hay algo sin anotar. Cómo te fue en el mes está al lado, en «Resultado».',
       apunta: '.titular, .hero',
+    },
+    {
+      titulo: 'Cuánta plata te sale este mes',
+      texto: 'Es distinto de lo que gastaste: lo que pagás con tarjeta sale recién cuando vence el resumen. Acá ves lo que de verdad se va del banco, y cuánto de eso ya salió.',
+      apunta: '.sale-total',
     },
     {
       titulo: 'Anotá tu primer movimiento',

@@ -257,6 +257,230 @@ function Tendencia({ meses, mesActual }) {
   )
 }
 
+/* -------------------------------------------- contra el mes pasado */
+
+/*
+ * La tendencia muestra seis barras y ningún número decía «vas gastando tanto
+ * más que el mes pasado», que es la lectura que uno le quiere sacar al
+ * gráfico. Y sobre todo: EN QUÉ subió. Una barra más alta no te hace cambiar
+ * nada; «Comida +$40.000» sí.
+ *
+ * La comparación es contra los MISMOS días del mes pasado. Comparar el 5 de
+ * octubre contra septiembre entero daría «gastás mucho menos» todos los
+ * primeros de mes, que es verdad y no sirve para nada.
+ */
+function Comparacion({ datos }) {
+  if (!datos) return null
+  // Sin un mes anterior con movimientos no hay con qué comparar, y un cero no
+  // es «gastaste menos»: es que no hay dato.
+  if (!datos.expenseParcial && !datos.expense) return null
+
+  const delta = datos.delta
+  const subio = delta > 0
+  // Menos de mil pesos de diferencia es ruido, no una tendencia.
+  const igual = Math.abs(delta) < 1000
+  const nombreMes = mesNombre(datos.month)
+
+  return (
+    <div className="compara">
+      <span className={`compara-flecha ${igual ? '' : subio ? 'sube' : 'baja'}`}>
+        {igual ? '=' : subio ? '▲' : '▼'}
+      </span>
+      <span className="compara-txt">
+        {igual ? (
+          <>Vas gastando casi lo mismo que en {nombreMes}.</>
+        ) : (
+          <>
+            Vas gastando <strong className="monto-sensible">{money(Math.abs(delta))}</strong>
+            {subio ? ' más' : ' menos'} que en {nombreMes}
+            {datos.parcial ? ' a esta altura del mes' : ''}.
+          </>
+        )}
+        {datos.subioMas && (
+          <>
+            {' '}Lo que más subió es <strong>{datos.subioMas.category}</strong>
+            {' '}(<span className="monto-sensible">{money(datos.subioMas.delta)}</span> más).
+          </>
+        )}
+      </span>
+    </div>
+  )
+}
+
+/* ------------------------------------------- sale de tu cuenta este mes */
+
+/*
+ * CUÁNTA PLATA SALE DEL BANCO ESTE MES.
+ *
+ * «Salió» dice cuánto gastaste, contado el día de la compra. Con tarjeta esa
+ * plata todavía está en el banco: compraste en octubre y se va en noviembre.
+ * Así que «¿cuánta plata me sale de acá a fin de mes?» —la pregunta que uno
+ * se hace para saber si llega— no la contestaba ningún número de la app.
+ *
+ * No es un pronóstico: los resúmenes que vencen ya cerraron y se sabe cuánto
+ * son. Por eso reemplaza a la proyección, que estiraba un promedio.
+ */
+function SaleEsteMes({ datos, onGo }) {
+  if (!datos || datos.total <= 0) return null
+
+  const pctSalio = datos.total > 0 ? (datos.yaSalio / datos.total) * 100 : 0
+
+  return (
+    <>
+      <div className="card-rotulo-fila">
+        <span className="card-rotulo">SALE DE TU CUENTA ESTE MES</span>
+        {datos.diasQueQuedan > 0 && (
+          <span className="card-nota">
+            quedan {datos.diasQueQuedan} {datos.diasQueQuedan === 1 ? 'día' : 'días'}
+          </span>
+        )}
+      </div>
+
+      <Numero className="sale-total monto-sensible" valor={datos.total} />
+      <div className="sale-sub">
+        Es plata que se va del banco, no lo que gastaste
+      </div>
+
+      <div className="sale-barra">
+        <div className="sale-fill salio" style={{ width: `${pctSalio}%` }} />
+        <div className="sale-fill falta" style={{ width: `${100 - pctSalio}%` }} />
+      </div>
+      <div className="sale-leyenda">
+        <span><i className="pt salio" />Ya salió <b className="monto-sensible">{money(datos.yaSalio)}</b></span>
+        <span><i className="pt falta" />Falta <b className="monto-sensible">{money(datos.faltaSalir)}</b></span>
+      </div>
+
+      {datos.atrasado > 0 && (
+        <div className="sale-aviso">
+          De eso, <strong className="monto-sensible">{money(datos.atrasado)}</strong> ya venció
+          y no está marcado como pagado.
+          {onGo && <button className="link" onClick={() => onGo('tarjetas')}>Ir a Tarjetas →</button>}
+        </div>
+      )}
+
+      <div className="sale-lista">
+        {datos.resumenes.map((r) => (
+          <div className="sale-fila" key={`${r.tarjeta}-${r.cierre}`}>
+            <span className="sale-nombre">
+              {r.tarjeta}
+              <span className="sale-meta">
+                {r.abierto ? 'cierra y vence el ' : 'vence el '}{r.venceTexto}
+              </span>
+            </span>
+            <span className={`sale-chip ${r.atrasado ? 'mal' : r.pagado ? 'ok' : 'falta'}`}>
+              {r.atrasado ? 'venció' : r.pagado ? 'pagado' : 'falta'}
+            </span>
+            <span className="sale-monto monto-sensible">{money(r.monto)}</span>
+          </div>
+        ))}
+
+        {datos.sinTarjeta > 0 && (
+          <div className="sale-fila">
+            <span className="sale-nombre">
+              Débito y efectivo
+              <span className="sale-meta">
+                {datos.movimientosSinTarjeta} {datos.movimientosSinTarjeta === 1 ? 'movimiento' : 'movimientos'},
+                {' '}ya salieron
+              </span>
+            </span>
+            <span className="sale-chip ok">pagado</span>
+            <span className="sale-monto monto-sensible">{money(datos.sinTarjeta)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Lo que NO entra en el número, dicho a propósito: si no, parece que la
+          cuenta se olvidó de la tarjeta. */}
+      {datos.masAdelante.length > 0 && (
+        <p className="hint">
+          No entra acá:{' '}
+          {datos.masAdelante.map((r, i) => (
+            <span key={`${r.tarjeta}-${i}`}>
+              {i > 0 && ' · '}
+              {r.tarjeta} <span className="monto-sensible">{money(r.monto)}</span>, vence el {r.venceTexto}
+            </span>
+          ))}
+        </p>
+      )}
+    </>
+  )
+}
+
+/* ------------------------------------------------- topes y metas */
+
+/*
+ * Los presupuestos y las metas YA venían en el dashboard y la pantalla los
+ * tiraba a la basura: el servidor los calculaba en cada carga y nadie los
+ * leía. Si tenés tope de Comida y vas al 90%, eso tiene que estar donde
+ * mirás todos los días, no en una solapa a la que entrás una vez por mes.
+ *
+ * Van ordenados por lo pasado que está cada uno, no alfabético: lo que te
+ * tiene que saltar a la vista es lo que te estás por comer.
+ */
+function TopesYMetas({ budgets, metas, onGo }) {
+  const topes = (budgets || []).slice().sort((a, b) => b.pct - a.pct)
+  const goles = metas || []
+  if (!topes.length && !goles.length) return null
+
+  return (
+    <>
+      <div className="card-rotulo-fila">
+        <span className="card-rotulo">
+          {topes.length ? 'TUS TOPES DEL MES' : 'TUS METAS'}
+        </span>
+        <button className="link" onClick={() => onGo(topes.length ? 'presu' : 'metas')}>
+          Ver todos →
+        </button>
+      </div>
+
+      {topes.length > 0 && (
+        <div className="topes">
+          {topes.map((b) => (
+            <div className="tope" key={b.id}>
+              <div className="tope-head">
+                <span className="tope-nombre">{icono(b.category)} {b.category}</span>
+                <span className="tope-monto monto-sensible">
+                  {money(b.spent)} <span className="tope-de">de {money(b.monthly_limit)}</span>
+                </span>
+              </div>
+              <div className="tope-track">
+                <div
+                  className={`tope-fill ${b.status}`}
+                  style={{ width: `${Math.min(b.pct, 100)}%` }}
+                />
+              </div>
+              <div className={`tope-pie ${b.status}`}>
+                {b.remaining >= 0
+                  ? <>Te quedan <span className="monto-sensible">{money(b.remaining)}</span></>
+                  : <>Te pasaste <span className="monto-sensible">{money(-b.remaining)}</span></>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {goles.length > 0 && (
+        <div className="metas-mini">
+          {topes.length > 0 && <div className="card-rotulo">TUS METAS</div>}
+          {goles.map((g) => (
+            <div className="meta-mini" key={g.id}>
+              <div className="tope-head">
+                <span className="tope-nombre">{g.name}</span>
+                <span className="tope-monto monto-sensible">
+                  {money(g.saved)} <span className="tope-de">de {money(g.target)}</span>
+                </span>
+              </div>
+              <div className="tope-track">
+                <div className="tope-fill meta" style={{ width: `${g.pct}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 /* --------------------------------------------------------- gasto por día */
 
 function GastoPorDia({ byDay, promedio, elegido, onElegir }) {
@@ -340,6 +564,30 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
   // En uno pasado no: ese saldo es de hoy y no tiene que ver con ese mes.
   const esMesActual = mes === new Date().toISOString().slice(0, 7)
 
+  /*
+   * Los dos bloques que pueden no estar: lo que sale del banco (solo en el
+   * mes de hoy) y los topes (solo si cargaste alguno).
+   *
+   * Se arman en una lista porque `.fila-dos` es una grilla de dos columnas:
+   * con un solo hijo la tarjeta quedaría a media pantalla con un hueco al
+   * lado. Si hay uno solo va a lo ancho, como cualquier otra sección.
+   */
+  const bloques = []
+  if (esMesActual && dashboard.saleEsteMes && dashboard.saleEsteMes.total > 0) {
+    bloques.push(
+      <section className="card" key="sale">
+        <SaleEsteMes datos={dashboard.saleEsteMes} onGo={onGo} />
+      </section>
+    )
+  }
+  if ((dashboard.budgets || []).length > 0 || (dashboard.goals || []).length > 0) {
+    bloques.push(
+      <section className="card" key="topes">
+        <TopesYMetas budgets={dashboard.budgets} metas={dashboard.goals} onGo={onGo} />
+      </section>
+    )
+  }
+
   return (
     <>
       {/* fila 1: el número grande + los cuatro KPI */}
@@ -375,8 +623,14 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
             </span>
           </div>
           <Tendencia meses={dashboard.byMonth} mesActual={mes} />
+          <Comparacion datos={dashboard.comparacion} />
         </section>
       </div>
+
+      {/* fila 3: lo que sale del banco este mes + los topes */}
+      {bloques.length === 2
+        ? <div className="fila-dos pareja">{bloques}</div>
+        : bloques}
 
       {/* fila 3: top 5 gastos + gasto por día */}
       <div className="fila-dos pareja">

@@ -16,6 +16,7 @@ var alertasPantalla = require('./alertas-pantalla.js');
 var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
 var tarjetas = require('./tarjetas.js');
+var salidas = require('./salidas.js');
 var cuotas = require('./cuotas.js');
 var medioDePago = require('./medio-de-pago.js');
 var dolares = require('./dolares.js');
@@ -528,6 +529,78 @@ router.get('/dashboard', function (req, res) {
     ' GROUP BY month ORDER BY month DESC LIMIT 6'
   ).all(uid, month);
 
+  /*
+   * CONTRA EL MES PASADO.
+   *
+   * La tendencia muestra seis barras, pero ningun numero dice «vas gastando
+   * $80.000 mas que en septiembre», y menos todavia EN QUE. Una barra mas
+   * alta no te hace cambiar nada; «Comida +$40.000» si.
+   *
+   * Se compara contra el mes anterior al que estas mirando, no contra el
+   * anterior a hoy: si viajas a agosto, la comparacion es con julio.
+   */
+  var anteriorMes = (function () {
+    var y = Number(month.slice(0, 4));
+    var m = Number(month.slice(5, 7));
+    var d = new Date(y, m - 2, 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  })();
+
+  var totalesAnterior = db.prepare(
+    'SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
+    ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense,' +
+    ' COUNT(*) count FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES +
+    ' AND substr(date,1,7) = ?'
+  ).get(uid, anteriorMes);
+
+  /*
+   * Comparar el mes entero contra un mes entero es injusto hasta fin de mes:
+   * el 5 de octubre siempre vas a gastar «menos que en septiembre». Asi que
+   * en el mes en curso comparamos contra los MISMOS dias del mes pasado.
+   */
+  var hastaDia = month === mesActual() ? new Date().getDate() : 31;
+  var anteriorParcial = db.prepare(
+    'SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
+    ' FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES +
+    ' AND substr(date,1,7) = ? AND CAST(substr(date,9,2) AS INTEGER) <= ?'
+  ).get(uid, anteriorMes, hastaDia).expense;
+
+  // Por categoria, para poder decir en que subio y en que bajo.
+  var catsAnterior = {};
+  db.prepare(
+    'SELECT category, SUM(ABS(amount)) total FROM transactions' +
+    " WHERE user_id = ? AND amount < 0 AND category NOT IN ('Ajuste','Traspaso','Saldo inicial')" +
+    ' AND substr(date,1,7) = ? AND CAST(substr(date,9,2) AS INTEGER) <= ? GROUP BY category'
+  ).all(uid, anteriorMes, hastaDia).forEach(function (r) { catsAnterior[r.category] = r.total; });
+
+  byCategory.forEach(function (c) {
+    c.anterior = catsAnterior[c.category] || 0;
+    c.delta = c.total - c.anterior;
+  });
+
+  /*
+   * La categoria que mas subio, que es la frase que sirve. Pide un piso: con
+   * gastos chicos cualquier cosa «subio un 300%» y no significa nada.
+   */
+  var subioMas = byCategory
+    .filter(function (c) { return c.anterior > 0 && c.delta > 0 && c.delta >= 1000; })
+    .sort(function (a, b) { return b.delta - a.delta; })[0] || null;
+
+  var comparacion = {
+    month: anteriorMes,
+    income: totalesAnterior.income,
+    expense: totalesAnterior.expense,
+    count: totalesAnterior.count,
+    // El mes pasado hasta el mismo dia: es contra esto que se compara.
+    expenseParcial: anteriorParcial,
+    hastaDia: hastaDia,
+    parcial: month === mesActual(),
+    delta: monthTotals.expense - anteriorParcial,
+    subioMas: subioMas
+      ? { category: subioMas.category, delta: subioMas.delta, total: subioMas.total }
+      : null
+  };
+
   // Las suscripciones en dolares se convierten para poder sumarlas con las
   // de pesos. Se usa el ultimo cambio que tenemos cacheado, sin ir a la red:
   // este endpoint lo llama toda la app y no puede depender de una API externa.
@@ -626,20 +699,14 @@ router.get('/dashboard', function (req, res) {
   for (var d = 1; d <= diasDelMes; d++) byDay.push({ dia: d, total: 0 });
   porDia.forEach(function (r) { if (byDay[r.dia - 1]) byDay[r.dia - 1].total = r.total; });
 
-  // Proyeccion: al ritmo de lo que va del mes, como cierra.
-  // Solo tiene sentido en el mes en curso; en meses cerrados no proyectamos.
-  var proyeccion = null;
-  if (month === mesActual()) {
-    var hoyDia = new Date().getDate();
-    var diarioPromedio = hoyDia > 0 ? monthTotals.expense / hoyDia : 0;
-    var quedan = Math.max(diasDelMes - hoyDia, 0);
-    proyeccion = {
-      diasQueQuedan: quedan,
-      gastoProyectado: monthTotals.expense + diarioPromedio * quedan,
-      netoProyectado: monthTotals.income - (monthTotals.expense + diarioPromedio * quedan),
-      promedioDiario: diarioPromedio
-    };
-  }
+  /*
+   * La proyeccion se fue. «No sirve de nada», y era cierto: estirar el
+   * promedio de lo que va del mes no es informacion, es una regla de tres.
+   *
+   * Lo que si sirve -y es lo que ocupa su lugar- es cuanta plata SALE de la
+   * cuenta este mes, que es un hecho y no un pronostico: los resumenes que
+   * vencen ya estan cerrados y sus montos se conocen.
+   */
 
   var goals = db.prepare('SELECT * FROM goals WHERE user_id = ? AND done = 0 ORDER BY id DESC LIMIT 3').all(uid);
   goals.forEach(function (g) {
@@ -673,7 +740,17 @@ router.get('/dashboard', function (req, res) {
     gastosDelMes: gastosDelMes,
     byDay: byDay,
     diasDelMes: diasDelMes,
-    proyeccion: proyeccion,
+    /*
+     * Cuanta plata SALE de tus cuentas este mes. Es distinto de `expense`:
+     * eso es lo que gastaste (por fecha de compra), esto es lo que se va del
+     * banco (por fecha de vencimiento). Con tarjeta nunca son el mismo mes.
+     *
+     * En un mes cerrado viene null: la raya entre «ya salio» y «falta salir»
+     * es hoy, y en agosto no significa nada.
+     */
+    saleEsteMes: salidas.delMes(uid, month),
+    // Contra el mes pasado, hasta el mismo dia del mes.
+    comparacion: comparacion,
     subscriptionsCount: subs.n,
     subscriptionsMonthly: subs.total
   });
@@ -831,11 +908,16 @@ async function valuarCartera(userId) {
   var activos = db.prepare('SELECT * FROM portfolio_assets WHERE user_id = ? ORDER BY id ASC')
     .all(userId);
 
-  var cripto = activos.filter(function (a) { return a.asset_type === 'crypto'; });
+  // Ojo con el nombre: mas abajo `tasaCripto` es la COTIZACION. Esta es la
+  // lista de activos, y antes las dos se llamaban `cripto` en el mismo
+  // alcance: funcionaba de casualidad porque la lista se usa antes de que la
+  // pisen, y alcanzaba con mover una linea para multiplicar una cotizacion
+  // por un `.map`.
+  var activosCripto = activos.filter(function (a) { return a.asset_type === 'crypto'; });
   var arg = activos.filter(function (a) { return a.asset_type !== 'crypto'; });
 
   var pedidos = await Promise.all([
-    prices.getPrices(cripto.map(function (a) { return a.symbol; })),
+    prices.getPrices(activosCripto.map(function (a) { return a.symbol; })),
     mercado.cotizar(arg.map(function (a) { return a.symbol; })),
     prices.getDolar()
   ]);
@@ -852,7 +934,7 @@ async function valuarCartera(userId) {
    * así que valuarle la cripto al MEP le agrandaba la tenencia.
    */
   var mep = prices.tasaMercado(dolar);
-  var cripto = prices.tasaCripto(dolar);
+  var tasaCripto = prices.tasaCripto(dolar);
 
   var totalValue = 0;
   var totalCost = 0;
@@ -886,7 +968,7 @@ async function valuarCartera(userId) {
 
     // A pesos. Sin cotización del dólar no se puede convertir lo que está en
     // dólares, y preferimos que falte el dato antes que inventarlo.
-    var tasa = esCripto ? cripto : mep;
+    var tasa = esCripto ? tasaCripto : mep;
     var aPesos = function (n, desde) {
       if (n == null) return null;
       if (desde === 'ARS') return n;
@@ -988,7 +1070,7 @@ async function valuarCartera(userId) {
     dolar: mep,
     // Los dos cambios, porque cada mercado tiene el suyo: la pantalla de
     // carga tiene que descontar con el mismo que usa el server.
-    dolarCripto: cripto,
+    dolarCripto: tasaCripto,
     // Qué no pudimos cotizar, para poder decirlo en vez de mostrar un cero.
     sinPrecio: sinPrecio,
     pricesAvailable: lista.length === 0 || sinPrecio.length < lista.length,

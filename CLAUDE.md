@@ -95,6 +95,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `correccion.js` | Entiende "perdón eran 22" como corrección, no como gasto nuevo |
 | `medio-de-pago.js` | Con qué se pagó: la tarjeta por defecto, salvo que digas efectivo |
 | `tarjetas.js` | Período de resumen, cierre, vencimiento y deuda pendiente |
+| `salidas.js` | Cuánta plata sale del banco este mes, por fecha de vencimiento |
 | `cuentas.js` | Dónde está la plata y cómo moverla entre cuentas |
 | `fijos.js` | Carga sola las suscripciones el día que se cobran |
 | `parsers.js` | Importar resúmenes CSV / Excel / PDF |
@@ -212,6 +213,17 @@ tenía razón.
 Lo que la raya tapaba —arrancar con un año de resúmenes que pagaste en la
 vida real y nunca marcaste— se resuelve **diciéndolo**: el botón «Pagué
 todos» en Tarjetas. **Marcar un pago es un dato; olvidarse la deuda, no.**
+
+**El recorrido de los períodos vive en UN solo lado: `tarjetas.resumenes()`.**
+Devuelve todos los resúmenes de una tarjeta —los que cerraron y el abierto—
+con su consumo, su vencimiento y si está marcado como pagado.
+`resumenesPendientes()` es un filtro sobre eso.
+
+Antes el paseo vivía adentro de `resumenesPendientes()`, que solo devolvía
+los impagos. Cuando hubo que preguntar «¿cuáles vencen este mes?» —y la
+respuesta incluye los que **sí** pagaste, porque esa plata también salió— no
+había de dónde agarrarlo sin copiar el recorrido. Copiarlo es exactamente así
+como los dos números de la deuda se habían separado la primera vez.
 
 **Un total sin desglose deja a la persona adivinando.** La deuda tiene tres
 partes, y `deuda()` las devuelve por separado porque son cosas distintas:
@@ -451,7 +463,73 @@ pregunta que uno se hace mirando un mes cerrado. Y entonces el KPI de
 Resultado desaparece, para no decir dos veces lo mismo.
 
 Se fueron la **proyección** («no sirve de nada») y el **promedio por día**
-(nadie decide nada con eso).
+(nadie decide nada con eso). La proyección ya no se calcula ni se manda:
+estirar el promedio de lo que va del mes no es información, es una regla de
+tres.
+
+**«SALE DE TU CUENTA ESTE MES» ES LO QUE OCUPÓ SU LUGAR, y no es un
+pronóstico.** Los resúmenes que vencen ya cerraron y se sabe cuánto son.
+
+El KPI de «Salió» dice cuánto **gastaste**, contado el día de la compra —que
+es lo correcto para las categorías, los presupuestos y el P&L—. Pero con
+tarjeta esa plata todavía está en el banco: compraste en octubre y se va en
+noviembre. Así que «¿cuánta plata me sale de acá a fin de mes?» —la pregunta
+que uno se hace para saber si llega— no la contestaba ningún número.
+
+Se cuenta por la fecha en que la plata **se va**, no por la de la compra
+(`salidas.delMes()`):
+
+- lo que **no es tarjeta**, de este mes: débito y efectivo salen en el
+  momento, así que la fecha de la compra ya es la fecha en que salió;
+- los **resúmenes que vencen este mes**, pagados o no. Los pagados ya
+  salieron, los otros faltan;
+- los que **vencieron antes y siguen sin marcar**: esa plata tiene que salir
+  igual, y si no se cuenta acá no se cuenta en ningún lado.
+
+**Todo se ancla al VENCIMIENTO, nunca a `card_payments.paid_on`.** Esto no es
+un detalle: «Pagué todos» marca resúmenes viejos con la fecha de **hoy**, así
+que mirando `paid_on` un año de resúmenes pagados en la vida real aparecería
+como un millón saliendo este mes. El vencimiento es un hecho del resumen;
+`paid_on` es cuándo alguien apretó el botón.
+
+**Y «atrasado» es por la fecha, no por el mes.** Un resumen que venció el 10
+y hoy es 14 está atrasado aunque venza este mismo mes: es lo único accionable
+de toda la tarjeta y tiene que decirse así.
+
+Quedan afuera a propósito los `Traspaso` (mover plata entre tus cuentas no es
+plata que se te va, y comprar un título tampoco: cambiás pesos por un bono) y
+el `Saldo inicial`. Un `Ajuste` **negativo** sí entra: es plata que se fue y
+no se cargó. Y lo que **no** entra —el resumen abierto que vence el mes que
+viene— se dice igual abajo de la lista: si no, el número parece que se olvidó
+de la tarjeta.
+
+En un mes cerrado devuelve `null`. La raya entre «ya salió» y «falta salir»
+es hoy, y en agosto no significa nada; devolver `null` evita que la pantalla
+tenga que acordarse de esconderlo.
+
+**CONTRA EL MES PASADO, y en qué.** La tendencia mostraba seis barras y
+ningún número decía «vas gastando $80.000 más que en septiembre». Una barra
+más alta no te hace cambiar nada; **«Comida +$40.000» sí**.
+
+Se compara contra los **mismos días** del mes pasado, no contra el mes
+entero: el 5 de octubre siempre vas a gastar «menos que en septiembre», que
+es verdad y no sirve para nada. Cada categoría trae su `anterior` y su
+`delta`, y `comparacion.subioMas` es la que más subió —con un piso de $1.000,
+porque con gastos chicos cualquier cosa «subió un 300%»—.
+
+Y la comparación es contra el mes anterior **al que estás mirando**: si
+viajás a agosto, se compara con julio.
+
+**LOS TOPES Y LAS METAS YA VENÍAN EN EL DASHBOARD Y NADIE LOS LEÍA.** El
+servidor calculaba `budgets` y `goals` en cada carga y la pantalla los tiraba
+a la basura: no los usaba ningún componente. Si tenés tope de Comida y vas al
+90%, eso tiene que estar donde mirás todos los días, no en una solapa a la
+que entrás una vez por mes. Van ordenados por lo pasado que está cada uno, no
+alfabético: lo que tiene que saltar a la vista es lo que te estás por comer.
+
+**Los dos bloques pueden no estar**, así que se arman en una lista: `.fila-dos`
+es una grilla de dos columnas y con un solo hijo la tarjeta quedaría a media
+pantalla con un hueco al lado. Si hay uno solo, va a lo ancho.
 
 **Cambiar de mes pide SOLO lo que depende del mes.** Antes llamaba a
 `loadCore()`, que además del dashboard vuelve a pedir los movimientos, los
@@ -767,6 +845,16 @@ igual pero sin marcar nada.
 Las dos cosas se chequean solas recorriendo la app: los ids contra los de
 `App.jsx` y cada selector contra la pantalla de verdad.
 
+**Y el texto del paso también envejece, sin que nada avise.** El selector
+seguía encontrando el titular, así que ningún chequeo se quejaba — pero el
+paso decía «arriba está lo que te quedó: lo que entró menos lo que salió», y
+el titular hacía rato que era el **Disponible**. O sea que el tutorial
+enseñaba a leer mal justo el número más grande de la pantalla, y encima es lo
+primero que ve alguien que entra por primera vez.
+
+Apareció mirando una captura, no corriendo un chequeo: **cuando cambies lo
+que un número significa, buscá el paso de `GUIAS` que lo explica.**
+
 ---
 
 ## Conectar Telegram
@@ -807,14 +895,8 @@ Queda:
 1. **Inteligencia** y **Asistente** — chat con IA. Suma costo por uso.
 2. **WhatsApp** — viable (hay dirección pública). Necesita webhook, número
    aparte y cuenta de Meta. Las conversaciones de servicio son gratis.
-3. **«Sale de tu cuenta este mes»** — cuánta plata te va a salir de verdad
-   en el mes: el resumen de tarjeta que vence más lo que no es tarjeta. Es
-   distinto de «gastaste este mes», que es lo que ya muestra el KPI de
-   Resultado. Los datos están todos (`deuda()` ya separa el resumen abierto
-   de lo que vence); falta la pantalla.
-
-   Lo que **sí** se hizo: el titular dejó de ser un flujo y pasó a ser el
-   **Disponible**, que era la mitad confusa del problema.
+3. ~~«Sale de tu cuenta este mes»~~ — hecho: está en el Resumen, sale de
+   `salidas.delMes()` y se ancla al vencimiento.
 4. ~~La deuda de tarjeta en Patrimonio~~ — hecho: hay un pote «Tarjeta sin
    pagar» al lado de Liquidez y Ahorro, y la barra lateral avisa cuánto de lo
    disponible ya está gastado.
@@ -826,6 +908,58 @@ Queda:
   aparecían. La columna `simple_ui` sigue en la base porque borrarla en SQLite
   es un lío, pero **no se lee**: `initDB()` la pone en 0. No la vuelvas a usar.
 - La otra persona que usa la app es **Camila**.
+
+---
+
+## Las pruebas
+
+```bash
+npm test                     # las 35, tardan 3 segundos
+node --test "test/dinero.test.js"
+```
+
+Van en `test/`, con `node:test` (no hace falta instalar nada). **Ojo con el
+comando:** `node --test test/` en Windows trata `test` como un módulo y
+explota con `Cannot find module`; por eso el script lleva el glob entre
+comillas. Y `node --test` en una carpeta llamada `test` corre **todos** los
+`.js`, así que el ayudante se llama `ayuda.js` y los tests `*.test.js`.
+
+| Archivo | Qué fija |
+|---|---|
+| `ayuda.js` | La base de prueba y los atajos para armar datos. No es un test |
+| `plata.test.js` | Que el front y el server lean el mismo número |
+| `dinero.test.js` | Cuentas, potes, deuda de tarjeta y salidas del mes |
+| `dashboard.test.js` | Las reglas que viven en las consultas de `api.js` |
+
+**Cada prueba está porque la regla se rompió en la vida real**, y el
+comentario dice cuál era el número que Emanuel vio mal. Si una falla, lo que
+se rompe es un número que él conoce de memoria. Escribila así: el nombre
+tiene que decir la regla, no la función.
+
+`ayuda.js` se requiere **primero**, antes que nada que toque `db.js`: `db.js`
+abre el archivo en el momento en que se lo requiere, leyendo `DATA_DIR` y
+`DB_FILE` del entorno. Si se pide después, ya es tarde y los tests
+escribirían en la base de verdad. Va con el token de Telegram vacío por el
+mismo motivo de siempre.
+
+`dashboard.test.js` levanta express en memoria con el router real, porque la
+asimetría del `Ajuste` no vive en ningún módulo: vive en `SIN_CORRECCIONES`,
+adentro del endpoint. La sesión se inyecta con un middleware antes del
+router —`auth.requerido` hace `req.user = req.user || ...`— porque lo que se
+prueba ahí son las reglas de la plata, no el login.
+
+`plata.test.js` **recorta `montoDesde()` de `comunes.jsx` y la ejecuta**.
+`comunes.jsx` es ESM con JSX, así que no se puede `require`, pero esa función
+no usa JSX ni importa nada: alcanza con recortarla y compilarla sola. Lo que
+importa es que los dos lados den el mismo número, no que el código se
+parezca.
+
+**UN TEST QUE PASA SIEMPRE NO SIRVE DE NADA.** Después de escribirlos, metí
+a propósito tres bugs que ya habían pasado —que el `Ajuste` positivo contara
+como ingreso, sacar la excepción del `0.809`, y clasificar la cuenta
+principal por su tipo— y verifiqué que fallaran **las pruebas que
+correspondían** y solo esas. Cayeron 5 de 35, las cinco correctas. Sin ese
+paso no sabés si escribiste un guardián o un adorno.
 
 ---
 
@@ -906,6 +1040,27 @@ tarjeta por defecto) hay que ponerlo en los dos lados o Telegram queda afuera.
 **Ojo con tapar variables del módulo.** `var cat = ...` adentro de una función
 tapa al `var cat = require('./categorizer.js')` de arriba, y como `var` se
 eleva, la llamada explota con "Cannot read properties of undefined".
+
+**Y con declarar la misma variable dos veces en el mismo alcance.** El
+linter del frontend caza esto en un segundo; el server **no tiene linter**,
+así que hay que llamarlo a mano:
+
+```bash
+cat > /tmp/es.mjs <<'FIN'
+export default [{
+  files: ['server/*.js'],
+  languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs' },
+  rules: { 'no-redeclare': 'error' }
+}]
+FIN
+npx eslint --config /tmp/es.mjs server/*.js
+```
+
+La primera vez que lo corrí salieron tres, y una era fea: en `valuarCartera()`
+`var cripto` era **la lista de activos** y doce líneas más abajo **la
+cotización del dólar cripto**. Funcionaba de casualidad, porque la lista se
+usa antes de que la pisen; alcanzaba con mover una línea para multiplicar una
+cotización por un `.map`. Ahora son `activosCripto` y `tasaCripto`.
 
 **Dos listas de recarga que se van separando.** Había una lista de qué
 volver a pedir al cambiar de pestaña y otra al volver a la pestaña del

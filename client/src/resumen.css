@@ -631,3 +631,217 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ------------------------------------------------- contra el mes pasado */
+
+.compara {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.compara-flecha {
+  flex: none;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.compara-flecha.sube { color: var(--critical); }
+.compara-flecha.baja { color: var(--good); }
+
+.compara-txt { min-width: 0; }
+.compara-txt strong { color: var(--text-primary); font-weight: 600; }
+
+/* ------------------------------------------- sale de tu cuenta este mes */
+
+.sale-total {
+  display: block;
+  font-family: var(--fuente-titulo);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(28px, 6vw, 38px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.sale-sub {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.sale-barra {
+  display: flex;
+  height: 8px;
+  margin-top: 16px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.sale-fill {
+  height: 100%;
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.sale-fill.salio { background: var(--text-tertiary); }
+.sale-fill.falta { background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+
+.sale-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sale-leyenda .pt {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.sale-leyenda .pt.salio { background: var(--text-tertiary); }
+.sale-leyenda .pt.falta { background: var(--accent); }
+.sale-leyenda b { color: var(--text-primary); font-weight: 600; }
+
+.sale-aviso {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--critical-soft);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.sale-aviso strong { color: var(--critical); font-weight: 650; }
+.sale-aviso .link { margin-left: 4px; font-size: 12.5px; }
+
+.sale-lista { margin-top: 16px; }
+
+.sale-fila {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sale-fila:last-child { border-bottom: none; }
+
+/* Los hijos de una grilla no se achican solos: sin esto una descripción
+   larga ensancha la columna y aparece scroll horizontal a 320px. */
+.sale-nombre {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-primary);
+}
+
+.sale-meta {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sale-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sale-chip.ok { background: var(--good-soft); color: var(--good); }
+.sale-chip.falta { background: var(--accent-soft); color: var(--accent-text); }
+.sale-chip.mal { background: var(--critical-soft); color: var(--critical); }
+
+.sale-monto {
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* ------------------------------------------------------ topes y metas */
+
+.topes { display: grid; gap: 16px; }
+
+.tope-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tope-nombre {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-primary);
+}
+
+.tope-monto {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tope-de { font-weight: 400; color: var(--text-muted); }
+
+.tope-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tope-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.tope-fill.ok { background: var(--good); }
+.tope-fill.cerca { background: var(--accent); }
+.tope-fill.pasado { background: var(--critical); }
+.tope-fill.meta { background: var(--blue); }
+
+.tope-pie {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.tope-pie.pasado { color: var(--critical); }
+.tope-pie.cerca { color: var(--accent-text); }
+
+.metas-mini {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+}
+
+.metas-mini .card-rotulo { margin-bottom: 0; }

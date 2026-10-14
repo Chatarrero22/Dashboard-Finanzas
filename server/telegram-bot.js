@@ -662,13 +662,16 @@ function start(config) {
         .run(user.id, meta.nombre, meta.objetivo);
 
       var porMes = Math.ceil(meta.objetivo / 6 / 1000) * 1000;
-      var premio = arbol.alSumarAMeta(user.id, false);
+      // premioMeta y no premio: mas abajo, en el mismo alcance, vive el
+      // premio de anotar un movimiento. Dos `var` con el mismo nombre en una
+      // funcion no son dos variables, son una sola pisada.
+      var premioMeta = arbol.alSumarAMeta(user.id, false);
 
       return bot.sendMessage(msg.chat.id,
         '🎯 Meta «' + meta.nombre + '» creada por ' + money(meta.objetivo) + '\n\n' +
         'Si guardás ' + money(porMes) + ' por mes, en 6 meses la tenés.\n' +
         'Para sumarle plata: desde la app, en Metas.' +
-        (premio.logros.length ? '\n\n' + premio.logros.map(function (l) { return l.emoji + ' Logro: ' + l.nombre; }).join('\n') : '')
+        (premioMeta.logros.length ? '\n\n' + premioMeta.logros.map(function (l) { return l.emoji + ' Logro: ' + l.nombre; }).join('\n') : '')
       );
     }
 
@@ -718,7 +721,7 @@ function start(config) {
         return bot.sendMessage(msg.chat.id, 'No tengo nada cargado para corregir 🤷');
       }
 
-      var signo = ultimo.amount < 0 ? -1 : 1;
+      var signoUltimo = ultimo.amount < 0 ? -1 : 1;
       var dudoso = correccion.esAmbiguo(correc.monto, ultimo.amount);
 
       if (dudoso) {
@@ -736,7 +739,7 @@ function start(config) {
         );
       }
 
-      aplicarCorreccion(bot, msg.chat.id, user.id, ultimo.id, correc.monto * signo);
+      aplicarCorreccion(bot, msg.chat.id, user.id, ultimo.id, correc.monto * signoUltimo);
       return;
     }
 
