@@ -25,6 +25,17 @@
  *
  * Tres nombres por especie, uno por etapa. Suenan mejor que «cría / joven /
  * adulto» y es lo que hace que se sienta un animal y no un contador.
+ *
+ * LAS ESPECIES NUEVAS VAN AL FINAL, NUNCA EN EL MEDIO. Cada animal es «el
+ * número N que llegó», y su especie y el nombre que le pusiste cuelgan de
+ * ese número. Si se mete un perro entre el conejo y el chancho, el tercer
+ * animal de todos los que ya lo tenían pasa de chancho a perro, y el nombre
+ * que le habían puesto queda pegado a otro bicho. Hay una prueba que lo
+ * cuida.
+ *
+ * Las seis después del caballo llegan cada 1.500 puntos, justo donde antes
+ * nacían crías: así la CANTIDAD de animales para cualquier puntaje no
+ * cambió al agregarlas, solo qué especie es el octavo en adelante.
  */
 var ESPECIES = [
   { especie: 'gallina', llega: 200,  emoji: '🐔', emojiCria: '🐣', etapas: ['pollito', 'pollita', 'gallina'] },
@@ -33,12 +44,19 @@ var ESPECIES = [
   { especie: 'oveja',   llega: 2600, emoji: '🐑', emojiCria: '🐑', etapas: ['corderito', 'cordera', 'oveja'] },
   { especie: 'pato',    llega: 4000, emoji: '🦆', emojiCria: '🐥', etapas: ['patito', 'pato joven', 'pato'] },
   { especie: 'vaca',    llega: 6000, emoji: '🐄', emojiCria: '🐮', etapas: ['ternero', 'vaquillona', 'vaca'] },
-  { especie: 'caballo', llega: 9000, emoji: '🐴', emojiCria: '🐴', etapas: ['potrillo', 'potranca', 'caballo'] }
+  { especie: 'caballo', llega: 9000, emoji: '🐴', emojiCria: '🐴', etapas: ['potrillo', 'potranca', 'caballo'] },
+  { especie: 'perro',     llega: 10500, emoji: '🐕', emojiCria: '🐶', etapas: ['cachorro', 'perrito', 'perro'] },
+  { especie: 'gato',      llega: 12000, emoji: '🐈', emojiCria: '🐱', etapas: ['gatito', 'gatita', 'gato'] },
+  { especie: 'cabra',     llega: 13500, emoji: '🐐', emojiCria: '🐐', etapas: ['cabrito', 'cabrita', 'cabra'] },
+  { especie: 'burro',     llega: 15000, emoji: '🫏', emojiCria: '🫏', etapas: ['burrito', 'burrita', 'burro'] },
+  { especie: 'llama',     llega: 16500, emoji: '🦙', emojiCria: '🦙', etapas: ['llamita', 'llama joven', 'llama'] },
+  // No hay emoji de carpincho: el castor es lo más parecido que existe.
+  { especie: 'carpincho', llega: 18000, emoji: '🦫', emojiCria: '🦫', etapas: ['carpinchito', 'carpincha', 'carpincho'] }
 ];
 
 /*
- * Después del caballo nace una cría cada tanto, rotando las especies. Así no
- * hay tope: siempre hay un próximo animal.
+ * Después del último (el carpincho) nace una cría cada tanto, rotando las
+ * especies. Así no hay tope: siempre hay un próximo animal.
  */
 var CADA_CUANTO_NACE = 1500;
 
@@ -149,6 +167,14 @@ function granja(xp, nombres) {
     especies: ESPECIES.length,
     // Ya llegaron todas las especies: desde ahora nacen crías.
     completa: n >= ESPECIES.length,
+    /*
+     * Las especies que todavía no llegaron, con cuántos puntos piden. Las
+     * nuevas tardan (la primera llega a los 10.500), y lo que no se ve no
+     * motiva: así se sabe desde el principio qué falta.
+     */
+    porLlegar: ESPECIES.slice(n).map(function (x) {
+      return { especie: x.especie, emoji: x.emoji, nombre: x.etapas[2], llega: x.llega, faltan: x.llega - puntos };
+    }),
     proximo: {
       id: n,
       especie: e.especie,

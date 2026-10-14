@@ -51,21 +51,75 @@ test('el caballo llega con el mismo puntaje que el Mangal', function () {
 
   assert.ok(!antes.animales.some(function (a) { return a.especie === 'caballo'; }));
   assert.strictEqual(justo.animales[justo.total - 1].especie, 'caballo');
-  assert.ok(justo.completa, 'con el caballo ya están todas las especies');
+  // Con el caballo ya NO están todas: después vienen las que se agregaron.
+  assert.ok(!justo.completa);
+});
+
+/* Después del caballo llegan las especies que se agregaron después. */
+test('después del caballo llega el perro', function () {
+  var mangal = arbol.ETAPAS[arbol.ETAPAS.length - 1].desde;
+  var g = granja.granja(mangal + granja.CADA_CUANTO_NACE);
+  assert.strictEqual(g.animales[g.total - 1].especie, 'perro');
 });
 
 /*
  * DESPUÉS DE TODAS LAS ESPECIES NACEN CRÍAS, rotando. Así siempre hay uno
  * que viene.
  */
-test('después del caballo nacen crías de cada especie', function () {
-  var mangal = arbol.ETAPAS[arbol.ETAPAS.length - 1].desde;
-  var g = granja.granja(mangal + granja.CADA_CUANTO_NACE);
+test('después de la última especie nacen crías de cada una', function () {
+  var ultima = granja.ESPECIES[granja.ESPECIES.length - 1];
+  var g = granja.granja(ultima.llega + granja.CADA_CUANTO_NACE);
   var nueva = g.animales[g.total - 1];
 
   assert.strictEqual(g.total, granja.ESPECIES.length + 1);
   assert.strictEqual(nueva.especie, 'gallina', 'la rueda vuelve a empezar');
   assert.strictEqual(nueva.etapa, 0, 'y nace cría');
+  assert.ok(granja.granja(ultima.llega).completa, 'con la última ya están todas');
+});
+
+/*
+ * LAS ESPECIES NUEVAS VAN AL FINAL, NUNCA EN EL MEDIO.
+ *
+ * Cada animal es «el número N que llegó», y su especie y el nombre que le
+ * pusiste cuelgan de ese número. Meter una especie en el medio le cambia el
+ * bicho a gente que ya lo tiene, y el nombre queda pegado a otro animal.
+ *
+ * Si esta prueba falla porque agregaste una especie: ponela al final.
+ */
+test('el orden de las especies que ya existían no cambia', function () {
+  var ORDEN = [
+    'gallina', 'conejo', 'chancho', 'oveja', 'pato', 'vaca', 'caballo',
+    'perro', 'gato', 'cabra', 'burro', 'llama', 'carpincho',
+  ];
+  var hoy = granja.ESPECIES.map(function (e) { return e.especie; });
+  assert.deepStrictEqual(hoy.slice(0, ORDEN.length), ORDEN);
+});
+
+/*
+ * Y la cantidad de animales para un puntaje tampoco: las especies nuevas
+ * llegan justo donde antes nacían crías.
+ */
+test('agregar especies no cambió cuántos animales tiene cada puntaje', function () {
+  // Antes de agregar las seis: siete especies y después una cría cada 1.500.
+  function antes(xp) {
+    var umbrales = [200, 700, 1500, 2600, 4000, 6000, 9000];
+    var n = 0;
+    while (xp >= (n < 7 ? umbrales[n] : 9000 + (n - 6) * 1500)) n++;
+    return n;
+  }
+  [0, 199, 200, 1040, 9000, 10499, 10500, 18000, 25000, 60000].forEach(function (xp) {
+    assert.strictEqual(granja.granja(xp).total, antes(xp), 'con ' + xp + ' puntos');
+  });
+});
+
+/* El álbum: lo que falta, con cuántos puntos pide cada uno. */
+test('se sabe desde el principio qué animales faltan', function () {
+  var g = granja.granja(1040);
+  var faltan = g.porLlegar.map(function (x) { return x.especie; });
+  assert.strictEqual(faltan[0], 'chancho');
+  assert.ok(faltan.includes('carpincho'));
+  assert.strictEqual(g.porLlegar[0].faltan, 460);
+  assert.strictEqual(granja.granja(999999).porLlegar.length, 0, 'con todas, no falta ninguna');
 });
 
 /*

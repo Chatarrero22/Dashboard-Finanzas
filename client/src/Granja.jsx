@@ -251,6 +251,186 @@ function Caballo() {
   )
 }
 
+function Perro() {
+  const pata = (x) => <rect x={x} y="-8" width="3.6" height="8" rx="1.5" fill="#c98d55" />
+  return (
+    <>
+      <g className="pata a">{pata(-12)}{pata(4)}</g>
+      <g className="pata b">{pata(-6)}{pata(9)}</g>
+      {/* La cola para arriba: un perro contento la mueve rápido. */}
+      <g className="cola">
+        <path d="M-14 -16 Q-21 -22 -18.5 -29" fill="none" stroke="#d9a066" strokeWidth="3.2" strokeLinecap="round" />
+      </g>
+      <ellipse cx="-1" cy="-13.5" rx="14" ry="8" fill="#d9a066" />
+      <ellipse cx="8" cy="-12.5" rx="4" ry="5" fill="#fff5e6" />
+      <g className="cabeza">
+        <circle cx="13" cy="-22" r="7.6" fill="#d9a066" />
+        <ellipse cx="19.2" cy="-19.4" rx="4.6" ry="3.4" fill="#fff5e6" />
+        <ellipse cx="22.6" cy="-20.6" rx="1.7" ry="1.3" fill="#3a2a20" />
+        <path d="M19.5 -16.8 q1.2 2.6 2.6 0" fill="#ff8fa3" />
+        <g className="orejas">
+          <ellipse cx="8.6" cy="-23.4" rx="2.7" ry="5.6" fill="#a8703f" transform="rotate(22 8.6 -23.4)" />
+        </g>
+        <Ojo x={14.6} y={-24} r={1.3} />
+        <Cachete x={12} y={-19.6} r={1.6} />
+      </g>
+    </>
+  )
+}
+
+function Gato() {
+  const pata = (x) => <rect x={x} y="-7" width="2.7" height="7" rx="1.2" fill="#e8944f" />
+  return (
+    <>
+      <g className="pata a">{pata(-10)}{pata(4)}</g>
+      <g className="pata b">{pata(-5)}{pata(8)}</g>
+      <g className="cola">
+        <path d="M-12 -12 Q-24 -15 -21 -29 Q-20 -33 -17 -30" fill="none" stroke="#f0a35e" strokeWidth="2.7" strokeLinecap="round" />
+      </g>
+      <ellipse cx="-1" cy="-11.5" rx="12" ry="7" fill="#f0a35e" />
+      <path d="M-6 -17.5 q1 3 0 6 M-1 -18.4 q1 3 0 6.4 M4 -17.8 q1 3 0 6" fill="none" stroke="#d27b36" strokeWidth="1.3" strokeLinecap="round" />
+      <g className="cabeza">
+        <g className="orejas">
+          <path d="M6 -24.4 L7.4 -31.4 L11 -26 Z" fill="#f0a35e" />
+          <path d="M7.4 -25.4 L8 -29 L9.6 -26.4 Z" fill="#f4b8c4" />
+          <path d="M12 -26.4 L15.6 -31.4 L16.4 -24.4 Z" fill="#f0a35e" />
+          <path d="M13.4 -26.2 L15.2 -29 L15.6 -25.6 Z" fill="#f4b8c4" />
+        </g>
+        <circle cx="11.4" cy="-20" r="6.6" fill="#f0a35e" />
+        <path d="M14.6 -18.4 l2.2 1.2 M14.6 -17.4 l2.4 0.2 M14 -16.6 l2 1.2" stroke="#fff5e6" strokeWidth="0.5" strokeLinecap="round" />
+        <circle cx="16.6" cy="-19.4" r="0.9" fill="#e8768f" />
+        <Ojo x={13.4} y={-21.4} r={1.25} />
+        <Cachete x={10.6} y={-17.6} r={1.5} />
+      </g>
+    </>
+  )
+}
+
+function Cabra() {
+  const pata = (x) => (
+    <>
+      <rect x={x} y="-9.5" width="2.9" height="9.5" rx="1.2" fill="#ece7df" stroke="#d6cfc3" strokeWidth="0.6" />
+      <rect x={x} y="-2" width="2.9" height="2" rx="0.6" fill="#5b4f45" />
+    </>
+  )
+  return (
+    <>
+      <g className="pata a">{pata(-11)}{pata(4)}</g>
+      <g className="pata b">{pata(-6)}{pata(9)}</g>
+      <g className="cola"><path d="M-14 -20 L-18 -26.5 L-12.4 -22.4 Z" fill="#ece7df" /></g>
+      <ellipse cx="-1" cy="-17" rx="14" ry="8.6" fill="#f3efe8" stroke="#d6cfc3" strokeWidth="0.8" />
+      <ellipse cx="-4" cy="-19" rx="6" ry="3.4" fill="#e3ddd2" />
+      <g className="cabeza">
+        <path d="M11 -30.5 Q8 -38 3.4 -36.6" fill="none" stroke="#9b8f80" strokeWidth="2.1" strokeLinecap="round" />
+        <path d="M13.6 -31 Q11.6 -38.6 7 -38" fill="none" stroke="#8a7f71" strokeWidth="1.9" strokeLinecap="round" />
+        <ellipse cx="9.4" cy="-27.6" rx="3.6" ry="1.5" fill="#ece7df" stroke="#d6cfc3" strokeWidth="0.6" transform="rotate(-20 9.4 -27.6)" />
+        <ellipse cx="15" cy="-25" rx="5.4" ry="6.6" fill="#f3efe8" stroke="#d6cfc3" strokeWidth="0.8" transform="rotate(-22 15 -25)" />
+        {/* La barbita, que es lo que la hace cabra y no oveja pelada. */}
+        <path d="M17.4 -19.4 L16.6 -13.6 L19.4 -18.4 Z" fill="#cfc6b8" />
+        <circle cx="19.6" cy="-21.6" r="0.8" fill="#8a7f71" />
+        <Ojo x={15.8} y={-26.4} r={1.2} />
+      </g>
+    </>
+  )
+}
+
+function Burro() {
+  const pata = (x) => (
+    <>
+      <rect x={x} y="-13" width="3.5" height="13" rx="1.5" fill="#8b857d" />
+      <rect x={x - 0.2} y="-2.4" width="3.9" height="2.4" rx="0.8" fill="#3d3832" />
+    </>
+  )
+  return (
+    <>
+      <g className="pata a">{pata(-14)}{pata(7)}</g>
+      <g className="pata b">{pata(-8)}{pata(12)}</g>
+      <g className="cola">
+        <path d="M-17 -22 Q-21 -17 -20 -11" fill="none" stroke="#8b857d" strokeWidth="1.6" strokeLinecap="round" />
+        <ellipse cx="-20" cy="-10" rx="1.8" ry="2.8" fill="#4a443d" />
+      </g>
+      <ellipse cx="-1" cy="-20" rx="17" ry="9.2" fill="#9c968e" />
+      <ellipse cx="0" cy="-14.6" rx="11" ry="3.6" fill="#cfc9bf" />
+      <g className="cabeza">
+        <path d="M9 -24 L16 -36 L22 -33 L17 -19 Z" fill="#9c968e" />
+        <path d="M10 -25 Q12 -34 16.6 -37.6 L15.8 -33 Q13 -29 13 -23 Z" fill="#4a443d" />
+        <g className="orejas">
+          <ellipse cx="17" cy="-43" rx="2.1" ry="6.4" fill="#9c968e" transform="rotate(-10 17 -43)" />
+          <ellipse cx="17" cy="-43" rx="1" ry="4.4" fill="#4a443d" transform="rotate(-10 17 -43)" />
+          <ellipse cx="21" cy="-42" rx="2.1" ry="6.2" fill="#9c968e" transform="rotate(14 21 -42)" />
+        </g>
+        <ellipse cx="22" cy="-33" rx="7.8" ry="5" fill="#9c968e" transform="rotate(28 22 -33)" />
+        <ellipse cx="26.2" cy="-29.8" rx="3.8" ry="3.1" fill="#d8d2c8" transform="rotate(28 26.2 -29.8)" />
+        <circle cx="27.6" cy="-29.2" r="0.7" fill="#3d3832" />
+        <Ojo x={20.4} y={-35.4} r={1.25} />
+      </g>
+    </>
+  )
+}
+
+function Llama() {
+  const pata = (x) => <rect x={x} y="-13" width="3" height="13" rx="1.3" fill="#e3d3b4" />
+  return (
+    <>
+      <g className="pata a">{pata(-11)}{pata(5)}</g>
+      <g className="pata b">{pata(-6)}{pata(9)}</g>
+      <g className="cola"><ellipse cx="-15" cy="-23" rx="3" ry="2.4" fill="#efe2c8" /></g>
+      <ellipse cx="-1" cy="-21" rx="14" ry="8.6" fill="#efe2c8" />
+      <g fill="#f5ead6">
+        <circle cx="-9" cy="-26" r="3.4" /><circle cx="-3" cy="-28" r="3.6" /><circle cx="3.4" cy="-27.4" r="3.4" />
+      </g>
+      {/* La manta de colores, como en el norte. */}
+      <rect x="-7" y="-28.6" width="12" height="7" rx="1.6" fill="#d64545" />
+      <path d="M-7 -26.4 H5 M-7 -23.8 H5" stroke="#f2c14e" strokeWidth="1.1" />
+      <path d="M-7 -25.1 H5" stroke="#2f9e8f" strokeWidth="0.9" />
+      <g className="cabeza">
+        <rect x="7" y="-45" width="6.4" height="22" rx="3.2" fill="#efe2c8" />
+        <ellipse cx="14.4" cy="-46" rx="5.6" ry="4.6" fill="#efe2c8" />
+        <ellipse cx="18.6" cy="-44.6" rx="3" ry="2.6" fill="#e3d3b4" />
+        <circle cx="20.4" cy="-45.4" r="0.6" fill="#7a6650" />
+        <g className="orejas">
+          <ellipse cx="11.2" cy="-53" rx="1.6" ry="4.2" fill="#efe2c8" transform="rotate(-14 11.2 -53)" />
+          <ellipse cx="14.6" cy="-53.4" rx="1.6" ry="4.2" fill="#efe2c8" transform="rotate(10 14.6 -53.4)" />
+          {/* Los pompones en las orejas. */}
+          <circle cx="10.2" cy="-57.4" r="1.6" fill="#e84a8a" />
+          <circle cx="15.4" cy="-57.8" r="1.6" fill="#f2c14e" />
+        </g>
+        <Ojo x={15.2} y={-47.4} r={1.15} />
+        <Cachete x={13.6} y={-43.4} r={1.4} />
+      </g>
+    </>
+  )
+}
+
+function Carpincho() {
+  const pata = (x) => <rect x={x} y="-4.6" width="3.8" height="4.6" rx="1.4" fill="#8c6339" />
+  return (
+    <>
+      <g className="pata a">{pata(-13)}{pata(6)}</g>
+      <g className="pata b">{pata(-7)}{pata(11)}</g>
+      <ellipse cx="-1" cy="-11" rx="17" ry="9.4" fill="#a3764a" />
+      <ellipse cx="-3" cy="-15" rx="10" ry="3.4" fill="#ad8255" />
+      {/* El pajarito en el lomo: un carpincho grande siempre tiene uno. */}
+      <g className="pajarito">
+        <ellipse cx="-3" cy="-21.6" rx="3.2" ry="2.6" fill="#f2c14e" />
+        <circle cx="-0.8" cy="-23.4" r="1.9" fill="#f2c14e" />
+        <path d="M0.9 -23.6 L3 -23 L0.9 -22.6 Z" fill="#e8962a" />
+        <circle cx="-0.4" cy="-23.9" r="0.45" fill="#2a1c0c" />
+        <path d="M-6 -21.6 L-8 -23 L-6.6 -20.6 Z" fill="#e2ac2e" />
+      </g>
+      <g className="cabeza">
+        <circle cx="12.4" cy="-23" r="1.9" fill="#8c6339" />
+        <rect x="10" y="-22.6" width="15" height="11.6" rx="5.2" fill="#a3764a" />
+        <rect x="21" y="-20.4" width="5" height="8" rx="2.4" fill="#8c6339" />
+        <circle cx="24.4" cy="-18" r="0.7" fill="#4b331d" />
+        {/* Ojitos tranquilos: el carpincho no se inmuta por nada. */}
+        <Ojo x={17.6} y={-18.6} r={1.05} />
+        <Cachete x={16.4} y={-14.6} r={1.5} />
+      </g>
+    </>
+  )
+}
+
 const DIBUJOS = {
   gallina: Gallina,
   conejo: Conejo,
@@ -259,6 +439,12 @@ const DIBUJOS = {
   pato: Pato,
   vaca: Vaca,
   caballo: Caballo,
+  perro: Perro,
+  gato: Gato,
+  cabra: Cabra,
+  burro: Burro,
+  llama: Llama,
+  carpincho: Carpincho,
 }
 
 /* ========================================================= los recorridos */
@@ -919,7 +1105,7 @@ export default function Granja({ progreso, onCambio, onError }) {
   }, [saltando])
 
   if (!progreso || !progreso.granja) return null
-  const { animales, proximo, total } = progreso.granja
+  const { animales, proximo, total, porLlegar = [] } = progreso.granja
   const { racha, mejorRacha, rachaHoy } = progreso
 
   /*
@@ -1095,6 +1281,26 @@ export default function Granja({ progreso, onCambio, onError }) {
               Y {total - 12} más{total > MAXIMO_EN_PANTALLA ? ' (en el corral se ven los últimos 14)' : ''}.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Los que faltan, a la vista desde el principio. Los últimos tardan
+          mucho en llegar (el perro pide 10.500 puntos), y lo que no se ve
+          no motiva. */}
+      {porLlegar.length > 0 && (
+        <div className="granja-album">
+          <div className="card-rotulo">TODAVÍA NO LLEGARON</div>
+          <div className="granja-album-lista">
+            {porLlegar.map((x) => (
+              <span className="granja-album-item" key={x.especie} title={`Llega a los ${x.llega.toLocaleString('es-AR')} puntos`}>
+                <span className="granja-album-ico" aria-hidden="true">{x.emoji}</span>
+                <span className="granja-album-txt">
+                  <span className="granja-album-nombre">{x.nombre}</span>
+                  <span className="granja-album-puntos">{x.llega.toLocaleString('es-AR')} pts</span>
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </section>

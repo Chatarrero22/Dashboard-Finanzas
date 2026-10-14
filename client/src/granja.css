@@ -331,6 +331,15 @@
 .granja-escena .pato { --agacha: 30deg; }
 .granja-escena .vaca { --agacha: 22deg; }
 .granja-escena .caballo { --agacha: 44deg; }
+.granja-escena .perro { --agacha: 30deg; }
+.granja-escena .gato { --agacha: 22deg; }
+.granja-escena .cabra { --agacha: 36deg; }
+.granja-escena .burro { --agacha: 40deg; }
+.granja-escena .llama { --agacha: 26deg; }
+.granja-escena .carpincho { --agacha: 12deg; }
+
+/* El pajarito del carpincho llega cuando el carpincho ya es grande. */
+.granja-escena .carpincho:not(.etapa-2) .pajarito { display: none; }
 
 /* Parpadean cada tanto, cada uno a su ritmo. */
 .granja-escena .ojo {
@@ -745,3 +754,40 @@
   .granja-escena .zzz { display: none; }
   .granja-escena .animal.durmiendo .toque .cuerpo { animation: none !important; }
 }
+
+/* ------------------------------------------------------------ el álbum */
+
+.granja-album {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.granja-album .card-rotulo { margin-bottom: 10px; }
+
+.granja-album-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.granja-album-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: var(--surface-0);
+  border: 1px dashed var(--border-strong);
+}
+
+/* Todavía no son tuyos: se ven apagados, como figuritas que faltan. */
+.granja-album-ico {
+  font-size: 1.15rem;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.granja-album-txt { display: flex; flex-direction: column; line-height: 1.15; }
+.granja-album-nombre { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: capitalize; }
+.granja-album-puntos { font-size: 0.7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }

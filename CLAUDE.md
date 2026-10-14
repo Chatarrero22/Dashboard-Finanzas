@@ -852,18 +852,42 @@ que el nuevo `/granja`). Las etapas del árbol (`ETAPAS`) siguen en
 le avisa a nadie que «el árbol creció»: sería hablar de algo que no ve.
 
 - Van **llegando animales** con los mismos puntos: gallina (200), conejo,
-  chancho, oveja, pato, vaca y caballo, que llega justo en 9.000, junto con
-  el Mangal. Terminar el árbol tiene premio.
+  chancho, oveja, pato, vaca, caballo (9.000), y después perro, gato,
+  cabra, burro, llama y carpincho, uno cada 1.500 hasta los 18.000. Son 13
+  especies.
 - Cada uno **nace cría y crece** con los puntos que sumás después: pollito →
   pollita → gallina. Llega antes de que pueda llegar el siguiente, así que
   entre una llegada y otra siempre pasa algo.
 - Cuando ya están todas las especies **nacen crías nuevas cada 1.500
-  puntos**, rotando, **para siempre**. La prueba `la granja no tiene tope`
+  puntos**, rotando, **para siempre**.
+- Abajo hay un **álbum** con las especies que todavía no llegaron y cuántos
+  puntos pide cada una, en gris como figuritas que faltan. Las últimas
+  tardan mucho (el perro pide 10.500) y lo que no se ve no motiva. La prueba `la granja no tiene tope`
   existe para que nadie se la ponga sin querer.
 - Cada animal tiene **nombre** (Pocha, Chiche, Toto…), y es siempre el mismo:
   sale del orden en que llegó. **Se puede cambiar** tocando el nombre en la
   lista o el animal en el corral (`PATCH /granja/:id`). Vacío vuelve al que
   le tocó.
+
+**LAS ESPECIES NUEVAS VAN AL FINAL DE `ESPECIES`, NUNCA EN EL MEDIO.** Cada
+animal es «el número N que llegó», y su especie y el nombre que le pusiste
+(`animal_names.animal_id`) cuelgan de ese número. Si se mete un perro entre
+el conejo y el chancho, el tercer animal de todos los que ya lo tenían pasa
+de chancho a perro, y el nombre que le habían puesto queda pegado a otro
+bicho. La prueba `el orden de las especies que ya existían no cambia` lo
+cuida: si falla porque agregaste una, ponela al final.
+
+Y conviene que llegue **en un puntaje donde antes nacía una cría** (el
+último + 1.500): así la CANTIDAD de animales para cualquier puntaje no
+cambia, solo qué especie es el que estaba en ese lugar. Las seis que se
+agregaron después del caballo están puestas así, y hay una prueba que
+compara la cantidad contra la cuenta de antes.
+
+Para agregar una: la entrada en `ESPECIES` (`granja.js`), el dibujo en
+`Granja.jsx` con las mismas piezas que los demás (`pata a/b`, `cabeza`,
+`cola`, `ojo`, `orejas`, los pies en y = 0 mirando a la derecha), la línea
+en `DIBUJOS` y su `--agacha` en `granja.css`. Si no hay emoji para la
+especie, el más parecido (el carpincho usa el del castor).
 
 **No se guarda nada más que los nombres elegidos: la granja es una función
 de la XP.** Mismos puntos, misma granja. Los nombres van en `animal_names`,
@@ -1118,7 +1142,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 64, tardan 3 segundos
+npm test                     # las 68, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
