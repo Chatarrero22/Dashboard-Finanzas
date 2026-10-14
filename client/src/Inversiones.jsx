@@ -346,7 +346,9 @@ export default function InversionesScreen({ portfolio, accion, cuentas, onError,
                     <span className="activo-rotulo">Compra</span>
                     {a.avg_price ? (
                       <>
-                        <span className="activo-valor monto-sensible">{precio(a.avg_price, a.currency)}</span>
+                        <span className="activo-valor monto-sensible">
+                          {precio(a.avg_price, a.cost_currency || a.currency)}
+                        </span>
                         {/* El precio es POR UNIDAD, y el total que sale de ahí
                             es lo único contra lo que se puede comparar «¿puse
                             eso?». Sin este renglón, un precio cargado como
@@ -486,6 +488,9 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
   const [cantidad, setCantidad] = useState(String(activo.quantity || ''))
   const [compra, setCompra] = useState(activo.avg_price ? String(activo.avg_price) : '')
   const [moneda, setMoneda] = useState(activo.currency || 'ARS')
+  // En qué moneda está el precio de compra. Para la cripto puede ser pesos
+  // aunque cotice en dólares: es la salida de una tanda que quedó mezclada.
+  const [monedaCosto, setMonedaCosto] = useState(activo.cost_currency || activo.currency || 'ARS')
 
   const esCripto = activo.asset_type === 'crypto'
   const cant = montoDesde(cantidad)
@@ -503,7 +508,12 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
     try {
       await api(`/portfolio/${activo.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ quantity: cant, avg_price: precioCompra, currency: moneda }),
+        body: JSON.stringify({
+          quantity: cant,
+          avg_price: precioCompra,
+          currency: moneda,
+          cost_currency: esCripto ? monedaCosto : moneda,
+        }),
       })
       onHecho()
     } catch (err) {
@@ -557,6 +567,30 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
           </div>
         )}
 
+        {/* La cripto cotiza en dólares siempre, pero podés haberla pagado en
+            pesos (Cocos, Belo). Acá se corrige, que es la salida cuando una
+            posición quedó con el precio en la moneda equivocada. */}
+        {esCripto && (
+          <div className="field">
+            <span className="field-label">Ese precio, ¿en qué moneda es?</span>
+            <div className="segmentado">
+              <button
+                type="button"
+                className={monedaCosto === 'USD' ? 'elegido' : ''}
+                onClick={() => setMonedaCosto('USD')}
+              >Dólares</button>
+              <button
+                type="button"
+                className={monedaCosto === 'ARS' ? 'elegido' : ''}
+                onClick={() => setMonedaCosto('ARS')}
+              >Pesos</button>
+            </div>
+            <span className="hint" style={{ marginTop: 6 }}>
+              Cotiza en dólares igual. Esto es solo en qué pagaste vos.
+            </span>
+          </div>
+        )}
+
         <div className="cuenta-previa">
           <div>
             <span className="activo-rotulo">Hoy vale</span>
@@ -604,6 +638,9 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
   const [cantidad, setCantidad] = useState('')
   const [compra, setCompra] = useState('')
   const [moneda, setMoneda] = useState('ARS')
+  // En qué moneda está el precio de compra de una cripto (cotiza en USD
+  // igual, pero la podés haber pagado en pesos).
+  const [monedaCripto, setMonedaCripto] = useState('USD')
   // De qué cuenta salió la plata. Vacío = no descontar de ninguna.
   // Arranca en la cuenta que espera para comprar, si la tenés: es de donde
   // sale casi siempre, y así el flujo cierra solo (pasás plata, comprás, se
@@ -648,7 +685,13 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
    * Mostrarlo no es un adorno: es la unica forma de que un precio en la
    * moneda equivocada se vea ANTES y no despues.
    */
-  const monedaPrecio = esCripto ? 'USD' : moneda
+  /*
+   * En qué moneda PAGASTE. Para lo argentino es la misma en la que cotiza;
+   * para la cripto puede ser en pesos: en Cocos ponés $30.000 y te dan AVAX,
+   * y ese es el precio que conocés. Obligarte a pasarlo a dólares te haría
+   * inventar un cambio, y la ganancia saldría de un número inventado.
+   */
+  const monedaPrecio = esCripto ? monedaCripto : moneda
   const lamina = POR_LAMINA.includes(tipo) ? 100 : 1
   const cantidadNum = montoDesde(cantidad)
   const precioNum = montoDesde(compra)
@@ -695,6 +738,7 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
           quantity: montoDesde(cantidad),
           avg_price: montoDesde(compra),
           currency: esCripto ? 'USD' : moneda,
+          cost_currency: monedaPrecio,
           account_id: desdeCuenta || null,
         }),
       })
@@ -724,6 +768,7 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
                   setElegido(null)
                   setTexto('')
                   setMoneda('ARS')
+                  setMonedaCripto('USD')
                 }}
               >
                 <span className="tipo-ico">{op.icono}</span>
@@ -794,6 +839,31 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
           </div>
         )}
 
+        {/* La cripto cotiza en dólares siempre, pero podés haberla pagado
+            en pesos. Son dos cosas distintas y la segunda la sabe la persona,
+            no la app. */}
+        {esCripto && (
+          <div className="field">
+            <span className="field-label">¿En qué pagaste?</span>
+            <div className="tipos tipos-chicos">
+              <button
+                type="button"
+                className={monedaCripto === 'USD' ? 'elegido' : ''}
+                onClick={() => setMonedaCripto('USD')}
+              >Dólares</button>
+              <button
+                type="button"
+                className={monedaCripto === 'ARS' ? 'elegido' : ''}
+                onClick={() => setMonedaCripto('ARS')}
+              >Pesos</button>
+            </div>
+            <span className="hint" style={{ marginTop: 6 }}>
+              En un exchange de afuera pagás en dólares. En Cocos o Belo
+              ponés pesos: elegí pesos y cargá el precio como lo viste ahí.
+            </span>
+          </div>
+        )}
+
         <div className="row-2">
           <label className="field">
             <span className="field-label">¿Cuántos {t.unidad}?</span>
@@ -820,7 +890,9 @@ function AgregarActivo({ cuentas, dolar, dolarCripto, onCerrar, onHecho, onError
             />
             {esCripto && (
               <span className="hint" style={{ marginTop: 6 }}>
-                La cripto cotiza en dólares: poné el precio en US$, no en pesos.
+                {monedaPrecio === 'USD'
+                  ? 'La cripto cotiza en dólares. Si la compraste en pesos (Cocos, Belo), cambialo abajo.'
+                  : 'Pagaste en pesos. Se guarda así y la ganancia se mide en pesos, sin inventar ningún cambio.'}
               </span>
             )}
           </label>

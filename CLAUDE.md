@@ -374,6 +374,34 @@ Los datos salen de `dashboard.gastosDelMes` y **no** de filtrar la lista de
 movimientos en el navegador: esa lista trae los últimos 500 de siempre, así
 que en un mes viejo faltarían gastos y nadie se enteraría.
 
+**En el mes de hoy, arriba va lo que TENÉS. En un mes pasado, cómo te fue.**
+El número grande decía «Resultado de octubre» y era ingresos menos gastos: un
+flujo. Emanuel preguntó **cuatro veces** por qué no coincidía con su plata, y
+la última lo dijo entero: «es medio confuso porque capaz usás plata del mes
+pasado e igual te aparece que este mes estás negativo».
+
+Ahora el titular es **Disponible**, que es el número que se puede verificar
+mirando el banco. El resultado del mes bajó a los KPI, al lado de Entró y
+Salió, donde se lee como lo que es: la resta de esos dos.
+
+**Pero en un mes pasado «Disponible» sería el saldo de HOY**, que no tiene
+nada que ver con el mes que estás mirando, y volvería a confundir. Por eso al
+viajar al pasado el titular cambia a «Resultado de septiembre» — justo la
+pregunta que uno se hace mirando un mes cerrado. Y entonces el KPI de
+Resultado desaparece, para no decir dos veces lo mismo.
+
+Se fueron la **proyección** («no sirve de nada») y el **promedio por día**
+(nadie decide nada con eso).
+
+**Cambiar de mes pide SOLO lo que depende del mes.** Antes llamaba a
+`loadCore()`, que además del dashboard vuelve a pedir los movimientos, los
+gastos fijos, el patrimonio y el progreso. Nada de eso cambia al moverte de
+mes, y el patrimonio es lo más lento que tiene la app: valúa toda la cartera
+contra CoinMarketCap y data912. Medido con la caché fría: **`/dashboard` 5 ms,
+`/networth` 1.108 ms**. O sea que viajar a un mes anterior se comía un segundo
+largo por nada, y si tocabas la flecha varias veces se encolaban. Emanuel:
+«que se pueda ver meses anteriores, en estos momentos se traba».
+
 **Arriba de todo va la plata que TENÉS, no cómo te fue en el mes.** La
 tarjeta de la barra lateral decía «Ahorro del mes» y mostraba ingresos menos
 gastos: un flujo. Ese número no coincide nunca con lo que hay en el banco —no
@@ -554,6 +582,24 @@ el título aparece del otro lado valuado a mercado.
 
 Sin esto la misma plata se contaba dos veces: como pesos en la cuenta y como
 título en la cartera.
+
+**En qué moneda COTIZA y en qué moneda PAGASTE son dos cosas distintas.** La
+cripto cotiza en dólares siempre, pero en Cocos o Belo la comprás en pesos:
+ponés $30.000 y te dan AVAX. Ese precio en pesos es el que la persona conoce,
+y obligarla a pasarlo a dólares la haría inventar un cambio — con lo cual la
+ganancia saldría de un número inventado.
+
+Por eso `portfolio_assets.currency` es la moneda en la que **cotiza** (la usa
+la valuación) y `cost_currency` dice en cuál está guardado `avg_price`. El
+costo se pasa a pesos con **su** moneda, no con la de cotización, y el
+descuento de la cuenta también: si pagaste en pesos, el costo ya está en
+pesos y no se multiplica por nada.
+
+**Juntar dos tandas en monedas distintas no inventa un promedio.** Promediar
+US$2 con $3.000 no da nada, y convertir la vieja al cambio de hoy sería
+inventar a cuánto compraste. El promedio queda **sin cargar** —igual que
+cuando a una tanda le falta el precio— y se arregla desde Editar, que deja
+corregir la moneda del precio.
 
 **Comprar más de lo mismo NO es otra posición.** Es la misma, más grande y
 con otro precio promedio: 100 a US$2 más 100 a US$1 son 200 a US$1,50. Se

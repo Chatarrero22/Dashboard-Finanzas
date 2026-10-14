@@ -307,6 +307,20 @@ function initDB() {
     db.exec('ALTER TABLE transactions ADD COLUMN asset_id INTEGER');
   }
 
+  /*
+   * En que moneda PAGASTE un activo, que no es la misma en la que cotiza.
+   *
+   * La cripto cotiza en dolares siempre, pero en Cocos la comprás en pesos:
+   * ponés $30.000 y te dan AVAX. El precio de compra que conocés es en
+   * pesos, y obligarte a pasarlo a dolares te hace inventar un cambio.
+   *
+   * `currency` sigue siendo la moneda en la que COTIZA (la usa la valuacion)
+   * y esta dice en cual esta guardado `avg_price`. Nulo = la misma.
+   */
+  if (!tieneColumna('portfolio_assets', 'cost_currency')) {
+    db.exec('ALTER TABLE portfolio_assets ADD COLUMN cost_currency TEXT');
+  }
+
   // En que moneda ve la app cada persona.
   //
   // Es SOLO como se dibujan los montos: los datos se siguen guardando en

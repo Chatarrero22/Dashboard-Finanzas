@@ -16,13 +16,32 @@ const COLORES = [
 
 /* ------------------------------------------------------------ el número */
 
-function Titular({ dashboard, mes, onGo }) {
+function Titular({ dashboard, mes, onGo, esMesActual }) {
   const neto = dashboard.income - dashboard.expense
-  const enRojo = neto < 0
   // Lo que ya mandaste a ahorro, a invertir o a comprar titulos este mes.
   const apartado = dashboard.apartado || 0
   const potes = dashboard.potes
   const libre = neto - apartado
+
+  /*
+   * EN EL MES DE HOY arriba va lo que TENES. En un mes pasado, como te fue.
+   *
+   * El numero grande decia «Resultado de octubre» y era ingresos menos
+   * gastos: un flujo. Emanuel pregunto cuatro veces por que no coincidia con
+   * su plata, y la ultima lo dijo derecho: «es medio confuso porque capaz
+   * usas plata disponible del mes pasado e igual te aparece que este mes
+   * estas negativo».
+   *
+   * Tenia razon: arriba de todo tiene que estar el numero que puede
+   * verificar mirando el banco.
+   *
+   * Pero en un mes pasado «Disponible» seria el saldo de HOY, que no tiene
+   * nada que ver con el mes que estas mirando, y volveria a confundir. Por
+   * eso al viajar al pasado el titular cambia a como te fue ESE mes, que es
+   * justo la pregunta que uno se hace mirando un mes cerrado.
+   */
+  const disponible = potes ? potes.liquidez : 0
+  const enRojo = esMesActual ? disponible < 0 : neto < 0
 
   // El porcentaje solo significa algo si entró plata.
   const pctGastado = dashboard.income > 0
@@ -39,17 +58,32 @@ function Titular({ dashboard, mes, onGo }) {
     <div className="titular">
       <div className="titular-brillo" />
       <div className="titular-txt">
-        <div className="titular-label">Resultado de {mesNombre(mes)}</div>
+        <div className="titular-label">
+          {esMesActual ? 'Disponible' : `Resultado de ${mesNombre(mes)}`}
+        </div>
         <Numero
           className={`titular-num monto-sensible ${enRojo ? 'negativo' : 'positivo'}`}
-          valor={neto}
+          valor={esMesActual ? disponible : neto}
         />
-        {/* Cuánto de lo que ahorraste ya tiene destino.
-            «Ahorré 300k pero 200k los mandé a invertir, me quedan 100k»: el
-            resultado del mes solo no lo dice, porque mover plata no cambia el
-            resultado (y está bien que no lo cambie). Faltaba decir cuánto de
-            ese número ya está comprometido. */}
-        {apartado > 0 && (
+
+        {/* En el mes de hoy, de qué está hecho ese número. */}
+        {esMesActual && potes && (
+          <div className="titular-reparto">
+            <span>
+              Lo que tenés en tus cuentas para usar
+              {potes.ahorro > 0 && <>, más <b className="monto-sensible">{money(potes.ahorro)}</b> en Ahorro</>}
+            </span>
+            {potes.deudaTarjeta > 0 && (
+              <span>
+                Debés <b className="monto-sensible">{money(potes.deudaTarjeta)}</b> de tarjeta,
+                que sale cuando pagues el resumen
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* En un mes pasado, cuánto de lo que te quedó ya tenía destino. */}
+        {!esMesActual && apartado > 0 && (
           <div className="titular-reparto">
             <span>
               Apartaste <b className="monto-sensible">{money(apartado)}</b>
@@ -57,43 +91,21 @@ function Titular({ dashboard, mes, onGo }) {
             </span>
             <span className={libre < 0 ? 'mal' : ''}>
               {libre >= 0
-                ? <>Te quedan <b className="monto-sensible">{money(libre)}</b> sin destino</>
-                : <>Apartaste <b className="monto-sensible">{money(-libre)}</b> más de lo que ahorraste este mes: salió de lo que traías</>}
+                ? <>Te quedaron <b className="monto-sensible">{money(libre)}</b> sin destino</>
+                : <>Apartaste <b className="monto-sensible">{money(-libre)}</b> más de lo que ahorraste: salió de lo que traías</>}
             </span>
-          </div>
-        )}
-
-        {/*
-          * Un flujo y un saldo, uno abajo del otro.
-          *
-          * «Resultado de agosto» es cómo te fue ESTE MES: entró menos salió.
-          * «Disponible» es cuánta plata tenés. Son cosas distintas y se
-          * confunden fácil porque las dos son un peso con signo — Emanuel
-          * preguntó tres veces por qué no coinciden, la última con -$16.997
-          * arriba y $50.000 en el banco.
-          *
-          * Así que lo decimos acá, al lado del número que confunde, en vez de
-          * esperar a que lo deduzca.
-          */}
-        {potes && (
-          <div className="titular-aclara">
-            Esto es cómo te fue en {mesNombre(mes)}, no cuánta plata tenés:
-            {' '}en tus cuentas hay <b className="monto-sensible">{money(potes.liquidez + potes.ahorro)}</b>
-            {potes.deudaTarjeta > 0 && (
-              <> y debés <b className="monto-sensible">{money(potes.deudaTarjeta)}</b> de tarjeta,
-                que sale cuando pagues el resumen</>
-            )}.
-            {onGo && (
-              <button className="titular-link" onClick={() => onGo('patrimonio')}>Ver dónde está</button>
-            )}
           </div>
         )}
 
         <div className="titular-pie">
           <span className={`titular-chip ${enRojo || pctGastado == null ? 'mal' : 'ok'}`}>{chip}</span>
           <span className="titular-movs">
-            {dashboard.count} {dashboard.count === 1 ? 'movimiento' : 'movimientos'} este mes
+            {dashboard.count} {dashboard.count === 1 ? 'movimiento' : 'movimientos'}
+            {esMesActual ? ' este mes' : ' ese mes'}
           </span>
+          {esMesActual && onGo && (
+            <button className="titular-link" onClick={() => onGo('patrimonio')}>Ver dónde está</button>
+          )}
         </div>
       </div>
     </div>
@@ -102,20 +114,38 @@ function Titular({ dashboard, mes, onGo }) {
 
 /* --------------------------------------------------------------- los KPI */
 
-function Kpis({ dashboard }) {
+function Kpis({ dashboard, esMesActual }) {
   const pctAhorro = dashboard.income > 0
     ? Math.round(((dashboard.income - dashboard.expense) / dashboard.income) * 100)
     : null
 
-  const diaDeHoy = new Date().getDate()
-  const promedio = dashboard.expense / (dashboard.diasDelMes ? Math.min(diaDeHoy, dashboard.diasDelMes) : 1)
+  /*
+   * El resultado del mes bajo del titular a acá.
+   *
+   * Sigue siendo un dato util -decirte si gastaste mas de lo que entro- pero
+   * arriba de todo y en grande parecia «tu plata» y no lo es. Acá, al lado de
+   * Entró y Salió, se lee como lo que es: la resta de esos dos.
+   *
+   * El «Promedio por día» se fue: nadie decide nada con eso.
+   */
+  const neto = dashboard.income - dashboard.expense
 
   const items = [
     { label: 'Entró', numero: dashboard.income, pie: 'ingresos del mes', color: 'var(--good)' },
     { label: 'Salió', numero: dashboard.expense, pie: `${dashboard.count} movimientos`, color: 'var(--accent)' },
     { label: 'Ahorro', valor: pctAhorro == null ? '—' : `${pctAhorro}%`, pie: 'del ingreso', color: 'var(--blue)' },
-    { label: 'Promedio', numero: promedio, pie: 'por día', color: 'var(--yellow)' },
   ]
+
+  // En un mes pasado el titular YA es el resultado: repetirlo seria decir dos
+  // veces lo mismo en la misma pantalla.
+  if (esMesActual) {
+    items.push({
+      label: 'Resultado',
+      numero: neto,
+      pie: 'entró menos salió',
+      color: neto < 0 ? 'var(--critical)' : 'var(--yellow)',
+    })
+  }
 
   return (
     <div className="kpi-grid">
@@ -131,33 +161,6 @@ function Kpis({ dashboard }) {
           <div className="kpi-chico-pie">{k.pie}</div>
         </div>
       ))}
-    </div>
-  )
-}
-
-/* ---------------------------------------------------------- la proyección */
-
-function Proyeccion({ p, mes }) {
-  if (!p || p.diasQueQuedan <= 0) return null
-  const cierraEnRojo = p.netoProyectado < 0
-  const nombreMes = mesNombre(mes)
-
-  return (
-    <div className="proyeccion">
-      <div className="proyeccion-txt">
-        <div className="proyeccion-label">PROYECCIÓN</div>
-        <div className="proyeccion-frase">
-          Si seguís a este ritmo, {nombreMes} cierra {cierraEnRojo ? 'en rojo' : 'en verde'}.
-        </div>
-      </div>
-      <div className="proyeccion-num">
-        <div className={`monto-sensible ${cierraEnRojo ? 'negativo' : 'positivo'}`}>
-          {money(p.netoProyectado)}
-        </div>
-        <div className="proyeccion-dias">
-          quedan {p.diasQueQuedan} {p.diasQueQuedan === 1 ? 'día' : 'días'}
-        </div>
-      </div>
     </div>
   )
 }
@@ -311,16 +314,17 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
   const ultimos = (transactions || []).slice(0, 5)
   const diaDeHoy = new Date().getDate()
   const promedio = dashboard.expense / Math.max(Math.min(diaDeHoy, dashboard.diasDelMes || 31), 1)
+  // Si el mes que mirás es el de hoy, el titular puede hablar de tu plata.
+  // En uno pasado no: ese saldo es de hoy y no tiene que ver con ese mes.
+  const esMesActual = mes === new Date().toISOString().slice(0, 7)
 
   return (
     <>
       {/* fila 1: el número grande + los cuatro KPI */}
       <div className="fila-titular">
-        <Titular dashboard={dashboard} mes={mes} onGo={onGo} />
-        <Kpis dashboard={dashboard} />
+        <Titular dashboard={dashboard} mes={mes} onGo={onGo} esMesActual={esMesActual} />
+        <Kpis dashboard={dashboard} esMesActual={esMesActual} />
       </div>
-
-      <Proyeccion p={dashboard.proyeccion} mes={mes} />
 
       {/* fila 2: a dónde va la plata + tendencia */}
       <div className="fila-dos">

@@ -1728,11 +1728,26 @@ export default function App() {
     if (tab === 'patrimonio' || tab === 'invest') api('/cuentas').then(setCuentas).catch(() => {})
   }, [tab, config, loadMetas])
 
-  // Cambiar de mes en la barra de arriba vuelve a pedir los datos del mes.
+  /*
+   * Cambiar de mes pide SOLO lo que depende del mes.
+   *
+   * Antes llamaba a loadCore(), que ademas del dashboard vuelve a pedir los
+   * movimientos, los gastos fijos, el patrimonio y el progreso. Nada de eso
+   * cambia al moverte de mes, y el patrimonio es lo mas lento que tiene la
+   * app: valua toda la cartera contra CoinMarketCap y data912. Medido acá,
+   * con la cache fria: /dashboard 5 ms, /networth 1.108 ms.
+   *
+   * O sea que viajar a un mes anterior se comia un segundo largo por nada, y
+   * si tocabas la flecha varias veces se encolaban. Emanuel: «que se pueda
+   * ver meses anteriores, en estos momentos se traba».
+   */
+  const montado = useRef(false)
   useEffect(() => {
     if (!config) return
-    loadCore().catch(() => {})
-  }, [mes, config, loadCore])
+    // En el primer render ya carga todo loadCore(): no lo pidas dos veces.
+    if (!montado.current) { montado.current = true; return }
+    api(`/dashboard?month=${mes}`).then(setDashboard).catch(() => {})
+  }, [mes, config])
 
   /*
    * Refrescar cuando volvés a la pestaña.

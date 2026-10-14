@@ -874,14 +874,24 @@ async function valuarCartera(userId) {
     // A pesos. Sin cotización del dólar no se puede convertir lo que está en
     // dólares, y preferimos que falte el dato antes que inventarlo.
     var tasa = esCripto ? cripto : mep;
-    var aPesos = function (n) {
+    var aPesos = function (n, desde) {
       if (n == null) return null;
-      if (moneda === 'ARS') return n;
+      if (desde === 'ARS') return n;
       return tasa ? n * tasa : null;
     };
 
-    var value = aPesos(valorPropio);
-    var cost = aPesos(costoPropio);
+    /*
+     * En qué moneda PAGASTE, que no tiene por qué ser en la que cotiza.
+     *
+     * La cripto cotiza en dólares siempre, pero en Cocos la comprás en pesos:
+     * ponés $30.000 y te dan AVAX. Ese precio es el que la persona conoce.
+     * Si la obligáramos a pasarlo a dólares tendría que inventar un cambio, y
+     * la ganancia saldría de un número inventado.
+     */
+    var monedaCosto = a.cost_currency || moneda;
+
+    var value = aPesos(valorPropio, moneda);
+    var cost = aPesos(costoPropio, monedaCosto);
 
     if (precio == null) sinPrecio.push(simbolo);
 
@@ -914,6 +924,8 @@ async function valuarCartera(userId) {
       tipoNombre: (TIPOS_ACTIVO[a.asset_type] || {}).nombre || a.asset_type,
       unidad: (TIPOS_ACTIVO[a.asset_type] || {}).unidad || 'unidades',
       currency: moneda,
+      // En cuál está el precio de compra. Puede diferir de `currency`.
+      cost_currency: monedaCosto,
       lamina: lamina,
       quantity: a.quantity,
       avg_price: a.avg_price,
@@ -941,7 +953,7 @@ async function valuarCartera(userId) {
        * No lo corregimos solos -no sabemos que quiso poner- pero preguntarlo
        * es mejor que mostrarle un -88% que no le paso.
        */
-      sospechoso: precio && a.avg_price && a.avg_price / precio > 25
+      sospechoso: monedaCosto === moneda && precio && a.avg_price && a.avg_price / precio > 25
         ? Math.round(a.avg_price / precio)
         : null
     };
@@ -1018,6 +1030,25 @@ function mismoActivo(userId, simbolo, tipo, moneda) {
   ).get(userId, simbolo, tipo, moneda, moneda) || null;
 }
 
+/**
+ * Juntar dos tandas del mismo activo compradas en MONEDAS distintas.
+ *
+ * Promediar US$2 con $3.000 no da nada: son unidades distintas. Y convertir
+ * la vieja al cambio de hoy seria inventar a cuanto compraste. Asi que el
+ * promedio queda sin cargar, igual que cuando a una tanda le falta el precio,
+ * y la ganancia muestra «—» hasta que lo pongas a mano.
+ */
+function costoAlJuntar(existente, monedaCosto, cantidad, precio) {
+  var monedaVieja = existente.cost_currency || existente.currency || 'ARS';
+  if (existente.avg_price && precio && monedaVieja !== monedaCosto) {
+    return { quantity: existente.quantity + cantidad, avg_price: 0, moneda: monedaVieja, mezclado: true };
+  }
+  var junto = promediarCompra(existente.quantity, existente.avg_price, cantidad, precio);
+  // Si la vieja no tenia precio, la moneda que vale es la de la nueva.
+  junto.moneda = existente.avg_price ? monedaVieja : monedaCosto;
+  return junto;
+}
+
 router.post('/portfolio', async function (req, res) {
   var b = req.body;
   if (!b.symbol) return res.status(400).json({ error: 'Falta el símbolo' });
@@ -1032,6 +1063,10 @@ router.post('/portfolio', async function (req, res) {
   var cantidad = Number(b.quantity) || 0;
   var precio = Number(b.avg_price) || Number(b.buy_price) || 0;
 
+  // En qué moneda está ese precio. Si no se dice, la misma en la que cotiza.
+  var monedaCosto = String(b.cost_currency || '').toUpperCase() === 'ARS' ? 'ARS'
+    : (String(b.cost_currency || '').toUpperCase() === 'USD' ? 'USD' : moneda);
+
   /*
    * Si ya lo tenés, esto es una compra MAS, no otra posición.
    *
@@ -1043,16 +1078,18 @@ router.post('/portfolio', async function (req, res) {
   var fusionado = false;
   var info = null;
 
+  var mezclado = false;
   if (existente) {
-    var junto = promediarCompra(existente.quantity, existente.avg_price, cantidad, precio);
-    db.prepare('UPDATE portfolio_assets SET quantity = ?, avg_price = ? WHERE id = ?')
-      .run(junto.quantity, junto.avg_price, existente.id);
+    var junto = costoAlJuntar(existente, monedaCosto, cantidad, precio);
+    db.prepare('UPDATE portfolio_assets SET quantity = ?, avg_price = ?, cost_currency = ? WHERE id = ?')
+      .run(junto.quantity, junto.avg_price, junto.moneda, existente.id);
     fusionado = true;
+    mezclado = Boolean(junto.mezclado);
   } else {
     info = db.prepare(
-      'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency)' +
-      ' VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(req.user.id, simbolo, b.name || b.symbol, tipo, cantidad, precio, moneda);
+      'INSERT INTO portfolio_assets (user_id, symbol, name, asset_type, quantity, avg_price, currency, cost_currency)' +
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.user.id, simbolo, b.name || b.symbol, tipo, cantidad, precio, moneda, monedaCosto);
   }
   arbol.alAgregarInversion(req.user.id);
 
@@ -1070,7 +1107,9 @@ router.post('/portfolio', async function (req, res) {
       var costo = mercado.valuar(cantidad, precio, lamina);
       // Lo que pagaste en dólares hay que pasarlo a pesos: las cuentas son
       // en pesos.
-      if (moneda === 'USD') {
+      // Se convierte segun la moneda en la que PAGASTE, no en la que cotiza:
+      // si lo compraste en pesos, el costo ya esta en pesos.
+      if (monedaCosto === 'USD') {
         var d = await prices.getDolar();
         // Al dólar del mercado en el que compraste: la cripto NO se compra
         // al MEP. Con el MEP le descontábamos de menos.
@@ -1085,7 +1124,13 @@ router.post('/portfolio', async function (req, res) {
     }
   }
 
-  res.json({ ...creado, pago: pago, fusionado: fusionado });
+  res.json({
+    ...creado,
+    pago: pago,
+    fusionado: fusionado,
+    // Se junto con una tanda comprada en otra moneda: el promedio no existe.
+    mezclado: mezclado
+  });
 });
 
 /**
@@ -1148,8 +1193,14 @@ router.patch('/portfolio/:id', function (req, res) {
         ? (String(req.body.currency).toUpperCase() === 'USD' ? 'USD' : 'ARS')
         : (current.currency || 'ARS'));
 
-  db.prepare('UPDATE portfolio_assets SET quantity=?, avg_price=?, currency=? WHERE id=? AND user_id=?')
-    .run(quantity, avgPrice, moneda, req.params.id, req.user.id);
+  // En qué moneda está el precio de compra. Se puede corregir desde Editar:
+  // es la unica salida para una tanda que quedo mezclada.
+  var monedaCosto = req.body.cost_currency != null
+    ? (String(req.body.cost_currency).toUpperCase() === 'ARS' ? 'ARS' : 'USD')
+    : (current.cost_currency || moneda);
+
+  db.prepare('UPDATE portfolio_assets SET quantity=?, avg_price=?, currency=?, cost_currency=? WHERE id=? AND user_id=?')
+    .run(quantity, avgPrice, moneda, monedaCosto, req.params.id, req.user.id);
   res.json(db.prepare('SELECT * FROM portfolio_assets WHERE id = ?').get(req.params.id));
 });
 
