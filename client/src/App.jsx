@@ -546,10 +546,56 @@ function MovementsScreen({ transactions, categories, cards, onDelete, onRecatego
   )
 }
 
-function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
-  const { confirmar } = useDialogos()
+function SubsScreen({ subs, cards = [], accion, dolar, onReload, onError, onSaved }) {
+  const { confirmar, pedirOpcion } = useDialogos()
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', amount: '', billing_day: '1', moneda: 'ars' })
+
+  /*
+   * Con qué se paga. Arranca en la tarjeta con la que pagás casi todo (la
+   * que elegiste en Tarjetas), igual que los gastos sueltos; si no hay, en
+   * débito. `null` es débito o efectivo.
+   */
+  const porDefecto = (cards.find((c) => c.es_default) || {}).id ?? null
+  const vacio = () => ({ name: '', amount: '', billing_day: '1', moneda: 'ars', card_id: porDefecto })
+  const [form, setForm] = useState(vacio)
+  // Si las tarjetas llegan después de abrir la pantalla, que el formulario
+  // arranque igual en la de por defecto.
+  useEffect(() => {
+    if (!showForm) setForm((f) => ({ ...f, card_id: porDefecto }))
+  }, [porDefecto, showForm])
+
+  const nombreTarjeta = (c) => `${c.name}${c.last4 ? ` •••• ${c.last4}` : ''}`
+  const medioDe = (s) => (s.card_id ? `💳 ${s.card_name || 'Tarjeta'}${s.card_last4 ? ` •••• ${s.card_last4}` : ''}` : 'Débito o efectivo')
+
+  /*
+   * Cambiar con qué se paga uno que ya existe. Antes no se podía: todos los
+   * fijos se cargaban como débito, y Netflix pagado con la Visa bajaba el
+   * Disponible el día del cobro en vez de entrar en el resumen.
+   */
+  async function cambiarMedio(sub) {
+    const elegido = await pedirOpcion({
+      titulo: `¿Con qué pagás ${sub.name}?`,
+      detalle: 'Con tarjeta entra en el resumen y la plata sale cuando lo pagás. Con débito sale el día del cobro.',
+      opciones: [
+        ...cards.map((c) => ({ valor: String(c.id), nombre: nombreTarjeta(c), sub: `Entra en el resumen que vence el ${c.venceTexto}` })),
+        { valor: 'debito', nombre: 'Débito o efectivo', sub: 'Sale de tu cuenta el día del cobro' },
+      ],
+    })
+    if (elegido == null) return
+    try {
+      const r = await api(`/subscriptions/${sub.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ card_id: elegido === 'debito' ? null : Number(elegido) }),
+      })
+      const dondeVa = elegido === 'debito' ? 'débito' : nombreTarjeta(cards.find((c) => String(c.id) === elegido))
+      onSaved(r.movidoEsteMes
+        ? `${sub.name} se paga con ${dondeVa}. Lo de este mes también se pasó.`
+        : `${sub.name} se paga con ${dondeVa}.`)
+      onReload()
+    } catch (err) {
+      onError(err.message)
+    }
+  }
 
   // El boton "+ Nuevo gasto fijo" vive en el encabezado, que es de App.
   useEffect(() => { if (accion) setShowForm(true) }, [accion])
@@ -583,9 +629,10 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
           amount: montoDesde(form.amount),
           billing_day: Number(form.billing_day) || 1,
           moneda: form.moneda,
+          card_id: form.card_id,
         }),
       })
-      setForm({ name: '', amount: '', billing_day: '1', moneda: 'ars' })
+      setForm(vacio())
       setShowForm(false)
       onSaved('Suscripción agregada')
       onReload()
@@ -678,6 +725,36 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
               </p>
             )}
 
+            {/* Con qué se paga. Sin tarjetas cargadas no hay nada que elegir:
+                es débito, y no tiene sentido mostrar una sola opción. */}
+            {cards.length > 0 && (
+              <div className="field">
+                <span className="field-label">¿Con qué lo pagás?</span>
+                <div className="chips">
+                  {cards.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`chip ${form.card_id === c.id ? 'on' : ''}`}
+                      aria-pressed={form.card_id === c.id}
+                      onClick={() => setForm({ ...form, card_id: c.id })}
+                    >💳 {nombreTarjeta(c)}</button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`chip ${form.card_id == null ? 'on' : ''}`}
+                    aria-pressed={form.card_id == null}
+                    onClick={() => setForm({ ...form, card_id: null })}
+                  >Débito o efectivo</button>
+                </div>
+                <span className="hint" style={{ marginTop: 6 }}>
+                  {form.card_id == null
+                    ? 'Sale de tu cuenta el día del cobro.'
+                    : 'Entra en el resumen de la tarjeta y la plata sale cuando lo pagás.'}
+                </span>
+              </div>
+            )}
+
             <div className="dialogo-botones">
               <button type="button" className="dialogo-btn" onClick={() => setShowForm(false)}>Cancelar</button>
               <button
@@ -701,6 +778,15 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
                   <div className="item-desc">{s.name}</div>
                   <div className="item-meta">
                     <span>Día {s.billing_day}</span>
+                    {/* Con qué se paga, y tocándolo se cambia. */}
+                    {cards.length > 0 ? (
+                      <button type="button" className="tag tag-boton" onClick={() => cambiarMedio(s)}
+                              aria-label={`Cambiar con qué se paga ${s.name}`}>
+                        {medioDe(s)} ✎
+                      </button>
+                    ) : (
+                      s.card_id ? <span className="tag">{medioDe(s)}</span> : null
+                    )}
                     {s.promo_active && (
                       <span className="tag">promo hasta {dayLabel(s.promo_end)} → {money(s.normal_price)}</span>
                     )}
@@ -1698,7 +1784,7 @@ export default function App() {
     if (tab === 'subs') api('/subscriptions').then(setSubs).catch(() => {})
     if (tab === 'invest') api('/portfolio').then(setPortfolio).catch(() => {})
     if (tab === 'alertas') api('/alertas').then((r) => setAlertas(r.alertas)).catch(() => {})
-    if (tab === 'tarjetas' || tab === 'movs') api('/cards').then(setCards).catch(() => {})
+    if (tab === 'tarjetas' || tab === 'movs' || tab === 'subs') api('/cards').then(setCards).catch(() => {})
     if (tab === 'tarjetas') api('/cuotas').then((r) => setProximasCuotas(r.meses)).catch(() => {})
     if (tab === 'patrimonio' || tab === 'invest') api('/cuentas').then(setCuentas).catch(() => {})
   }, [tab, config, loadMetas])
@@ -1753,7 +1839,7 @@ export default function App() {
     if (t === 'subs') pendientes.push(api('/subscriptions').then(setSubs))
     if (t === 'invest') pendientes.push(api('/portfolio').then(setPortfolio))
     if (t === 'patrimonio' || t === 'invest') pendientes.push(api('/cuentas').then(setCuentas))
-    if (t === 'tarjetas' || t === 'movs') pendientes.push(api('/cards').then(setCards))
+    if (t === 'tarjetas' || t === 'movs' || t === 'subs') pendientes.push(api('/cards').then(setCards))
     if (t === 'tarjetas') pendientes.push(api('/cuotas').then((r) => setProximasCuotas(r.meses)))
 
     // Que falle uno no puede dejar al resto sin recargar.
@@ -2080,6 +2166,7 @@ export default function App() {
           {tab === 'subs' && (
             <SubsScreen
               subs={subs}
+              cards={cards}
               accion={accionDe('subs')}
               dolar={networth ? networth.dolar : 0}
               onReload={reloadSubs}

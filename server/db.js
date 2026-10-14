@@ -367,6 +367,13 @@ function initDB() {
     db.exec("ALTER TABLE users ADD COLUMN moneda TEXT DEFAULT 'ars'");
   }
 
+  // Con qué se paga cada gasto fijo. Vacío es débito o efectivo: la plata
+  // sale el día del cobro. Con tarjeta entra en el resumen y sale cuando lo
+  // pagás. Antes no existía y todos los fijos se cargaban como débito.
+  if (!tieneColumna('subscriptions', 'card_id')) {
+    db.exec('ALTER TABLE subscriptions ADD COLUMN card_id INTEGER');
+  }
+
   // Dónde está cada persona, para que la granja muestre SU clima. Vacío es
   // Buenos Aires (ver clima.js): no sabemos dónde vive cada uno, y preguntar
   // la ubicación del celular en una app de plata asusta.

@@ -172,6 +172,28 @@ ahí salvo que digas lo contrario («…en efectivo», «…con la Naranja»). P
 crédito y si no, cada gasto le entra al resumen y hay que corregirlo a mano.
 Se elige en Tarjetas.
 
+**Los gastos fijos también dicen con qué se pagan** (`subscriptions.card_id`,
+vacío = débito o efectivo). Antes no existía y `fijos.js` cargaba TODOS como
+débito: Netflix pagado con la Visa bajaba el Disponible el día del cobro, en
+vez de entrar en el resumen y salir cuando lo pagás. O sea que los fijos se
+salteaban la regla de «lo que pagaste con tarjeta todavía está en tu
+cuenta», y nadie lo notaba porque el gasto del mes estaba bien.
+
+- El formulario arranca en la tarjeta por defecto, igual que los gastos
+  sueltos; cada fila tiene una etiqueta que dice con qué se paga y, al
+  tocarla, se cambia.
+- **Cambiar la tarjeta mueve también lo de ESTE mes** si ya se cargó: «se
+  paga con la Visa» es un dato sobre lo que pasa ahora. Los meses
+  anteriores no se tocan: esos resúmenes cerraron, y moverlos inventaría
+  deuda que ya pagaste.
+- **`card_id: null` tiene que poder mandarse.** El PATCH usaba
+  `req.body[f] != null` para todo, y con eso pasar de tarjeta a débito no
+  hacía nada: otra vez la casilla que solo prende y nunca apaga. Va aparte,
+  con `hasOwnProperty`, y hay una prueba que lo rompe a propósito.
+- Nunca se guarda una tarjeta ajena por un id que mandó la pantalla
+  (`tarjetaPropia()`), y si se borra una tarjeta sus fijos pasan a débito.
+  `fijos.js` igual confirma que la tarjeta exista antes de usarla.
+
 **Lo que pagaste con tarjeta TODAVÍA ESTÁ en tu cuenta.** El gasto se anota
 el día de la compra —correcto para el mes, las categorías, los presupuestos y
 el P&L— pero la plata se va cuando **pagás el resumen**. Son dos fechas
@@ -1201,7 +1223,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 81, tardan 3 segundos
+npm test                     # las 88, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
@@ -1219,6 +1241,7 @@ comillas. Y `node --test` en una carpeta llamada `test` corre **todos** los
 | `dashboard.test.js` | Las reglas que viven en las consultas de `api.js` |
 | `granja.test.js` | Que la granja no tenga tope, y que los avisos lleguen |
 | `cuidados.test.js` | La cadena plata → canasta → cuidados → crecer, y la migración |
+| `fijos.test.js` | Que un gasto fijo con tarjeta entre en el resumen y no baje el Disponible |
 | `clima.test.js` | Que el cielo sea el de afuera, y que sin dato no se invente |
 
 **Cada prueba está porque la regla se rompió en la vida real**, y el

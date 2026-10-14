@@ -759,9 +759,23 @@ router.get('/dashboard', function (req, res) {
 
 /* ----------------------------------------------------------- suscripciones */
 
+/*
+ * La tarjeta con la que se paga un gasto fijo, si es de esta persona. Si no
+ * existe o es de otro, null: débito o efectivo. Nunca se guarda una tarjeta
+ * ajena por un id que mandó la pantalla.
+ */
+function tarjetaPropia(userId, cardId) {
+  if (cardId == null || cardId === '') return null;
+  var t = db.prepare('SELECT id FROM cards WHERE id = ? AND user_id = ?').get(cardId, userId);
+  return t ? t.id : null;
+}
+
 router.get('/subscriptions', function (req, res) {
+  // Con el nombre de la tarjeta, para que la fila diga con qué se paga.
   var rows = db.prepare(
-    'SELECT * FROM subscriptions WHERE user_id = ? ORDER BY active DESC, billing_day ASC'
+    'SELECT s.*, c.name card_name, c.last4 card_last4 FROM subscriptions s' +
+    ' LEFT JOIN cards c ON c.id = s.card_id AND c.user_id = s.user_id' +
+    ' WHERE s.user_id = ? ORDER BY s.active DESC, s.billing_day ASC'
   ).all(req.user.id);
   var hoy = new Date();
   rows.forEach(function (s) {
@@ -776,13 +790,14 @@ router.post('/subscriptions', function (req, res) {
   if (!b.name || b.amount == null) return res.status(400).json({ error: 'Faltan nombre y monto' });
   var info = db.prepare(
     'INSERT INTO subscriptions (user_id, name, plan, amount, category, billing_day, active,' +
-    ' promo_price, promo_end, normal_price, moneda)' +
-    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ' promo_price, promo_end, normal_price, moneda, card_id)' +
+    ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     req.user.id, b.name, b.plan || 'Estandar', Number(b.amount), b.category || 'Servicios',
     Number(b.billing_day) || 1, b.active === false ? 0 : 1,
     Number(b.promo_price) || Number(b.amount), b.promo_end || '', Number(b.normal_price) || 0,
-    b.moneda === 'usd' ? 'usd' : 'ars'
+    b.moneda === 'usd' ? 'usd' : 'ars',
+    tarjetaPropia(req.user.id, b.card_id)
   );
   res.json(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(info.lastInsertRowid));
 });
@@ -807,7 +822,33 @@ router.patch('/subscriptions/:id', function (req, res) {
     req.params.id, req.user.id
   );
 
-  res.json(db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(req.params.id));
+  /*
+   * Con qué se paga. Va aparte porque `null` es un valor de verdad («débito
+   * o efectivo») y el `!= null` de arriba lo ignoraría: pasar de tarjeta a
+   * débito no haría nada. Es la casilla que solo prende y nunca apaga, que
+   * ya nos pasó con la tarjeta por defecto.
+   */
+  var movidoEsteMes = 0;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'card_id')) {
+    var tarjeta = tarjetaPropia(req.user.id, req.body.card_id);
+    db.prepare('UPDATE subscriptions SET card_id = ? WHERE id = ? AND user_id = ?')
+      .run(tarjeta, req.params.id, req.user.id);
+
+    /*
+     * Lo de ESTE mes, si ya se cargó, también se pasa: «Netflix se paga con
+     * la Visa» es un dato sobre lo que pasa, no solo sobre el mes que viene.
+     * Los meses anteriores no se tocan: esos resúmenes ya cerraron, y
+     * moverlos inventaría deuda de tarjeta que ya pagaste.
+     */
+    movidoEsteMes = db.prepare(
+      "UPDATE transactions SET card_id = ? WHERE user_id = ? AND platform = 'Fijo'" +
+      ' AND description = ? AND substr(date,1,7) = ?'
+    ).run(tarjeta, req.user.id, next.name, mesActual()).changes;
+  }
+
+  var actualizada = db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(req.params.id);
+  actualizada.movidoEsteMes = movidoEsteMes;
+  res.json(actualizada);
 });
 
 router.delete('/subscriptions/:id', function (req, res) {
@@ -1515,6 +1556,10 @@ router.delete('/cards/:id', function (req, res) {
 
   // Los movimientos quedan: existieron igual, solo dejan de estar asignados.
   db.prepare('UPDATE transactions SET card_id = NULL WHERE card_id = ? AND user_id = ?')
+    .run(req.params.id, req.user.id);
+  // Y los gastos fijos que se pagaban con ella pasan a débito: si no,
+  // quedarían apuntando a una tarjeta que no existe.
+  db.prepare('UPDATE subscriptions SET card_id = NULL WHERE card_id = ? AND user_id = ?')
     .run(req.params.id, req.user.id);
 
   res.json({ success: true });

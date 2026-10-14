@@ -55,8 +55,18 @@ async function cargarVencidas(userId, fecha, cotizacionForzada) {
   );
   var insertar = db.prepare(
     'INSERT INTO transactions (user_id, date, description, amount, category, platform,' +
-    " ai_categorized, amount_usd, usd_rate) VALUES (?, ?, ?, ?, ?, 'Fijo', 0, ?, ?)"
+    " ai_categorized, amount_usd, usd_rate, card_id) VALUES (?, ?, ?, ?, ?, 'Fijo', 0, ?, ?, ?)"
   );
+
+  /*
+   * Con qué se paga. Antes no existía y TODOS los fijos se cargaban como
+   * débito: Netflix pagado con la Visa bajaba el Disponible el día del cobro
+   * en vez de entrar en el resumen y salir cuando lo pagás.
+   *
+   * Se confirma que la tarjeta siga existiendo y sea de esa persona: si la
+   * borró, el gasto se carga como débito y no apuntando a la nada.
+   */
+  var tarjetaDe = db.prepare('SELECT id FROM cards WHERE id = ? AND user_id = ?');
 
   var cargadas = [];
 
@@ -86,9 +96,10 @@ async function cargarVencidas(userId, fecha, cotizacionForzada) {
       }
 
       var dia = String(Math.min(s.billing_day, 28)).padStart(2, '0');
+      var tarjeta = s.card_id ? tarjetaDe.get(s.card_id, s.user_id) : null;
       insertar.run(
         s.user_id, mes + '-' + dia, s.name, -enPesos, s.category || 'Servicios',
-        usd === null ? null : -usd, cambio
+        usd === null ? null : -usd, cambio, tarjeta ? tarjeta.id : null
       );
       cargadas.push({ name: s.name, amount: enPesos, usd: usd, user_id: s.user_id });
     });

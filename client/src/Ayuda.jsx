@@ -182,6 +182,11 @@ export const GUIAS = {
       titulo: 'Las de dólares se convierten cada mes',
       texto: 'Una suscripción de US$15 no te sale lo mismo en marzo que en agosto. Por eso se guarda en dólares y se pasa a pesos al cambio del día.',
     },
+    {
+      titulo: 'Con qué se paga cada uno',
+      texto: 'Si lo pagás con tarjeta, entra en el resumen y la plata sale cuando lo pagás. Si es con débito, sale el día del cobro. Tocá la etiqueta de cada uno para cambiarlo.',
+      apunta: '.tag-boton',
+    },
   ],
 
   patrimonio: [

@@ -1900,3 +1900,17 @@
 /* Con que pagas casi siempre: el medio que se aplica solo a lo que cargas. */
 .medios { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .medios .tipo { width: 100%; }
+
+/* Una etiqueta que se puede tocar: con qué se paga un gasto fijo. Se ve
+   igual que las otras etiquetas para no gritar, pero avisa que se toca. */
+button.tag.tag-boton {
+  font: inherit;
+  font-size: 0.72rem;
+  min-height: 0;
+  cursor: pointer;
+}
+
+button.tag.tag-boton:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
