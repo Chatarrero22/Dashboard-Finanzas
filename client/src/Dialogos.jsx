@@ -98,6 +98,7 @@ function Dialogo({ pedido, onCerrar }) {
   }, [onCerrar])
 
   const esTexto = pedido.tipo === 'texto'
+  const esOpcion = pedido.tipo === 'opcion'
 
   function aceptar(e) {
     if (e) e.preventDefault()
@@ -128,6 +129,24 @@ function Dialogo({ pedido, onCerrar }) {
           >✕</button>
         </div>
 
+        {/* Elegir entre dos caminos que la app no puede adivinar. Cada uno
+            dice qué va a pasar, no solo cómo se llama. */}
+        {esOpcion && (
+          <div className="dialogo-opciones">
+            {pedido.opciones.map((o) => (
+              <button
+                type="button"
+                key={o.valor}
+                className="dialogo-opcion"
+                onClick={() => onCerrar(o.valor)}
+              >
+                <span className="dialogo-opcion-nombre">{o.nombre}</span>
+                <span className="dialogo-opcion-sub">{o.sub}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {esTexto && (
           <input
             ref={inputRef}
@@ -145,13 +164,16 @@ function Dialogo({ pedido, onCerrar }) {
           <button type="button" className="dialogo-btn" onClick={() => onCerrar(null)}>
             {pedido.cancelar || 'Cancelar'}
           </button>
-          <button
-            type="submit"
-            className={`dialogo-btn principal ${pedido.peligro ? 'peligro' : ''}`}
-            disabled={esTexto && !texto.trim()}
-          >
-            {pedido.aceptar || 'Aceptar'}
-          </button>
+          {/* Con opciones no hay botón de aceptar: la opción ES la respuesta. */}
+          {!esOpcion && (
+            <button
+              type="submit"
+              className={`dialogo-btn principal ${pedido.peligro ? 'peligro' : ''}`}
+              disabled={esTexto && !texto.trim()}
+            >
+              {pedido.aceptar || 'Aceptar'}
+            </button>
+          )}
         </div>
       </form>
     </div>
@@ -188,8 +210,15 @@ export function ProveedorDialogos({ children }) {
     [abrir]
   )
 
+  // Elegir entre caminos que la app no puede adivinar. Devuelve el `valor`
+  // de la opción elegida, o null si cerró.
+  const pedirOpcion = useCallback(
+    (o) => abrir({ ...o, tipo: 'opcion' }),
+    [abrir]
+  )
+
   return (
-    <Contexto.Provider value={{ confirmar, pedirTexto }}>
+    <Contexto.Provider value={{ confirmar, pedirTexto, pedirOpcion }}>
       {children}
       {pedido && <Dialogo pedido={pedido} onCerrar={cerrar} />}
     </Contexto.Provider>

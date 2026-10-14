@@ -761,6 +761,37 @@
 
 .dialogo-input:focus { border-color: var(--accent); }
 
+/* Elegir entre dos caminos que la app no puede adivinar. Cada opcion dice
+   que va a pasar, no solo como se llama. */
+.dialogo-opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.dialogo-opcion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 13px 15px;
+  text-align: left;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.dialogo-opcion:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dialogo-opcion-nombre { font-size: 0.95rem; font-weight: 560; }
+.dialogo-opcion-sub { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
+.dialogo-opcion:hover .dialogo-opcion-sub { color: var(--text-secondary); }
+
 .dialogo-botones {
   display: flex;
   gap: 10px;

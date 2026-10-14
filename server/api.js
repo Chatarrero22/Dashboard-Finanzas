@@ -1444,6 +1444,43 @@ router.delete('/cards/:id', function (req, res) {
  * cargadas una por una. Si además anotáramos el pago, el gasto contaría dos
  * veces y el mes quedaría al doble.
  */
+/**
+ * Marcar un resumen como pagado SIN que el Disponible baje.
+ *
+ * Marcar un pago baja el Disponible por ese monto, y eso esta bien: esa
+ * plata salio del banco. Pero solo si la app todavia creia tenerla.
+ *
+ * Si ya pagaste hace rato y despues pusiste tu saldo real, ese saldo YA tiene
+ * la plata descontada. Marcar el pago la descontaria de nuevo: Emanuel pago,
+ * ajusto a $453.799 -que es lo que tiene- y marcar los resumenes lo dejaba en
+ * -$645.261. La misma plata restada dos veces.
+ *
+ * La app no puede saber cual de los dos casos es, asi que lo pregunta. Si la
+ * persona dice que su saldo ya esta al dia, se compensa con un `Saldo
+ * inicial` por el mismo monto: no es inventar nada, es anotar que el ajuste
+ * anterior ya incluia esta deuda. Va como `Saldo inicial` justamente para que
+ * NO cuente en el mes, porque no es plata que entro.
+ */
+function compensarPagoYaDescontado(userId, antes, despues, cuando) {
+  var insertar = db.prepare(
+    'INSERT INTO transactions (user_id, date, description, amount, category, platform, account_id)' +
+    " VALUES (?, ?, ?, ?, 'Saldo inicial', 'Ajuste', ?)"
+  );
+
+  var total = 0;
+  Object.keys(antes.porCuenta).forEach(function (k) {
+    var dif = antes.porCuenta[k] - (despues.porCuenta[k] || 0);
+    if (dif <= 0) return;
+    insertar.run(
+      userId, cuando,
+      'El pago de la tarjeta ya estaba descontado de tu saldo',
+      dif, Number(k)
+    );
+    total += dif;
+  });
+  return total;
+}
+
 router.post('/cards/:id/pagar', function (req, res) {
   var tarjeta = db.prepare('SELECT * FROM cards WHERE id = ? AND user_id = ?')
     .get(req.params.id, req.user.id);
@@ -1460,8 +1497,17 @@ router.post('/cards/:id/pagar', function (req, res) {
     : pendientes[0];
   if (!cual) return res.status(404).json({ error: 'No encontré ese resumen' });
 
-  tarjetas.pagarResumen(req.user.id, tarjeta.id, cual.cierre, cual.monto, req.body.fecha);
-  res.json({ pagado: cual, tarjetas: tarjetas.listar(req.user.id) });
+  var fecha = req.body.fecha || new Date().toISOString().slice(0, 10);
+  var antes = tarjetas.deuda(req.user.id);
+  tarjetas.pagarResumen(req.user.id, tarjeta.id, cual.cierre, cual.monto, fecha);
+
+  // Si su saldo YA tenía esa plata descontada, marcar el pago la restaría dos
+  // veces. Lo pregunta la pantalla; acá solo hacemos lo que diga.
+  var compensado = req.body.yaDescontado
+    ? compensarPagoYaDescontado(req.user.id, antes, tarjetas.deuda(req.user.id), fecha)
+    : 0;
+
+  res.json({ pagado: cual, compensado: compensado, tarjetas: tarjetas.listar(req.user.id) });
 });
 
 /**
@@ -1479,14 +1525,22 @@ router.post('/cards/:id/pagar-anteriores', function (req, res) {
     .get(req.params.id, req.user.id);
   if (!tarjeta) return res.status(404).json({ error: 'No existe esa tarjeta' });
 
+  var fecha2 = req.body.fecha || new Date().toISOString().slice(0, 10);
+  var antes2 = tarjetas.deuda(req.user.id);
+
   var pendientes = tarjetas.resumenesPendientes(req.user.id, tarjeta);
   pendientes.forEach(function (r) {
-    tarjetas.pagarResumen(req.user.id, tarjeta.id, r.cierre, r.monto, req.body.fecha);
+    tarjetas.pagarResumen(req.user.id, tarjeta.id, r.cierre, r.monto, fecha2);
   });
+
+  var compensado2 = req.body.yaDescontado
+    ? compensarPagoYaDescontado(req.user.id, antes2, tarjetas.deuda(req.user.id), fecha2)
+    : 0;
 
   res.json({
     marcados: pendientes.length,
     total: pendientes.reduce(function (a, r) { return a + r.monto; }, 0),
+    compensado: compensado2,
     tarjetas: tarjetas.listar(req.user.id)
   });
 });

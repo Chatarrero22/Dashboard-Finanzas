@@ -228,6 +228,25 @@ diferencia eran **$339.660 de cuotas futuras**, que `deuda()` contaba y la
 pantalla de Tarjetas no muestra ahí. Sin el desglose, el único cierre posible
 era «el pago no me descontó».
 
+**Marcar un pago baja el Disponible — salvo que tu saldo YA lo tenga
+descontado.** Es lo único que la app no puede saber, así que lo pregunta.
+
+Si pagaste y después pusiste tu saldo real, ese saldo ya tiene la plata
+descontada: marcar el pago la restaría **de nuevo**. Emanuel pagó, ajustó a
+$453.799 —lo que tiene— y marcar los resúmenes lo dejaba en **-$645.261**. La
+misma plata restada dos veces.
+
+La pregunta está puesta de forma que se contesta **mirando**, no entendiendo
+el modelo: «¿el Disponible de ahora coincide con tu banco?». Si dice «ya está
+al día», el pago se marca igual pero se compensa con un `Saldo inicial` por
+el mismo monto — no es inventar nada, es anotar que el ajuste anterior ya
+incluía esta deuda, y va como `Saldo inicial` justamente para que **no cuente
+en el mes**.
+
+Es la misma familia que «¿lo vendiste o te equivocaste?»: dos caminos que no
+se pueden adivinar, y adivinar mal rompe un número que la persona conoce de
+memoria.
+
 **Y hay que avisar cuando falta marcar un pago**, porque es el paso que se
 olvida: la app no puede saber que pagaste —el banco no le avisa— pero sí
 puede darse cuenta de que un resumen venció y nadie dijo nada. El aviso está

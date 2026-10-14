@@ -122,7 +122,7 @@ function Tarjeta({ t, onEditar, onBorrar, onPagar, onPagarTodos, onOrdenar }) {
 }
 
 export default function TarjetasScreen({ cards, proximas, accion, onReload, onError, onSaved }) {
-  const { confirmar } = useDialogos()
+  const { confirmar, pedirOpcion } = useDialogos()
   const [form, setForm] = useState(VACIA)
   const [editando, setEditando] = useState(null)
   const [abierto, setAbierto] = useState(false)
@@ -184,18 +184,50 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
     }
   }
 
-  async function pagar(t) {
-    const ok = await confirmar({
-      titulo: `¿Pagaste ${money(t.aPagar.monto)} de ${t.name}?`,
-      detalle: 'No lo cuento como gasto nuevo: esas compras ya están anotadas una por una. ' +
-        `Tu Disponible va a bajar ${money(t.aPagar.monto)}, porque esa plata ya ` +
-        'salió de tu cuenta.',
-      aceptar: 'Sí, lo pagué',
+  /*
+   * ¿TU SALDO YA LO TIENE DESCONTADO? Es lo único que la app no puede saber.
+   *
+   * Marcar un pago baja el Disponible por ese monto, y está bien: esa plata
+   * salió del banco. Pero solo si la app todavía creía tenerla.
+   *
+   * Si pagaste hace rato y después pusiste tu saldo real, ese saldo YA tiene
+   * la plata descontada: marcar el pago la restaría de nuevo. Emanuel pagó,
+   * ajustó a $453.799 —lo que tiene— y marcar los resúmenes lo dejaba en
+   * -$645.261. La misma plata restada dos veces.
+   *
+   * La pregunta está puesta de forma que se puede responder mirando: «¿el
+   * Disponible de ahora coincide con tu banco?». No hay que entender el
+   * modelo, hay que mirar un número.
+   */
+  async function preguntarSiYaBajo(monto) {
+    return pedirOpcion({
+      titulo: `¿Tu saldo ya tiene descontados esos ${money(monto)}?`,
+      detalle: 'Fijate en el Disponible de la barra: si ya coincide con lo que ' +
+        'tenés en el banco, entonces ya está descontado.',
+      opciones: [
+        {
+          valor: 'no',
+          nombre: 'Todavía no',
+          sub: `El Disponible va a bajar ${money(monto)}`,
+        },
+        {
+          valor: 'si',
+          nombre: 'Sí, ya está al día',
+          sub: 'El Disponible no se mueve',
+        },
+      ],
     })
-    if (!ok) return
+  }
+
+  async function pagar(t) {
+    const r = await preguntarSiYaBajo(t.aPagar.monto)
+    if (!r) return
     try {
-      await api(`/cards/${t.id}/pagar`, { method: 'POST', body: JSON.stringify({}) })
-      onSaved('Resumen marcado como pagado')
+      await api(`/cards/${t.id}/pagar`, {
+        method: 'POST',
+        body: JSON.stringify({ yaDescontado: r === 'si' }),
+      })
+      onSaved(r === 'si' ? 'Marcado como pagado' : 'Resumen pagado')
       onReload()
     } catch (err) {
       onError(err.message)
@@ -204,21 +236,14 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
 
   async function pagarTodos(t) {
     const total = t.pendientes.reduce((a, r) => a + r.monto, 0)
-    const ok = await confirmar({
-      titulo: `¿Ya pagaste los ${t.pendientes.length} resúmenes?`,
-      detalle: `Son ${money(total)} en total, desde el que cerró el ` +
-        `${t.pendientes[0].cierreTexto}. No los cuento como gasto nuevo: esas ` +
-        'compras ya están anotadas una por una. ' +
-        // El efecto que importa: esa plata sale del Disponible. Es correcto
-        // -ya salió del banco- pero hay que decirlo antes, no después.
-        `Tu Disponible va a bajar ${money(total)}, porque esa plata ya salió ` +
-        'de tu cuenta.',
-      aceptar: 'Sí, los pagué todos',
-    })
-    if (!ok) return
+    const r = await preguntarSiYaBajo(total)
+    if (!r) return
     try {
-      const r = await api(`/cards/${t.id}/pagar-anteriores`, { method: 'POST', body: JSON.stringify({}) })
-      onSaved(`${r.marcados} resúmenes marcados como pagados`)
+      const res = await api(`/cards/${t.id}/pagar-anteriores`, {
+        method: 'POST',
+        body: JSON.stringify({ yaDescontado: r === 'si' }),
+      })
+      onSaved(`${res.marcados} resúmenes marcados como pagados`)
       onReload()
     } catch (err) {
       onError(err.message)
