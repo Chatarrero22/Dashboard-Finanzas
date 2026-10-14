@@ -21,6 +21,7 @@ var prices = require('./prices.js');
 var plata = require('./plata.js');
 var fijos = require('./fijos.js');
 var arbol = require('./arbol.js');
+var granja = require('./granja.js');
 
 var PLATFORM = 'Telegram';
 
@@ -365,6 +366,12 @@ function novedades(premio) {
   (premio.logros || []).forEach(function (l) {
     partes.push(l.emoji + ' Logro nuevo: ' + l.nombre + ' — ' + l.dice);
   });
+  // La granja va primero si llegó alguien: es lo más lindo que puede pasar.
+  if (premio.granja) {
+    var deLaGranja = granja.frases(premio.granja);
+    if (premio.granja.llegaron && premio.granja.llegaron.length) partes = deLaGranja.concat(partes);
+    else partes = partes.concat(deLaGranja);
+  }
   return partes.length ? '\n\n' + partes.join('\n') : '';
 }
 

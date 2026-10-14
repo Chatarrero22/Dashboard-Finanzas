@@ -13,6 +13,7 @@
 var db_module = require('./db.js');
 var db = db_module.db;
 var arbol = require('./arbol.js');
+var granja = require('./granja.js');
 
 function hoy() {
   return new Date().toISOString().slice(0, 10);
@@ -165,9 +166,17 @@ function revisarYAvisar(enviar) {
       // (ahí se reparte la experiencia grande del árbol).
       var mesPasado = new Date();
       mesPasado.setDate(0);
+      var antes = arbol.progreso(u.id).xp;
       arbol.cerrarMes(u.id, mesPasado.toISOString().slice(0, 7));
+      var despues = arbol.progreso(u.id).xp;
+
+      // El cierre del mes es la experiencia más grande que se reparte, así
+      // que es cuando más seguido llega un animal. Sin esto llegaba callado
+      // y la persona se enteraba recién si abría la granja.
+      var deLaGranja = granja.frases(granja.novedades(antes, despues));
 
       var texto = mensajeDelDia(u.id);
+      if (deLaGranja.length) texto = (texto ? texto + '\n\n' : '') + deLaGranja.join('\n');
       if (!texto) return;
       enviar(u.telegram_chat_id, texto);
       enviados++;

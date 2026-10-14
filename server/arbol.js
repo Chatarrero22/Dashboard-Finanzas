@@ -9,6 +9,7 @@
  */
 var db_module = require('./db.js');
 var db = db_module.db;
+var granjaMod = require('./granja.js');
 
 function hoy() {
   return new Date().toISOString().slice(0, 10);
@@ -95,7 +96,23 @@ function sumarXP(userId, cantidad, motivo) {
     ganados: cantidad,
     motivo: motivo || '',
     subioDeEtapa: etapaDespues > etapaAntes,
-    etapa: etapaPara(despues.xp)
+    etapa: etapaPara(despues.xp),
+    // La granja sale de los mismos puntos: si cruzaste un umbral, llegó o
+    // creció un animal.
+    granja: granjaMod.novedades(antes.xp, despues.xp)
+  };
+}
+
+/** Junta lo que pasó en la granja en varias sumas seguidas. */
+function juntarGranja(a, b) {
+  if (!a) return b || { llegaron: [], crecieron: [] };
+  if (!b) return a;
+  return {
+    llegaron: a.llegaron.concat(b.llegaron),
+    // Si en una suma creció y en la siguiente creció otra vez, vale la última.
+    crecieron: a.crecieron
+      .filter(function (x) { return !b.crecieron.some(function (y) { return y.id === x.id; }); })
+      .concat(b.crecieron)
   };
 }
 
@@ -203,13 +220,14 @@ function revisarLogros(userId) {
  */
 function alAnotarMovimiento(userId, opciones) {
   opciones = opciones || {};
-  var novedades = { xp: 0, logros: [], subioDeEtapa: false, racha: null };
+  var novedades = { xp: 0, logros: [], subioDeEtapa: false, racha: null, granja: null };
 
   var racha = tocarRacha(userId);
   if (racha.diaNuevo) {
     var r = sumarXP(userId, PUNTOS.racha_dia, 'racha');
     novedades.xp += PUNTOS.racha_dia;
     novedades.subioDeEtapa = novedades.subioDeEtapa || r.subioDeEtapa;
+    novedades.granja = juntarGranja(novedades.granja, r.granja);
     novedades.racha = racha.streak;
   }
 
@@ -219,24 +237,26 @@ function alAnotarMovimiento(userId, opciones) {
     var g = sumarXP(userId, puntos, 'anotar');
     novedades.xp += puntos;
     novedades.subioDeEtapa = novedades.subioDeEtapa || g.subioDeEtapa;
+    novedades.granja = juntarGranja(novedades.granja, g.granja);
   }
 
   novedades.logros = revisarLogros(userId);
   novedades.etapa = etapaPara(stats(userId).xp);
+  novedades.granja = juntarGranja(novedades.granja, null);
   return novedades;
 }
 
 function alSumarAMeta(userId, completada) {
   var puntos = completada ? PUNTOS.meta_cumplida : PUNTOS.sumar_a_meta;
   var r = sumarXP(userId, puntos, completada ? 'meta cumplida' : 'aporte a meta');
-  return { xp: puntos, subioDeEtapa: r.subioDeEtapa, logros: revisarLogros(userId), etapa: r.etapa };
+  return { xp: puntos, subioDeEtapa: r.subioDeEtapa, logros: revisarLogros(userId), etapa: r.etapa, granja: r.granja };
 }
 
 function alAgregarInversion(userId) {
   var yaTenia = db.prepare('SELECT COUNT(*) c FROM portfolio_assets WHERE user_id = ?').get(userId).c;
   if (yaTenia > 1) return { xp: 0, logros: revisarLogros(userId) };
   var r = sumarXP(userId, PUNTOS.primera_inversion, 'primera inversión');
-  return { xp: PUNTOS.primera_inversion, subioDeEtapa: r.subioDeEtapa, logros: revisarLogros(userId) };
+  return { xp: PUNTOS.primera_inversion, subioDeEtapa: r.subioDeEtapa, logros: revisarLogros(userId), granja: r.granja };
 }
 
 /**
@@ -316,7 +336,9 @@ function progreso(userId) {
     rachaHoy: s.last_active === hoy(),
     logros: conseguidos,
     pendientes: pendientes,
-    total: Object.keys(LOGROS).length
+    total: Object.keys(LOGROS).length,
+    // Sin tope: lo que el árbol ya no puede mostrar, lo muestra la granja.
+    granja: granjaMod.granja(s.xp)
   };
 }
 

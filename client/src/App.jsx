@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Login from './Login.jsx'
 import Setup from './Setup.jsx'
 import Arbol from './Arbol.jsx'
+import Granja from './Granja.jsx'
 import PnlScreen from './Pnl.jsx'
 import PresupuestosScreen from './Presupuestos.jsx'
 import PatrimonioScreen from './Patrimonio.jsx'
@@ -238,8 +239,12 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
       setEnCuotas('1')
       setDate(todayISO())
       var extra = ''
-      if (r?.premio?.subioDeEtapa) extra = ` · 🌱 ¡Tu árbol creció! Ahora es ${r.premio.etapa.nombre}`
+      const llego = r?.premio?.granja?.llegaron?.[0]
+      const crecio = r?.premio?.granja?.crecieron?.[0]
+      if (llego) extra = ` · ${llego.emoji} ¡Llegó un ${llego.etapaNombre} a tu granja! Se llama ${llego.nombre}`
+      else if (r?.premio?.subioDeEtapa) extra = ` · 🌱 ¡Tu árbol creció! Ahora es ${r.premio.etapa.nombre}`
       else if (r?.premio?.logros?.length) extra = ` · ${r.premio.logros[0].emoji} Logro: ${r.premio.logros[0].nombre}`
+      else if (crecio) extra = ` · ${crecio.emoji} ${crecio.nombre} creció: ya es ${crecio.etapaNombre}`
       onSaved((kind === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado') + extra)
     } catch (err) {
       onError(err.message)
@@ -754,6 +759,9 @@ function ArbolScreen({ progreso, onReload }) {
           <p className="hint">Todavía no anotaste nada hoy. No la cortes.</p>
         )}
       </section>
+
+      {/* El árbol tiene tope; la granja no. Sale de los mismos puntos. */}
+      <Granja granja={progreso.granja} />
 
       <section className="card">
         <div className="card-title-row">

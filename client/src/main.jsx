@@ -6,6 +6,7 @@ import './index.css'
 import './pantallas.css'
 import './shell.css'
 import './resumen.css'
+import './granja.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

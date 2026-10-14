@@ -102,6 +102,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `prices.js` | Cripto (CoinMarketCap) y dólar (dolarapi, sin clave) |
 | `mercado-arg.js` | Acciones, CEDEARs, bonos, letras y ONs en vivo (data912, sin clave) |
 | `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
+| `granja.js` | La granja: qué animales hay y cómo crecen, sacado de la XP. Sin tope |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
 | `version.js` | Qué build está corriendo (para saber si el deploy entró) |
@@ -124,10 +125,11 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `Ayuda.jsx` | El tutorial paso a paso de cada sección |
 | `Telegram.jsx` | El asistente para conectar el bot, paso a paso |
 | `Arbol.jsx` | Dibuja el árbol en SVG |
+| `Granja.jsx` | Dibuja la granja en SVG; las animaciones están en `granja.css` |
 | `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
 Estilos: `index.css` (tokens + base), `shell.css` (armazón, modales),
-`pantallas.css` y `resumen.css`.
+`pantallas.css`, `resumen.css` y `granja.css`.
 
 ### Tablas
 
@@ -832,6 +834,79 @@ pantalla. Emanuel lo pidió explícitamente más de una vez.
 
 ---
 
+## La granja
+
+**El árbol tiene tope y la granja no.** En 9.000 puntos el árbol llega a
+«Mangal» y ahí se queda: la experiencia sigue sumando pero ya no hay nada
+nuevo que ver. Emanuel: «habría que poner algo más que el arbolito porque
+llega a un tope». La granja va abajo del árbol, en la misma pantalla.
+
+- Van **llegando animales** con los mismos puntos: gallina (200), conejo,
+  chancho, oveja, pato, vaca y caballo, que llega justo en 9.000, junto con
+  el Mangal. Terminar el árbol tiene premio.
+- Cada uno **nace cría y crece** con los puntos que sumás después: pollito →
+  pollita → gallina. Llega antes de que pueda llegar el siguiente, así que
+  entre una llegada y otra siempre pasa algo.
+- Cuando ya están todas las especies **nacen crías nuevas cada 1.500
+  puntos**, rotando, **para siempre**. La prueba `la granja no tiene tope`
+  existe para que nadie se la ponga sin querer.
+- Cada animal tiene **nombre** (Pocha, Chiche, Toto…), y es siempre el mismo:
+  sale del orden en que llegó.
+
+**No se guarda nada: la granja es una función de la XP**, como la etapa del
+árbol. Mismos puntos, misma granja. Es la regla del saldo que no se guarda,
+y además hace que quien ya venía juntando puntos encuentre su granja con lo
+que se ganó en vez de arrancar de cero.
+
+**Los avisos salen de un solo lado.** `granja.novedades(antes, despues)` dice
+qué llegó y qué creció, y `granja.frases()` cómo se dice. `sumarXP()` lo
+devuelve en `premio.granja`, y lo leen el aviso de la web al guardar, el
+`novedades()` del bot (que guarda por su cuenta, ver más abajo) y el cierre
+del mes en `alertas.js`, que es la XP más grande que se reparte y por lo
+tanto cuando más seguido llega un animal. Sin ese último, llegaba callado.
+
+### Cómo se mueven
+
+Cada animal son tres grupos anidados y no es capricho: `translate scale`
+(atributo) para dónde está y qué tan grande es, `.animal` (CSS) para
+caminar y darse vuelta, `.rebote` (CSS) para respirar o saltar. Una animación
+CSS con `transform` le gana al atributo `transform` del mismo elemento.
+
+Patas, cabeza y caminata usan **la misma duración y el mismo retardo**
+(`--t` y `--retardo`, que heredan los hijos). Así mueve las patas solo
+mientras avanza y baja la cabeza a comer cuando se para. La gallina picotea,
+el caballo pasta con el cuello entero, el conejo salta en vez de caminar.
+
+Las crías tienen **la cabeza más grande** en proporción: un animal grande
+visto de lejos no parece una cría. Va con la propiedad `scale` y no con
+`transform`, porque `transform` ya lo usa la animación de comer.
+
+Lo que me mordió dibujándola:
+
+- **`transform-box: fill-box` va SOLO en las piezas que se animan, nunca en
+  `.animal *`.** Con el comodín, el `rotate(28 26 -43.5)` fijo de la cabeza
+  del caballo pasó a girar sobre su propia caja y la cabeza quedó flotando
+  arriba del cuello.
+- **La sombra va adentro de `.animal` y afuera de `.rebote`**: camina con el
+  animal pero no salta con él. Afuera de los dos quedaba en el pasto sin
+  nadie encima.
+- **En el celular los animales van 1,4 veces más grandes** (`useAngosta()`).
+  El corral entero mide menos de 300 píxeles y una gallina quedaba de 25: se
+  movía, pero no se veía que se moviera. El paisaje no se agranda.
+- **Dónde para cada uno sale del número de animal**, con saltos de «número de
+  oro» para que caigan lo más lejos posible entre sí. Al azar, la granja se
+  reordenaría cada vez que entrás; con saltos fijos dos conejos quedaban en
+  la misma fila y se chocaban.
+- **«Reducir movimiento» la deja quieta del todo.** La regla general de
+  `index.css` achica la duración a 0,01 ms pero deja las repeticiones
+  infinitas: en una caminata eso es un parpadeo frenético.
+
+De día hay sol y nubes; de noche, luna y estrellas. Las dos cosas están
+siempre en el dibujo y el tema decide cuál se ve con `--nubes` y
+`--estrellas`, así no hay que preguntarle al JS qué tema es.
+
+---
+
 ## El tutorial
 
 `Ayuda.jsx` tiene los pasos de cada sección. Un paso es `{ titulo, texto,
@@ -929,7 +1004,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 35, tardan 3 segundos
+npm test                     # las 46, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
@@ -945,6 +1020,7 @@ comillas. Y `node --test` en una carpeta llamada `test` corre **todos** los
 | `plata.test.js` | Que el front y el server lean el mismo número |
 | `dinero.test.js` | Cuentas, potes, deuda de tarjeta y salidas del mes |
 | `dashboard.test.js` | Las reglas que viven en las consultas de `api.js` |
+| `granja.test.js` | Que la granja no tenga tope, y que los avisos lleguen |
 
 **Cada prueba está porque la regla se rompió en la vida real**, y el
 comentario dice cuál era el número que Emanuel vio mal. Si una falla, lo que

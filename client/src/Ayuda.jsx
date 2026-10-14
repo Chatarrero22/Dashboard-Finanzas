@@ -229,6 +229,11 @@ export const GUIAS = {
       texto: 'Cada movimiento que cargás le suma. No es un adorno: la app sirve si está al día, y esto es para acordarse.',
       apunta: '.arbol-caja, .card',
     },
+    {
+      titulo: 'Y la granja no termina nunca',
+      texto: 'El árbol llega a un tope; la granja no. Con los mismos puntos van llegando animales, cada uno crece mientras seguís sumando, y cuando están todos empiezan a nacer crías.',
+      apunta: '.granja-escena',
+    },
   ],
 
   ajustes: [
