@@ -136,7 +136,7 @@ Estilos: `index.css` (tokens + base), `shell.css` (armazón, modales),
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
 `alerts_sent`, `learned_categories`, `cards`, `card_payments`, `accounts`,
-`animal_names`.
+`animal_names`, `granja_items`, `granja_cuidados`.
 
 ---
 
@@ -855,9 +855,8 @@ le avisa a nadie que «el árbol creció»: sería hablar de algo que no ve.
   chancho, oveja, pato, vaca, caballo (9.000), y después perro, gato,
   cabra, burro, llama y carpincho, uno cada 1.500 hasta los 18.000. Son 13
   especies.
-- Cada uno **nace cría y crece** con los puntos que sumás después: pollito →
-  pollita → gallina. Llega antes de que pueda llegar el siguiente, así que
-  entre una llegada y otra siempre pasa algo.
+- Cada uno **nace cría y crece si lo cuidás**: pollito → pollita → gallina
+  (ver «Cuidarlos», abajo). Los puntos traen animales; no los hacen crecer.
 - Cuando ya están todas las especies **nacen crías nuevas cada 1.500
   puntos**, rotando, **para siempre**.
 - Abajo hay un **álbum** con las especies que todavía no llegaron y cuántos
@@ -981,6 +980,66 @@ Lo que me mordió:
   decía 0 px/s. Hay que volver a declarar nombre, repeticiones y retardo con
   `!important`; los nombres de los recorridos los vuelve a poner el
   `<style>` que arma `Granja.jsx`.
+
+### Cuidarlos
+
+**Los puntos traen animales; crecen si los cuidás.** Al principio crecían
+solos con los puntos. Emanuel pidió que fuera más interactivo: «los puntos
+que vas ganando, en realidad para que crezca la granja vos los tengas que
+alimentar, bañar». Así que lo que hacés con la plata te da cosas, y con
+esas cosas los cuidás:
+
+| Acción | Cuesta | Se gana… | Suma | Cada cuánto |
+|---|---|---|---|---|
+| Darle de comer | 1 🌾 alimento | anotando y sin cortar la racha | 1 | 8 h |
+| Bañarlo | 1 🫧 jabón | respetando un presupuesto o sumando a una meta | 2 | 20 h |
+| Darle un premio | 1 🎁 premio | mes en verde, meta cumplida o invertir | 3 | 20 h |
+| Mimarlo | gratis | — | 0 | siempre |
+
+Con 6 cuidados pasa a joven y con 18 a grande (`CRECE_CUIDADOS`).
+
+- **Qué da cada logro vive en un solo lado**: `POR_MOTIVO` en `granja.js`,
+  indexado por el `motivo` con que `arbol.js` llama a `sumarXP()`. Así cada
+  logro da puntos Y cosas desde el mismo llamado, y no hay dos listas que se
+  separen. Invertir de nuevo no da puntos pero sí un premio, **uno por día**:
+  si no, cargar y borrar un activo sería una canilla.
+- **La canasta no se guarda: es la suma de `granja_items`**, como el saldo
+  de una cuenta. Ganar es una fila positiva con el motivo; usar, una
+  negativa con el animal.
+- **El «cada cuánto» es lo que hace que haya motivo para volver**, y lo que
+  impide engordarlo en un minuto con toda la canasta.
+- **Tienen necesidades que se ven**: el que no comió en 12 horas pide comida
+  con un globito; el que no se bañó en 3 días tiene barro.
+- **Nunca se achican ni se mueren.** Es una app de plata: el descuido no
+  castiga, solo deja de avanzar. Hay una prueba que lo cuida.
+- **Si no se puede, se dice por qué y qué hacer**, no solo «no»: «Pancho ya
+  comió, vuelve a tener hambre en 8 horas» o «No tenés jabón. Se gana
+  respetando un presupuesto o sumando a una meta». Es lo que conecta la
+  granja con la plata. En la pantalla se calcula sin ir al server: tocar un
+  botón gris contesta al toque.
+- El nombre de la columna que se actualiza al cuidar sale de `ACCIONES`,
+  nunca de lo que manda la pantalla: la acción se valida contra esa lista
+  antes de armar el SQL (hay una prueba que manda `'cuidado = 999; --'`).
+
+**EL CAMBIO DE REGLAS NO LE SACA NADA A NADIE.** Quien ya tenía una gallina
+grande no puede encontrarse con un pollito. La primera vez, para cada
+persona, `prepararGranja()` anota los cuidados que corresponden a la etapa
+que cada animal ya tenía con la regla vieja (`etapaPorPuntos`), y da una
+canasta de bienvenida (6 🌾, 2 🫧, 1 🎁). La marca de que ya pasó es la fila
+con motivo `bienvenida`.
+
+Se corre **para todos al arrancar el servidor** (`prepararTodas()` en
+`index.js`), no solo cuando alguien entra a la granja: si no, quien entrara
+recién en un mes encontraría crecidos con la regla vieja a animales que
+llegaron después del cambio.
+
+En la pantalla, tocar un animal (en el corral o en la lista) lo deja
+**quieto con un anillo** y abre su ficha **abajo del corral**, no flotando:
+con cuatro botones es grande, y en el celular un globo así tapaba media
+granja. Cada acción se ve en el dibujo —granos y picoteo, burbujas, un
+regalito, corazones, y un estallido de brillos cuando crece— y el animal se
+queda quieto mientras tanto (`.ocupado`), si no la comida quedaría en el
+pasto y él en otro lado.
 
 ### El cielo es el de afuera
 
@@ -1142,7 +1201,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 68, tardan 3 segundos
+npm test                     # las 81, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
@@ -1159,6 +1218,7 @@ comillas. Y `node --test` en una carpeta llamada `test` corre **todos** los
 | `dinero.test.js` | Cuentas, potes, deuda de tarjeta y salidas del mes |
 | `dashboard.test.js` | Las reglas que viven en las consultas de `api.js` |
 | `granja.test.js` | Que la granja no tenga tope, y que los avisos lleguen |
+| `cuidados.test.js` | La cadena plata → canasta → cuidados → crecer, y la migración |
 | `clima.test.js` | Que el cielo sea el de afuera, y que sin dato no se invente |
 
 **Cada prueba está porque la regla se rompió en la vida real**, y el

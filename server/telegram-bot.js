@@ -592,6 +592,16 @@ function start(config) {
     texto += '\n🥚 ' + (px.nace ? 'Está por nacer' : 'Viene') + ' un ' + px.etapaNombre + '\n' +
       barra + '  faltan ' + px.faltan + ' puntos';
 
+    // La canasta, y quién pide algo: es lo que hace que valga la pena
+    // entrar a la app a cuidarlos.
+    var c = g.canasta || {};
+    texto += '\n\n🧺 Tu canasta: 🌾 ' + (c.alimento || 0) + '  🫧 ' + (c.jabon || 0) + '  🎁 ' + (c.premio || 0);
+    var conHambre = g.animales.filter(function (a) { return a.hambre; }).map(function (a) { return a.nombre; });
+    if (conHambre.length) {
+      texto += '\n' + (conHambre.length === 1 ? conHambre[0] + ' tiene hambre' : conHambre.slice(0, 3).join(', ') +
+        (conHambre.length > 3 ? ' y otros' : '') + ' tienen hambre') + '. Dales de comer desde la app.';
+    }
+
     if (p.racha > 0) {
       texto += '\n\n🔥 Racha de ' + p.racha + (p.racha === 1 ? ' día' : ' días');
       if (!p.rachaHoy) texto += '  (anotá algo hoy para no cortarla)';

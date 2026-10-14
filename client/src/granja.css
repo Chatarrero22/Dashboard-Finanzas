@@ -791,3 +791,267 @@
 .granja-album-txt { display: flex; flex-direction: column; line-height: 1.15; }
 .granja-album-nombre { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: capitalize; }
 .granja-album-puntos { font-size: 0.7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------- cuidarlos */
+
+/*
+ * El que estás cuidando se queda quieto: si siguiera caminando, la comida
+ * quedaría en el pasto y él en otro lado. Con !important porque «reducir
+ * movimiento» en shell.css pone `animation: none !important`, y ese atajo
+ * vuelve a poner el estado en «andando».
+ */
+.granja-escena .animal.ocupado,
+.granja-escena .animal.ocupado .pata,
+.granja-escena .animal.ocupado .cuerpo,
+.granja-escena .animal.ocupado .cabeza {
+  animation-play-state: paused !important;
+}
+
+/* Comer: picotea los granos del piso, varias veces. */
+.granja-escena .animal.ocupado.efecto-comer .cuerpo .cabeza {
+  animation: granja-come-ya 0.42s ease-in-out 3 !important;
+  animation-play-state: running !important;
+}
+
+@keyframes granja-come-ya {
+  0%, 100% { rotate: 0deg; }
+  50% { rotate: var(--agacha, 30deg); }
+}
+
+/* El anillo del que elegiste. */
+.granja-escena .anillo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: granja-anillo 1.6s ease-in-out infinite;
+}
+
+@keyframes granja-anillo {
+  0%, 100% { opacity: 0.9; scale: 1; }
+  50% { opacity: 0.5; scale: 1.08; }
+}
+
+/* El globito del hambre, que sube y baja para que se note. */
+.granja-escena .pide { pointer-events: none; }
+.granja-escena .pide-globo { fill: #fffdf7; stroke: rgba(42, 28, 12, 0.18); stroke-width: 0.6; }
+.granja-escena .pide-grano { fill: #e9b949; }
+.granja-escena .pide > * { animation: granja-pide 2.2s ease-in-out infinite; }
+
+@keyframes granja-pide {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -1.6px; }
+}
+
+.granja-escena .barro { fill: #7a5634; opacity: 0.55; pointer-events: none; }
+
+/* Los efectos de cuidar */
+.granja-escena .efecto { pointer-events: none; }
+
+.granja-escena .efecto .grano {
+  fill: #e9b949;
+  animation: granja-granos 1.6s ease-out both;
+}
+
+@keyframes granja-granos {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.granja-escena .efecto .burbuja {
+  fill: rgba(255, 255, 255, 0.55);
+  stroke: rgba(160, 200, 235, 0.9);
+  stroke-width: 0.6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: granja-burbuja 1.4s ease-out both;
+}
+
+@keyframes granja-burbuja {
+  0% { opacity: 0; scale: 0.3; translate: 0 0; }
+  25% { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 1.2; translate: 0 -10px; }
+}
+
+.granja-escena .efecto .regalo {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: granja-regalo 1.5s cubic-bezier(0.34, 1.5, 0.64, 1) both;
+}
+
+@keyframes granja-regalo {
+  0% { opacity: 0; scale: 0.2; translate: 0 6px; }
+  30% { opacity: 1; scale: 1.15; translate: 0 -4px; }
+  70% { opacity: 1; scale: 1; translate: 0 -6px; }
+  100% { opacity: 0; scale: 0.9; translate: 0 -12px; }
+}
+
+.granja-escena .efecto .corazon {
+  fill: #e5484d;
+  opacity: 0;
+  animation: granja-corazon-sube 1.4s ease-out both;
+}
+
+@keyframes granja-corazon-sube {
+  0% { opacity: 0; translate: 0 4px; }
+  25% { opacity: 1; }
+  100% { opacity: 0; translate: 0 -14px; }
+}
+
+.granja-escena .efecto .brillo {
+  fill: #f2c14e;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: granja-brillo 1.6s ease-out both;
+}
+
+@keyframes granja-brillo {
+  0% { opacity: 0; translate: 0 6px; scale: 0.3; }
+  30% { opacity: 1; scale: 1.2; }
+  100% { opacity: 0; translate: 0 -10px; scale: 0.6; }
+}
+
+/* Cuando crece: un «pop», que además disimula el salto de tamaño. */
+.granja-escena .toque.creciendo { animation: granja-crece 0.9s cubic-bezier(0.34, 1.6, 0.64, 1); }
+
+@keyframes granja-crece {
+  0% { transform: scale(0.8); }
+  45% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .granja-escena .efecto .grano { animation: granja-granos 1.6s ease-out both !important; }
+  .granja-escena .efecto .burbuja { animation: granja-burbuja 1.6s ease-out both !important; }
+  .granja-escena .efecto .regalo { animation: granja-regalo 1.6s ease-out both !important; }
+  .granja-escena .efecto .corazon { animation: granja-corazon-sube 1.6s ease-out both !important; }
+  .granja-escena .efecto .brillo { animation: granja-brillo 1.6s ease-out both !important; }
+  .granja-escena .anillo { animation: none !important; }
+}
+
+/* ------------------------------------------------- la ficha y la canasta */
+
+.granja-ficha {
+  margin: 4px 0 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  animation: granja-ficha 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes granja-ficha {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.granja-ficha-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.granja-ficha-ico { font-size: 1.7rem; line-height: 1; }
+.granja-ficha-quien { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.granja-ficha .dialogo-x { flex: none; }
+
+.granja-ficha-crece { margin-top: 12px; }
+.granja-ficha-crece .arbol-barra { margin-bottom: 5px; }
+.granja-ficha-grande { margin: 10px 0 0; }
+
+.granja-acciones {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 480px) {
+  .granja-acciones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.granja-accion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+
+.granja-accion:hover { border-color: var(--accent); }
+.granja-accion:active { transform: scale(0.96); }
+.granja-accion:disabled { opacity: 0.6; cursor: progress; }
+
+/* No se puede ahora: gris, pero se puede tocar para saber por qué. */
+.granja-accion.no { opacity: 0.55; }
+.granja-accion.no:hover { border-color: var(--border-strong); }
+
+.granja-accion-ico { font-size: 1.4rem; line-height: 1.1; }
+.granja-accion-dice { font-size: 0.8rem; font-weight: 600; text-align: center; }
+.granja-accion-cuanto { font-size: 0.7rem; color: var(--text-muted); }
+
+.granja-ficha-msj {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.granja-ficha-msj.si { background: var(--good-soft); color: var(--text-primary); }
+.granja-ficha-msj.no { background: var(--accent-soft); color: var(--text-primary); }
+
+.granja-pista-fuerte { color: var(--text-secondary); font-size: 0.84rem; margin-bottom: 4px; }
+
+.granja-canasta {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.granja-canasta .card-rotulo { margin-bottom: 8px; }
+
+.granja-canasta-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+}
+
+.granja-canasta-ico { font-size: 1.25rem; line-height: 1.2; }
+.granja-canasta-txt { display: flex; flex-direction: column; gap: 1px; font-size: 0.9rem; color: var(--text-primary); min-width: 0; }
+.granja-canasta-txt b { font-family: var(--fuente-titulo); font-size: 1rem; }
+.granja-canasta-como { font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; }
+
+/* La fila de la lista es un botón: tocarla elige al animal en el corral. */
+button.granja-bicho {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+button.granja-bicho:hover .granja-bicho-nombre-txt { color: var(--accent-text); }
+button.granja-bicho.elegido { background: var(--accent-soft); }
+
+.granja-bicho-nombre-txt {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}

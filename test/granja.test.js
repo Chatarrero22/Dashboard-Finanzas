@@ -123,25 +123,27 @@ test('se sabe desde el principio qué animales faltan', function () {
 });
 
 /*
- * CADA ANIMAL CRECE CON LOS PUNTOS QUE SUMÁS DESPUÉS DE QUE LLEGÓ. Cría,
- * joven y grande.
+ * LOS PUNTOS TRAEN ANIMALES; CRECEN SI LOS CUIDÁS. Cría, joven y grande,
+ * según los cuidados que recibió.
  */
-test('un animal nace cría y crece', function () {
+test('un animal nace cría y crece con los cuidados', function () {
   var llega = granja.llegadaDe(0);
+  var c = granja.CRECE_CUIDADOS;
+  var con = function (n) { return granja.granja(llega + 99999, {}, { 0: { cuidado: n } }).animales[0]; };
 
-  assert.strictEqual(granja.granja(llega).animales[0].etapa, 0);
-  assert.strictEqual(granja.granja(llega).animales[0].etapaNombre, 'pollito');
-  assert.strictEqual(granja.granja(llega + granja.CRECE[1]).animales[0].etapa, 1);
-  assert.strictEqual(granja.granja(llega + granja.CRECE[2]).animales[0].etapa, 2);
-  assert.strictEqual(granja.granja(llega + granja.CRECE[2]).animales[0].etapaNombre, 'gallina');
-  assert.strictEqual(granja.granja(llega + 99999).animales[0].crece, 100, 'grande es grande para siempre');
+  assert.strictEqual(granja.granja(llega + 99999).animales[0].etapa, 0, 'sin cuidados no crece, por más puntos que tengas');
+  assert.strictEqual(con(0).etapaNombre, 'pollito');
+  assert.strictEqual(con(c[1]).etapa, 1);
+  assert.strictEqual(con(c[2]).etapa, 2);
+  assert.strictEqual(con(c[2]).etapaNombre, 'gallina');
+  assert.strictEqual(con(999).crece, 100, 'grande es grande para siempre');
 });
 
 /*
- * MISMOS PUNTOS, MISMA GRANJA. No se guarda nada: si dependiera de algo más
- * que los puntos, dos pantallas podrían mostrar granjas distintas.
+ * MISMOS PUNTOS Y MISMOS CUIDADOS, MISMA GRANJA: dos pantallas no pueden
+ * mostrar granjas distintas.
  */
-test('la granja sale solo de los puntos, y los nombres no cambian', function () {
+test('la granja sale de los puntos y los cuidados, y los nombres no cambian', function () {
   assert.deepStrictEqual(granja.granja(7777), granja.granja(7777));
   assert.strictEqual(granja.granja(300).animales[0].nombre, granja.granja(90000).animales[0].nombre,
     'Pocha es Pocha hoy y dentro de un año');
@@ -161,14 +163,6 @@ test('cruzar un umbral avisa que llegó un animal', function () {
   var n = granja.novedades(granja.llegadaDe(0) - 1, granja.llegadaDe(0));
   assert.strictEqual(n.llegaron.length, 1);
   assert.match(granja.frases(n)[0], /Llegó un pollito/);
-});
-
-test('crecer también se avisa', function () {
-  var llega = granja.llegadaDe(0);
-  var n = granja.novedades(llega + granja.CRECE[1] - 1, llega + granja.CRECE[1]);
-  assert.strictEqual(n.llegaron.length, 0);
-  assert.strictEqual(n.crecieron.length, 1);
-  assert.match(granja.frases(n)[0], /creció: ya es pollita/);
 });
 
 test('si no cambia nada, no se dice nada', function () {
@@ -215,16 +209,6 @@ test('se le puede cambiar el nombre a un animal', function () {
   assert.strictEqual(a.nombre, 'Doña Pocha', 'sin espacios de más');
   assert.strictEqual(arbol.progreso(u.id).granja.animales[0].nombre, 'Doña Pocha');
   assert.strictEqual(arbol.progreso(u.id).granja.animales[0].nombreOriginal, 'Pocha');
-});
-
-test('el aviso de que creció usa el nombre que elegiste', function () {
-  var llega = granja.llegadaDe(0);
-  var u = conPuntos(llega + granja.CRECE[1] - 1);
-  arbol.renombrar(u.id, 0, 'Turuleca');
-
-  var premio = arbol.alAnotarMovimiento(u.id, {});
-  var frases = granja.frases(premio.granja).join(' ');
-  assert.match(frases, /Turuleca creció/);
 });
 
 test('borrar el nombre vuelve al que le había tocado', function () {

@@ -61,11 +61,82 @@ var ESPECIES = [
 var CADA_CUANTO_NACE = 1500;
 
 /*
- * Cuánto crece un animal con los puntos que sumás DESPUÉS de que llegó.
- * Crece antes de que llegue el siguiente, a propósito: entre una llegada y
- * otra siempre pasa algo.
+ * LOS PUNTOS TRAEN ANIMALES; CRECEN SI LOS CUIDÁS.
+ *
+ * Al principio crecían solos con los puntos. Emanuel pidió que fuera más
+ * interactivo: «los puntos que vas ganando, en realidad para que crezca la
+ * granja vos los tengas que alimentar, bañar». Así que lo que hacés con tu
+ * plata te da cosas (alimento, jabón, premios), y con esas cosas los cuidás.
+ * Cada cuidado suma, y con los cuidados suficientes pasan de cría a joven y
+ * de joven a grande.
+ *
+ * Nunca se achican ni se mueren: es una app de plata, y el descuido no
+ * castiga, solo deja de avanzar.
+ */
+var CRECE_CUIDADOS = [0, 6, 18];
+
+/*
+ * Las cosas para cuidarlos, y CÓMO SE GANAN. Cada una sale de algo distinto
+ * que hacés con la plata, para que la acción tenga que ver con el logro:
+ * el alimento es de todos los días (anotar), el jabón de tener la plata
+ * ordenada (presupuestos, metas) y el premio de los logros grandes (cerrar
+ * el mes en verde, cumplir una meta, invertir).
+ */
+var ITEMS = {
+  alimento: { emoji: '🌾', uno: 'alimento', varios: 'alimento', seGana: 'anotando lo que gastás y sin cortar la racha' },
+  jabon: { emoji: '🫧', uno: 'jabón', varios: 'jabones', seGana: 'respetando un presupuesto o sumando a una meta' },
+  premio: { emoji: '🎁', uno: 'premio', varios: 'premios', seGana: 'cerrando el mes en verde, cumpliendo una meta o invirtiendo' }
+};
+
+/*
+ * Qué da cada cosa que ya sumaba puntos. Las claves son los `motivo` con
+ * que arbol.js llama a sumarXP(): así cada logro da puntos Y cosas desde un
+ * solo lado, y no hay dos listas que se separen.
+ */
+var POR_MOTIVO = {
+  'anotar': { alimento: 1 },
+  'racha': { alimento: 1 },
+  'aporte a meta': { jabon: 1 },
+  'presupuesto respetado': { jabon: 2 },
+  'mes en verde': { premio: 3 },
+  'meta cumplida': { premio: 3 },
+  'primera inversión': { premio: 2 },
+  // Invertir de nuevo no da puntos (solo la primera vez), pero sí un premio
+  // por día: es de lo que más tiene que valer la pena.
+  'invertir': { premio: 1 }
+};
+
+/*
+ * Lo que se puede hacer con un animal. `cada` es cada cuánto: un animal que
+ * acaba de comer está lleno. Es lo que hace que haya motivo para volver, y
+ * lo que impide engordarlo en un minuto con toda la canasta.
+ */
+var HORA = 60 * 60 * 1000;
+var ACCIONES = {
+  comer: { item: 'alimento', suma: 1, cada: 8 * HORA, campo: 'comio', dice: 'comió' },
+  banar: { item: 'jabon', suma: 2, cada: 20 * HORA, campo: 'banio', dice: 'se bañó' },
+  premio: { item: 'premio', suma: 3, cada: 20 * HORA, campo: 'premiado', dice: 'recibió su premio' },
+  // Mimar es gratis y no hace crecer: es la visita de todos los días.
+  mimar: { item: null, suma: 0, cada: 0, campo: null, dice: 'recibió mimos' }
+};
+
+// Tiene hambre si no comió en 12 horas; está sucio si no se bañó en 3 días.
+var HAMBRE_DESPUES = 12 * HORA;
+var SUCIO_DESPUES = 72 * HORA;
+
+/*
+ * Cómo crecían ANTES, con los puntos. Ya no se usa para crecer: sirve solo
+ * para que, al pasar a los cuidados, nadie pierda los animales que ya
+ * tenía grandes (ver arbol.prepararGranja).
  */
 var CRECE = [0, 400, 1000];
+
+function etapaPorPuntos(i, xp) {
+  var crecio = xp - llegadaDe(i);
+  if (crecio >= CRECE[2]) return 2;
+  if (crecio >= CRECE[1]) return 1;
+  return 0;
+}
 
 /*
  * Cada animal tiene nombre. Sale del orden en que llegó, así que es siempre
@@ -114,17 +185,49 @@ function nombreDe(i, nombres) {
   return elegido || nombrePara(i);
 }
 
-function armarAnimal(i, xp, nombres) {
+/** 0 = cría, 1 = joven, 2 = grande, según los cuidados que recibió. */
+function etapaPorCuidado(cuidado) {
+  if (cuidado >= CRECE_CUIDADOS[2]) return 2;
+  if (cuidado >= CRECE_CUIDADOS[1]) return 1;
+  return 0;
+}
+
+function hace(fecha, ahora) {
+  return fecha ? ahora - new Date(fecha).getTime() : Infinity;
+}
+
+/*
+ * Qué puede hacerse con este animal ahora, y cuándo se va a poder lo que no.
+ * Sale de cuándo comió, se bañó y recibió su último premio.
+ */
+function estadoDe(reg, ahora) {
+  var puede = {};
+  var vuelve = {};
+  Object.keys(ACCIONES).forEach(function (k) {
+    var a = ACCIONES[k];
+    var paso = a.campo ? hace(reg[a.campo], ahora) : Infinity;
+    puede[k] = paso >= a.cada;
+    vuelve[k] = puede[k] ? 0 : a.cada - paso;
+  });
+  return {
+    hambre: hace(reg.comio, ahora) >= HAMBRE_DESPUES,
+    // Uno que nunca se bañó está sucio: recién llegado viene embarrado.
+    sucio: hace(reg.banio, ahora) >= SUCIO_DESPUES,
+    puede: puede,
+    // En cuántos milisegundos se puede de nuevo (0 = ya).
+    vuelve: vuelve
+  };
+}
+
+function armarAnimal(i, xp, nombres, cuidados, ahora) {
   var e = especieDe(i);
   var llego = llegadaDe(i);
-  var crecio = xp - llego;
+  var reg = (cuidados && cuidados[i]) || {};
+  var cuidado = reg.cuidado || 0;
+  var etapa = etapaPorCuidado(cuidado);
+  var siguiente = CRECE_CUIDADOS[etapa + 1];
 
-  var etapa = 0;
-  if (crecio >= CRECE[2]) etapa = 2;
-  else if (crecio >= CRECE[1]) etapa = 1;
-
-  var siguiente = CRECE[etapa + 1];
-  return {
+  return Object.assign({
     id: i,
     especie: e.especie,
     nombre: nombreDe(i, nombres),
@@ -135,13 +238,15 @@ function armarAnimal(i, xp, nombres) {
     etapa: etapa,
     etapaNombre: e.etapas[etapa],
     llegoCon: llego,
+    cuidado: cuidado,
     // Cuánto le falta para la etapa que sigue, en porcentaje. Grande = 100.
     crece: siguiente == null
       ? 100
-      : Math.min(((crecio - CRECE[etapa]) / (siguiente - CRECE[etapa])) * 100, 100),
-    faltaParaCrecer: siguiente == null ? 0 : llego + siguiente - xp,
+      : Math.min(((cuidado - CRECE_CUIDADOS[etapa]) / (siguiente - CRECE_CUIDADOS[etapa])) * 100, 100),
+    // En cuidados: un bañito son 2, un premio 3.
+    faltaParaCrecer: siguiente == null ? 0 : siguiente - cuidado,
     proximaEtapa: siguiente == null ? null : e.etapas[etapa + 1]
-  };
+  }, estadoDe(reg, ahora || Date.now()));
 }
 
 /**
@@ -150,12 +255,12 @@ function armarAnimal(i, xp, nombres) {
  * `animales` va en el orden en que llegaron. `proximo` es el que viene, que
  * siempre existe: no hay tope.
  */
-function granja(xp, nombres) {
+function granja(xp, nombres, cuidados, ahora) {
   var puntos = Math.max(0, Number(xp) || 0);
   var n = cuantosCon(puntos);
 
   var animales = [];
-  for (var i = 0; i < n; i++) animales.push(armarAnimal(i, puntos, nombres));
+  for (var i = 0; i < n; i++) animales.push(armarAnimal(i, puntos, nombres, cuidados, ahora));
 
   var desde = n === 0 ? 0 : llegadaDe(n - 1);
   var hasta = llegadaDe(n);
@@ -197,9 +302,9 @@ function granja(xp, nombres) {
  * Telegram. Puede llegar un animal y crecer otro en la misma suma: se cuentan
  * los dos, primero la llegada, que es lo más lindo.
  */
-function novedades(antes, despues, nombres) {
-  var a = granja(antes, nombres);
-  var d = granja(despues, nombres);
+function novedades(antes, despues, nombres, cuidados) {
+  var a = granja(antes, nombres, cuidados);
+  var d = granja(despues, nombres, cuidados);
 
   var llegaron = d.animales.slice(a.total);
 
@@ -212,6 +317,17 @@ function novedades(antes, despues, nombres) {
 }
 
 /** Cómo se dice una novedad, igual en todos lados. */
+/** «2 jabones», «1 premio». */
+function cuantas(item, n) {
+  var x = ITEMS[item];
+  return n + ' ' + (n === 1 ? x.uno : x.varios);
+}
+
+/** Qué cosas da un motivo (el de sumarXP), o null. */
+function itemsPor(motivo) {
+  return POR_MOTIVO[motivo] || null;
+}
+
 function frases(nov) {
   var out = [];
   (nov.llegaron || []).forEach(function (a) {
@@ -219,6 +335,11 @@ function frases(nov) {
   });
   (nov.crecieron || []).forEach(function (a) {
     out.push(a.emoji + ' ' + a.nombre + ' creció: ya es ' + a.etapaNombre + '.');
+  });
+  var ganados = nov.ganados || {};
+  Object.keys(ganados).forEach(function (item) {
+    if (item === 'alimento' || !ganados[item]) return;
+    out.push(ITEMS[item].emoji + ' Ganaste ' + cuantas(item, ganados[item]) + ' para la granja.');
   });
   return out;
 }
@@ -234,6 +355,16 @@ function limpiarNombre(texto) {
 }
 
 module.exports = {
+  CRECE_CUIDADOS: CRECE_CUIDADOS,
+  ITEMS: ITEMS,
+  POR_MOTIVO: POR_MOTIVO,
+  ACCIONES: ACCIONES,
+  HAMBRE_DESPUES: HAMBRE_DESPUES,
+  SUCIO_DESPUES: SUCIO_DESPUES,
+  etapaPorPuntos: etapaPorPuntos,
+  etapaPorCuidado: etapaPorCuidado,
+  itemsPor: itemsPor,
+  cuantas: cuantas,
   LARGO_NOMBRE: LARGO_NOMBRE,
   limpiarNombre: limpiarNombre,
   ESPECIES: ESPECIES,

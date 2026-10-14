@@ -712,16 +712,140 @@ function useAngosta() {
   return angosta
 }
 
-function Animal({ a, zoom, saltando, durmiendo, onTocar }) {
+/*
+ * Qué tan alto es cada uno (la punta de la cabeza) y dónde tiene la panza,
+ * en las unidades del dibujo. Sirve para poner el globito del hambre arriba
+ * de la cabeza y el barro sobre el cuerpo, y no en el aire.
+ */
+const ALTO = {
+  gallina: 34, conejo: 42, chancho: 30, oveja: 28, pato: 30, vaca: 42, caballo: 55,
+  perro: 30, gato: 31, cabra: 38, burro: 50, llama: 60, carpincho: 25,
+}
+const PANZA = {
+  gallina: 14, conejo: 11, chancho: 13, oveja: 15, pato: 10, vaca: 20, caballo: 26,
+  perro: 14, gato: 12, cabra: 17, burro: 20, llama: 21, carpincho: 11,
+}
+
+const corazon = 'M0 -2 C-2 -5.5 -6.5 -2.5 0 3 C6.5 -2.5 2 -5.5 0 -2 Z'
+
+/* Pide comida: un globito con granos arriba de la cabeza. */
+function Pide({ alto }) {
+  return (
+    <g className="pide" transform={`translate(13 ${-alto - 7})`}>
+      <circle cx="-7" cy="8" r="1.2" className="pide-globo" />
+      <circle cx="-4" cy="4.6" r="1.9" className="pide-globo" />
+      <circle cx="0" cy="-3" r="7" className="pide-globo" />
+      <ellipse cx="-2.6" cy="-2" rx="1.4" ry="2" className="pide-grano" />
+      <ellipse cx="0.4" cy="-4.4" rx="1.4" ry="2" className="pide-grano" />
+      <ellipse cx="2.8" cy="-1.4" rx="1.4" ry="2" className="pide-grano" />
+    </g>
+  )
+}
+
+/* Barro sobre el cuerpo del que hace días que no se baña. */
+function Barro({ panza }) {
+  return (
+    <g className="barro" aria-hidden="true">
+      <ellipse cx="-6" cy={-panza - 2} rx="3.4" ry="2.2" />
+      <ellipse cx="4" cy={-panza + 2} rx="2.6" ry="1.8" />
+      <ellipse cx="-1" cy={-panza + 5} rx="2" ry="1.3" />
+      <circle cx="7" cy={-panza - 3} r="1.1" />
+    </g>
+  )
+}
+
+/*
+ * Lo que se ve cuando lo cuidás. Va adentro del animal, así acompaña su
+ * lugar; el animal está quieto mientras tanto (ver `.ocupado`), así que lo
+ * que se dibuja no se va caminando.
+ */
+function Efecto({ tipo, alto, panza }) {
+  if (tipo === 'comer') {
+    return (
+      <g className="efecto comer">
+        {[[14, 0.4], [17, -0.8], [20, 0.6], [23, -0.4], [16, 1.2], [21, 1.4]].map(([x, y], i) => (
+          <ellipse key={i} cx={x} cy={y} rx="1.4" ry="0.9" className="grano" />
+        ))}
+      </g>
+    )
+  }
+  if (tipo === 'banar') {
+    return (
+      <g className="efecto banar">
+        {[[-12, -panza, 3], [-4, -panza - 8, 4], [6, -panza - 4, 3.2], [12, -panza + 2, 2.4],
+          [0, -panza + 4, 2.8], [-9, -panza + 4, 2], [9, -panza - 10, 2.2]].map(([x, y, r], i) => (
+          <circle key={i} cx={x} cy={y} r={r} className="burbuja" style={{ animationDelay: `${i * 0.12}s` }} />
+        ))}
+      </g>
+    )
+  }
+  if (tipo === 'premio') {
+    return (
+      <g className="efecto premio" transform={`translate(4 ${-alto - 6})`}>
+        <g className="regalo">
+          <rect x="-5" y="-5" width="10" height="9" rx="1.4" fill="#e5484d" />
+          <rect x="-1" y="-5" width="2" height="9" fill="#f2c14e" />
+          <rect x="-6" y="-7" width="12" height="3" rx="1" fill="#ef6b6f" />
+          <path d="M0 -7 C-4 -12 -7 -8 0 -7 C7 -8 4 -12 0 -7 Z" fill="#f2c14e" />
+        </g>
+      </g>
+    )
+  }
+  if (tipo === 'mimar') {
+    return (
+      <g className="efecto mimar" transform={`translate(6 ${-alto})`}>
+        {[[-6, 0, 1], [3, -3, 1.3], [10, 2, 0.9]].map(([x, y, s], i) => (
+          <path key={i} d={corazon} transform={`translate(${x} ${y}) scale(${s})`}
+                className="corazon" style={{ animationDelay: `${i * 0.18}s` }} />
+        ))}
+      </g>
+    )
+  }
+  if (tipo === 'crecio') {
+    // Un estallido de brillos alrededor: es el momento que se festeja.
+    return (
+      <g className="efecto crecio" transform={`translate(0 ${-panza})`}>
+        {Array.from({ length: 10 }, (_, i) => {
+          const ang = (i / 10) * Math.PI * 2
+          return (
+            <g key={i} transform={`rotate(${(ang * 180) / Math.PI})`}>
+              <path d="M0 -2 L1 0 L0 2 L-1 0 Z" className="brillo" transform="translate(0 -14) scale(1.6)"
+                    style={{ animationDelay: `${(i % 3) * 0.08}s` }} />
+            </g>
+          )
+        })}
+      </g>
+    )
+  }
+  return null
+}
+
+function Animal({ a, zoom, saltando, durmiendo, seleccionado, efecto, onTocar }) {
   const Dibujo = DIBUJOS[a.especie]
   if (!Dibujo) return null
   const l = lugarDe(a.id)
   const escala = l.profundidad * TAMANO[a.etapa] * zoom
+  const alto = ALTO[a.especie] || 34
+  const panza = PANZA[a.especie] || 14
+  // Mientras lo cuidás se queda quieto: si siguiera caminando, la comida
+  // quedaría en el pasto y él en otro lado.
+  const ocupado = seleccionado || Boolean(efecto)
+
+  const clases = [
+    'animal', a.especie, `etapa-${a.etapa}`, `ruta-${l.ruta}`,
+    durmiendo ? 'durmiendo' : '',
+    ocupado ? 'ocupado' : '',
+    efecto ? `efecto-${efecto.tipo}` : '',
+  ].filter(Boolean).join(' ')
+
+  const estado = [a.hambre ? 'tiene hambre' : '', a.sucio ? 'tiene barro' : '', durmiendo ? 'durmiendo' : '']
+    .filter(Boolean).join(', ')
 
   return (
     <g transform={`translate(${l.x} ${l.y}) scale(${escala})`}>
       <g
-        className={`animal ${a.especie} etapa-${a.etapa} ruta-${l.ruta}${durmiendo ? ' durmiendo' : ''}`}
+        className={clases}
+        data-id={a.id}
         style={{
           // El recorrido se mide en el corral, pero el grupo está escalado:
           // se divide para que una cría no camine menos que un caballo.
@@ -732,28 +856,34 @@ function Animal({ a, zoom, saltando, durmiendo, onTocar }) {
         }}
         role="button"
         tabIndex={0}
-        aria-label={`${a.nombre}, ${a.etapaNombre}${durmiendo ? ', durmiendo' : ''}`}
-        onClick={(e) => onTocar(a, e.currentTarget)}
+        aria-pressed={seleccionado}
+        aria-label={`${a.nombre}, ${a.etapaNombre}${estado ? ', ' + estado : ''}`}
+        onClick={() => onTocar(a)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTocar(a, e.currentTarget) }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTocar(a) }
         }}
       >
         <title>{`${a.nombre}, ${a.etapaNombre}`}</title>
+        {/* El elegido tiene un anillo: así se sabe a quién estás cuidando. */}
+        {seleccionado && <ellipse className="anillo" cx="2" cy="0.5" rx="21" ry="4.6" />}
         {/* La sombra camina con el animal (adentro de .animal) pero no salta
             con él (afuera de .cuerpo). Afuera de los dos quedaba en el pasto
             sin nadie encima. */}
         <ellipse className="sombra" cx="0" cy="0.5" rx="15" ry="2.6" />
         {/* Un rectángulo invisible para que sea fácil de tocar con el dedo:
             sin él, hay que acertarle justo al dibujo. */}
-        <rect x="-24" y="-48" width="52" height="50" fill="transparent" />
-        <g className={`toque ${saltando ? 'saltando' : ''}`}>
+        <rect x="-24" y={-alto - 6} width="52" height={alto + 8} fill="transparent" />
+        <g className={`toque ${saltando ? 'saltando' : ''} ${efecto?.tipo === 'crecio' ? 'creciendo' : ''}`}>
           <g className="cuerpo">
             <Dibujo />
+            {a.sucio && efecto?.tipo !== 'banar' && <Barro panza={panza} />}
           </g>
         </g>
+        {a.hambre && !durmiendo && !ocupado && <Pide alto={alto} />}
+        {efecto && <Efecto key={efecto.clave} tipo={efecto.tipo} alto={alto} panza={panza} />}
         {/* Las «z» de los que duermen. Un animal dormido no camina ni se da
             vuelta, así que el texto nunca queda espejado. */}
-        {durmiendo && (
+        {durmiendo && !efecto && (
           <g className="zzz" aria-hidden="true">
             <text x="9" y="-33">z</text>
             <text x="14" y="-38">z</text>
@@ -928,7 +1058,7 @@ function Tiempo({ clima }) {
   )
 }
 
-function Escena({ animales, progresoProximo, saltando, onTocar, clima }) {
+function Escena({ animales, progresoProximo, saltando, seleccion, efecto, onTocar, clima }) {
   const zoom = useAngosta() ? 1.4 : 1
   // Se dibujan de atrás para adelante: el que está más abajo tapa al de atrás.
   const visibles = animales.slice(-MAXIMO_EN_PANTALLA)
@@ -1012,7 +1142,8 @@ function Escena({ animales, progresoProximo, saltando, onTocar, clima }) {
 
       {visibles.map((a) => (
         <Animal key={a.id} a={a} zoom={zoom} saltando={saltando === a.id}
-                durmiendo={duerme(a)} onTocar={onTocar} />
+                durmiendo={duerme(a)} seleccionado={seleccion === a.id}
+                efecto={efecto && efecto.id === a.id ? efecto : null} onTocar={onTocar} />
       ))}
 
       <Huevo progreso={progresoProximo} />
@@ -1070,11 +1201,140 @@ async function renombrar(a, pedirTexto) {
   return api(`/granja/${a.id}`, { method: 'PATCH', body: JSON.stringify({ nombre: texto }) })
 }
 
-export default function Granja({ progreso, onCambio, onError }) {
+const ACCIONES = [
+  { k: 'comer', emoji: '🌾', dice: 'Darle de comer', item: 'alimento' },
+  { k: 'banar', emoji: '🫧', dice: 'Bañarlo', item: 'jabon' },
+  { k: 'premio', emoji: '🎁', dice: 'Darle un premio', item: 'premio' },
+  { k: 'mimar', emoji: '❤️', dice: 'Mimarlo', item: null },
+]
+
+const HECHO = {
+  comer: (n) => `${n} comió 🌾`,
+  banar: (n) => `¡${n} se bañó! 🫧`,
+  premio: (n) => `${n} está feliz con su premio 🎁`,
+  mimar: (n) => `A ${n} le encantó ❤️`,
+}
+
+function enHoras(ms) {
+  const h = Math.ceil(ms / (60 * 60 * 1000))
+  return h <= 1 ? 'en un rato' : `en ${h} horas`
+}
+
+/*
+ * Por qué no se puede, y qué hacer. Se calcula acá con lo que ya mandó el
+ * server, sin preguntarle: tocar un botón gris tiene que contestar al toque.
+ */
+function porQueNo(a, accion, canasta, items) {
+  const ac = ACCIONES.find((x) => x.k === accion)
+  if (!a.puede[accion]) {
+    const cuando = enHoras(a.vuelve[accion])
+    if (accion === 'comer') return `${a.nombre} ya comió. Vuelve a tener hambre ${cuando}.`
+    if (accion === 'banar') return `${a.nombre} ya se bañó. Se puede bañar de nuevo ${cuando}.`
+    return `${a.nombre} ya recibió su premio. Puede recibir otro ${cuando}.`
+  }
+  if (ac.item && (canasta[ac.item] || 0) < 1) {
+    const it = items[ac.item]
+    return `No tenés ${it.uno}. Se gana ${it.seGana}.`
+  }
+  return null
+}
+
+/*
+ * La ficha del animal que estás cuidando. Va abajo del corral y no flotando
+ * arriba del animal: con los cuatro botones es grande, y en el celular un
+ * globo así tapaba media granja o se salía de la pantalla.
+ */
+function Ficha({ a, canasta, items, mensaje, ocupado, onAccion, onRenombrar, onCerrar }) {
+  const estado = []
+  if (a.hambre) estado.push('🌾 tiene hambre')
+  if (a.sucio) estado.push('tiene barro')
+
+  return (
+    <div className="granja-ficha" role="region" aria-label={`Cuidar a ${a.nombre}`}>
+      <div className="granja-ficha-cabeza">
+        <span className="granja-ficha-ico" aria-hidden="true">{a.emoji}</span>
+        <div className="granja-ficha-quien">
+          <button type="button" className="granja-bicho-nombre" onClick={() => onRenombrar(a)}
+                  aria-label={`Cambiarle el nombre a ${a.nombre}`}>
+            {a.nombre} <span className="granja-lapiz" aria-hidden="true">✎</span>
+          </button>
+          <span className="granja-bicho-meta">
+            {a.etapaNombre}{estado.length ? ' · ' + estado.join(' · ') : ' · está feliz'}
+          </span>
+        </div>
+        <button type="button" className="dialogo-x" onClick={onCerrar} aria-label="Cerrar">✕</button>
+      </div>
+
+      {a.etapa < 2 ? (
+        <div className="granja-ficha-crece">
+          <div className="arbol-barra" role="img" aria-label={`${Math.round(a.crece)}% para crecer`}>
+            <div style={{ width: `${a.crece}%` }} />
+          </div>
+          <span className="arbol-falta">
+            le {a.faltaParaCrecer === 1 ? 'falta 1 cuidado' : `faltan ${a.faltaParaCrecer} cuidados`} para ser {a.proximaEtapa}
+          </span>
+        </div>
+      ) : (
+        <p className="arbol-falta granja-ficha-grande">Ya es grande. Igual le encanta que lo cuides.</p>
+      )}
+
+      <div className="granja-acciones">
+        {ACCIONES.map((ac) => {
+          const no = porQueNo(a, ac.k, canasta, items)
+          return (
+            <button
+              key={ac.k}
+              type="button"
+              className={`granja-accion ${no ? 'no' : ''}`}
+              disabled={ocupado}
+              aria-describedby={no ? `granja-no-${ac.k}` : undefined}
+              onClick={() => onAccion(a, ac.k, no)}
+            >
+              <span className="granja-accion-ico" aria-hidden="true">{ac.emoji}</span>
+              <span className="granja-accion-dice">{ac.dice}</span>
+              <span className="granja-accion-cuanto">
+                {ac.item ? `te quedan ${canasta[ac.item] || 0}` : 'gratis'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {mensaje && <p className={`granja-ficha-msj ${mensaje.tipo}`} role="status">{mensaje.texto}</p>}
+    </div>
+  )
+}
+
+/* La canasta: cuánto tenés de cada cosa, y cómo se gana. */
+function Canasta({ canasta, items }) {
+  return (
+    <div className="granja-canasta">
+      <div className="card-rotulo">TU CANASTA</div>
+      {['alimento', 'jabon', 'premio'].map((k) => {
+        const it = items[k]
+        const n = canasta[k] || 0
+        return (
+          <div className="granja-canasta-item" key={k}>
+            <span className="granja-canasta-ico" aria-hidden="true">{it.emoji}</span>
+            <span className="granja-canasta-txt">
+              <span><b>{n}</b> {n === 1 ? it.uno : it.varios}</span>
+              <span className="granja-canasta-como">Se gana {it.seGana}.</span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function Granja({ progreso, onCambio, onError, onAviso }) {
   const { pedirTexto, pedirOpcion } = useDialogos()
   const corral = useRef(null)
   const [saltando, setSaltando] = useState(null)
-  const [globo, setGlobo] = useState(null)
+  const [seleccion, setSeleccion] = useState(null)
+  const [efecto, setEfecto] = useState(null)
+  const [mensaje, setMensaje] = useState(null)
+  const [ocupado, setOcupado] = useState(false)
   const [clima, setClima] = useState(null)
 
   /*
@@ -1091,42 +1351,66 @@ export default function Granja({ progreso, onCambio, onError }) {
     return () => { vivo = false; clearInterval(t) }
   }, [])
 
-  // El globito se va solo a los cinco segundos.
-  useEffect(() => {
-    if (!globo) return
-    const t = setTimeout(() => setGlobo(null), 5000)
-    return () => clearTimeout(t)
-  }, [globo])
-
   useEffect(() => {
     if (saltando == null) return
     const t = setTimeout(() => setSaltando(null), 700)
     return () => clearTimeout(t)
   }, [saltando])
 
+  // El efecto de cuidar dura lo que dura la animación.
+  useEffect(() => {
+    if (!efecto) return
+    const t = setTimeout(() => setEfecto(null), efecto.tipo === 'crecio' ? 1800 : 1600)
+    return () => clearTimeout(t)
+  }, [efecto])
+
   if (!progreso || !progreso.granja) return null
-  const { animales, proximo, total, porLlegar = [] } = progreso.granja
+  const { animales, proximo, total, porLlegar = [], canasta = {}, items = {} } = progreso.granja
   const { racha, mejorRacha, rachaHoy } = progreso
 
-  /*
-   * Tocar un animal: salta, y arriba aparece un globito con su nombre y un
-   * corazón. El globito es HTML encima del dibujo y no parte del SVG: el
-   * animal se espeja al darse vuelta, y un texto adentro se leería al revés.
-   */
-  function tocar(a, elemento) {
+  function tocar(a) {
     setSaltando(a.id)
-    const caja = corral.current.getBoundingClientRect()
-    const r = elemento.getBoundingClientRect()
-    setGlobo({
-      id: a.id,
-      x: Math.min(Math.max(r.left + r.width / 2 - caja.left, 70), caja.width - 70),
-      y: Math.max(r.top - caja.top + r.height * 0.25, 30),
-      clave: Date.now(),
-    })
+    setSeleccion(a.id)
+    setMensaje(null)
+  }
+
+  function elegirDeLaLista(a) {
+    tocar(a)
+    if (corral.current) corral.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  /*
+   * Cuidar: si no se puede, se dice por qué sin ir al server. Si se puede,
+   * se festeja en el dibujo, y si con eso creció, el festejo es más grande y
+   * se avisa arriba también.
+   */
+  async function hacer(a, accion, no) {
+    if (no) {
+      setMensaje({ texto: no, tipo: 'no' })
+      return
+    }
+    setOcupado(true)
+    try {
+      const r = await api(`/granja/${a.id}/cuidar`, { method: 'POST', body: JSON.stringify({ accion }) })
+      onCambio(r.progreso)
+      const despues = r.resultado.animal
+      if (r.resultado.crecio) {
+        setEfecto({ id: a.id, tipo: 'crecio', clave: Date.now() })
+        const txt = `🎉 ¡${despues.nombre} creció! Ya es ${despues.etapaNombre}.`
+        setMensaje({ texto: txt, tipo: 'si' })
+        if (onAviso) onAviso(txt)
+      } else {
+        setEfecto({ id: a.id, tipo: accion, clave: Date.now() })
+        setMensaje({ texto: HECHO[accion](despues.nombre), tipo: 'si' })
+      }
+    } catch (err) {
+      setMensaje({ texto: err.message, tipo: 'no' })
+    } finally {
+      setOcupado(false)
+    }
   }
 
   async function cambiarNombre(a) {
-    setGlobo(null)
     try {
       const nuevo = await renombrar(a, pedirTexto)
       if (nuevo) onCambio(nuevo)
@@ -1168,7 +1452,8 @@ export default function Granja({ progreso, onCambio, onError }) {
     }
   }
 
-  const delGlobo = globo && animales.find((a) => a.id === globo.id)
+  const elegido = seleccion != null ? animales.find((a) => a.id === seleccion) : null
+  const conHambre = animales.filter((a) => a.hambre).length
 
   return (
     <section className="card granja-card">
@@ -1185,21 +1470,32 @@ export default function Granja({ progreso, onCambio, onError }) {
             animales={animales}
             progresoProximo={proximo.progreso}
             saltando={saltando}
+            seleccion={seleccion}
+            efecto={efecto}
             onTocar={tocar}
             clima={clima}
           />
-          {delGlobo && (
-            <div className="granja-globo" key={globo.clave} style={{ left: globo.x, top: globo.y }}>
-              <span className="granja-corazon" aria-hidden="true">❤</span>
-              <strong>{delGlobo.nombre}</strong>
-              <span className="granja-globo-meta">{delGlobo.etapaNombre}</span>
-              <button type="button" className="link" onClick={() => cambiarNombre(delGlobo)}>
-                Cambiar nombre
-              </button>
-            </div>
+          {elegido ? (
+            <Ficha
+              a={elegido}
+              canasta={canasta}
+              items={items}
+              mensaje={mensaje}
+              ocupado={ocupado}
+              onAccion={hacer}
+              onRenombrar={cambiarNombre}
+              onCerrar={() => { setSeleccion(null); setMensaje(null) }}
+            />
+          ) : (
+            total > 0 && (
+              <p className="granja-pista granja-pista-fuerte">
+                {conHambre > 0
+                  ? `${conHambre === 1 ? 'Uno tiene' : `${conHambre} tienen`} hambre. Tocá un animal para cuidarlo.`
+                  : 'Tocá un animal para cuidarlo.'}
+              </p>
+            )
           )}
           <Pronostico clima={clima} onCambiarCiudad={cambiarCiudad} />
-          {total > 0 && <p className="granja-pista">Tocá un animal para saludarlo.</p>}
         </div>
 
         <div className="granja-lado">
@@ -1231,42 +1527,35 @@ export default function Granja({ progreso, onCambio, onError }) {
             <p className="hint">Todavía no anotaste nada hoy. No la cortes.</p>
           )}
 
-          {/* Lo que antes era una tarjeta aparte al final de la pantalla:
-              acá llena el costado, que si no queda corto al lado del corral. */}
-          <p className="granja-como">
-            Anotar suma poco y tiene tope por día. Lo que de verdad trae
-            animales es <strong>gastar mejor</strong>: cerrar el mes en verde,
-            no pasarte de los presupuestos, juntar para una meta e invertir.
-          </p>
+          {items.alimento && <Canasta canasta={canasta} items={items} />}
         </div>
       </div>
 
-      {/* La lista va abajo y a lo ancho, en columnas. Al costado del corral
-          era mucho más alta que el dibujo y dejaba un hueco blanco enorme. */}
+      {/* La lista va abajo y a lo ancho, en columnas. Tocar uno lo elige en
+          el corral, igual que tocarlo en el dibujo. */}
       {total === 0 ? (
         <p className="hint granja-vacia">
           Todavía no llegó nadie. Con cada cosa que anotás, cada mes que
-          cerrás en verde y cada meta que cumplís van llegando animales, y
-          cada uno crece mientras seguís sumando.
+          cerrás en verde y cada meta que cumplís juntás puntos, y con los
+          puntos llegan animales. Después, a cuidarlos.
         </p>
       ) : (
         <div className="granja-lista">
           {animales.slice().reverse().slice(0, 12).map((a) => (
-            <div className="granja-bicho" key={a.id}>
+            <button
+              type="button"
+              className={`granja-bicho ${seleccion === a.id ? 'elegido' : ''}`}
+              key={a.id}
+              onClick={() => elegirDeLaLista(a)}
+            >
               <span className="granja-bicho-ico" aria-hidden="true">{a.emoji}</span>
               <span className="granja-bicho-txt">
-                <button
-                  type="button"
-                  className="granja-bicho-nombre"
-                  onClick={() => cambiarNombre(a)}
-                  aria-label={`Cambiarle el nombre a ${a.nombre}`}
-                >
-                  {a.nombre} <span className="granja-lapiz" aria-hidden="true">✎</span>
-                </button>
+                <span className="granja-bicho-nombre-txt">{a.nombre}</span>
                 <span className="granja-bicho-meta">
-                  {a.etapa === 2
-                    ? a.etapaNombre
-                    : `${a.etapaNombre} · le faltan ${a.faltaParaCrecer} para ${a.proximaEtapa}`}
+                  {a.etapaNombre}
+                  {a.hambre ? ' · 🌾 hambre' : ''}
+                  {a.sucio ? ' · con barro' : ''}
+                  {a.etapa < 2 ? ` · le faltan ${a.faltaParaCrecer} cuidados` : ''}
                 </span>
               </span>
               {a.etapa < 2 && (
@@ -1274,7 +1563,7 @@ export default function Granja({ progreso, onCambio, onError }) {
                   <span style={{ width: `${a.crece}%` }} />
                 </span>
               )}
-            </div>
+            </button>
           ))}
           {total > 12 && (
             <p className="hint">

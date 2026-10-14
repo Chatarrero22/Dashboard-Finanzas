@@ -2124,6 +2124,18 @@ router.patch('/granja/:id', function (req, res) {
   res.json(arbol.progreso(req.user.id));
 });
 
+/*
+ * Cuidar a un animal: { accion: 'comer' | 'banar' | 'premio' | 'mimar' }.
+ * Si no se puede, el error dice por qué y qué hacer («No tenés jabón: se
+ * gana respetando un presupuesto»). Devuelve el progreso entero y qué pasó,
+ * para que la pantalla festeje si creció.
+ */
+router.post('/granja/:id/cuidar', function (req, res) {
+  var r = arbol.cuidar(req.user.id, req.params.id, req.body && req.body.accion);
+  if (r.error) return res.status(r.codigo || 400).json({ error: r.error, falta: r.falta || null });
+  res.json({ resultado: r, progreso: arbol.progreso(req.user.id) });
+});
+
 router.get('/progreso', function (req, res) {
   res.json(arbol.progreso(req.user.id));
 });

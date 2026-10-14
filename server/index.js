@@ -15,6 +15,16 @@ var api = require('./api.js');
 initDB();
 auth.limpiarSesionesVencidas();
 
+// La granja pasó de «crecen solos con los puntos» a «crecen si los cuidás».
+// Se prepara a todos al arrancar —una sola vez por persona— para que nadie
+// quede migrado tarde, con animales que llegaron después y se ganarían la
+// etapa gratis. Ver arbol.prepararGranja().
+try {
+  require('./arbol.js').prepararTodas();
+} catch (err) {
+  console.error('  No se pudo preparar la granja: ' + err.message);
+}
+
 var app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '15mb' }));

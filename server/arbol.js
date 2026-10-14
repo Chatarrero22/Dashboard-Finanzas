@@ -91,14 +91,85 @@ function nombresDe(userId) {
   return out;
 }
 
-/** La granja de una persona, con los nombres que eligió. */
-function granjaDe(userId) {
-  return granjaMod.granja(stats(userId).xp, nombresDe(userId));
+/** Cuánto cuidó a cada animal y cuándo: { id: { cuidado, comio, ... } }. */
+function cuidadosDe(userId) {
+  var out = {};
+  db.prepare('SELECT * FROM granja_cuidados WHERE user_id = ?').all(userId)
+    .forEach(function (r) { out[r.animal_id] = r; });
+  return out;
 }
 
-/** Qué llegó y qué creció entre dos puntajes, con los nombres que eligió. */
+/**
+ * La canasta: cuánto alimento, jabón y premios tiene. No se guarda, se suma
+ * —como el saldo de una cuenta—, así no hay dos números que se contradigan.
+ */
+function canastaDe(userId) {
+  var out = { alimento: 0, jabon: 0, premio: 0 };
+  db.prepare('SELECT item, COALESCE(SUM(cantidad),0) n FROM granja_items WHERE user_id = ? GROUP BY item')
+    .all(userId).forEach(function (r) { out[r.item] = r.n; });
+  return out;
+}
+
+/** Anota lo que ganó. Devuelve { item: cantidad } con lo que se dio. */
+function darItems(userId, motivo, cosas) {
+  var dar = cosas || granjaMod.itemsPor(motivo);
+  if (!dar) return {};
+  var ins = db.prepare('INSERT INTO granja_items (user_id, item, cantidad, motivo) VALUES (?, ?, ?, ?)');
+  Object.keys(dar).forEach(function (item) { ins.run(userId, item, dar[item], motivo); });
+  return dar;
+}
+
+/*
+ * EL PASO DE «CRECEN SOLOS» A «CRECEN SI LOS CUIDÁS».
+ *
+ * Antes la etapa salía de los puntos. Al cambiar, quien ya tenía una gallina
+ * grande no puede encontrarse con un pollito: sería castigarlo por un cambio
+ * que no hizo él. Así que la primera vez se anotan los cuidados que
+ * corresponden a la etapa que cada animal ya tenía, y se le da una canasta
+ * de bienvenida para que pueda probar enseguida.
+ *
+ * La marca de que ya pasó es la fila de «bienvenida»: se hace una sola vez
+ * por persona. Se corre para todos al arrancar el servidor (así nadie queda
+ * migrado tarde, con animales que llegaron después y se ganarían la etapa
+ * gratis) y además acá, por si alguien entra antes.
+ */
+var BIENVENIDA = { alimento: 6, jabon: 2, premio: 1 };
+
+function prepararGranja(userId) {
+  var ya = db.prepare("SELECT 1 FROM granja_items WHERE user_id = ? AND motivo = 'bienvenida' LIMIT 1").get(userId);
+  if (ya) return false;
+
+  var xp = stats(userId).xp;
+  var g = granjaMod.granja(xp);
+  var poner = db.prepare(
+    'INSERT OR IGNORE INTO granja_cuidados (user_id, animal_id, cuidado) VALUES (?, ?, ?)'
+  );
+  db.transaction(function () {
+    g.animales.forEach(function (a) {
+      var etapa = granjaMod.etapaPorPuntos(a.id, xp);
+      poner.run(userId, a.id, granjaMod.CRECE_CUIDADOS[etapa]);
+    });
+    darItems(userId, 'bienvenida', BIENVENIDA);
+  })();
+  return true;
+}
+
+function prepararTodas() {
+  db.prepare('SELECT id FROM users').all().forEach(function (u) { prepararGranja(u.id); });
+}
+
+/** La granja de una persona, con sus nombres, sus cuidados y su canasta. */
+function granjaDe(userId) {
+  prepararGranja(userId);
+  var g = granjaMod.granja(stats(userId).xp, nombresDe(userId), cuidadosDe(userId));
+  g.canasta = canastaDe(userId);
+  g.items = granjaMod.ITEMS;
+  return g;
+}
+
+/** Qué llegó entre dos puntajes, con los nombres y cuidados de la persona. */
 function novedadesGranja(userId, antes, despues) {
-  return granjaMod.novedades(antes, despues, nombresDe(userId));
+  return granjaMod.novedades(antes, despues, nombresDe(userId), cuidadosDe(userId));
 }
 
 /**
@@ -122,6 +193,79 @@ function renombrar(userId, animalId, nombre) {
   return granjaDe(userId).animales[id];
 }
 
+function enHoras(ms) {
+  var h = Math.ceil(ms / (60 * 60 * 1000));
+  return h <= 1 ? 'en un rato' : 'en ' + h + ' horas';
+}
+
+/**
+ * Cuidar a un animal: darle de comer, bañarlo, darle un premio o mimarlo.
+ *
+ * Gasta lo que corresponde de la canasta, le suma cuidados y anota cuándo.
+ * Si con eso pasa de etapa, lo dice: es el momento que se festeja.
+ *
+ * Si no se puede, dice POR QUÉ y qué hacer, no solo «no»: «Pocha ya comió,
+ * vuelve a tener hambre en 5 horas» o «No tenés jabón: se gana respetando
+ * un presupuesto o sumando a una meta». Es lo que conecta la granja con la
+ * plata.
+ */
+function cuidar(userId, animalId, accion) {
+  var a = granjaMod.ACCIONES[accion];
+  if (!a) return { error: 'No sé hacer eso', codigo: 400 };
+
+  var g = granjaDe(userId);
+  var id = Number(animalId);
+  var animal = Number.isInteger(id) ? g.animales[id] : null;
+  if (!animal) return { error: 'Ese animal todavía no llegó a tu granja', codigo: 404 };
+
+  if (!animal.puede[accion]) {
+    var cuando = enHoras(animal.vuelve[accion]);
+    var porque = accion === 'comer'
+      ? animal.nombre + ' ya comió. Vuelve a tener hambre ' + cuando + '.'
+      : accion === 'banar'
+        ? animal.nombre + ' ya se bañó. Se puede bañar de nuevo ' + cuando + '.'
+        : animal.nombre + ' ya recibió su premio hoy. Puede recibir otro ' + cuando + '.';
+    return { error: porque, codigo: 409 };
+  }
+
+  if (a.item && g.canasta[a.item] < 1) {
+    var it = granjaMod.ITEMS[a.item];
+    return {
+      error: 'No tenés ' + it.uno + '. Se gana ' + it.seGana + '.',
+      codigo: 409,
+      falta: a.item
+    };
+  }
+
+  var ahora = new Date().toISOString();
+  db.transaction(function () {
+    if (a.item) {
+      db.prepare(
+        'INSERT INTO granja_items (user_id, item, cantidad, motivo, animal_id) VALUES (?, ?, -1, ?, ?)'
+      ).run(userId, a.item, accion, id);
+    }
+    db.prepare('INSERT OR IGNORE INTO granja_cuidados (user_id, animal_id, cuidado) VALUES (?, ?, 0)').run(userId, id);
+    if (a.suma) {
+      db.prepare('UPDATE granja_cuidados SET cuidado = cuidado + ? WHERE user_id = ? AND animal_id = ?')
+        .run(a.suma, userId, id);
+    }
+    if (a.campo) {
+      // El nombre de la columna sale de ACCIONES, nunca de lo que manda la
+      // pantalla: `accion` ya se validó contra esa lista arriba.
+      db.prepare('UPDATE granja_cuidados SET ' + a.campo + ' = ? WHERE user_id = ? AND animal_id = ?')
+        .run(ahora, userId, id);
+    }
+  })();
+
+  var despues = granjaDe(userId).animales[id];
+  return {
+    accion: accion,
+    animal: despues,
+    suma: a.suma,
+    crecio: despues.etapa > animal.etapa
+  };
+}
+
 /** Suma XP y devuelve si subió de etapa. */
 function sumarXP(userId, cantidad, motivo) {
   var antes = stats(userId);
@@ -138,22 +282,27 @@ function sumarXP(userId, cantidad, motivo) {
     motivo: motivo || '',
     subioDeEtapa: etapaDespues > etapaAntes,
     etapa: etapaPara(despues.xp),
-    // La granja sale de los mismos puntos: si cruzaste un umbral, llegó o
-    // creció un animal.
-    granja: novedadesGranja(userId, antes.xp, despues.xp)
+    // La granja sale de los mismos puntos: si cruzaste un umbral, llegó un
+    // animal. Y cada logro da además cosas para cuidarlos.
+    granja: Object.assign(novedadesGranja(userId, antes.xp, despues.xp), {
+      ganados: darItems(userId, motivo)
+    })
   };
 }
 
 /** Junta lo que pasó en la granja en varias sumas seguidas. */
 function juntarGranja(a, b) {
-  if (!a) return b || { llegaron: [], crecieron: [] };
+  if (!a) return b || { llegaron: [], crecieron: [], ganados: {} };
   if (!b) return a;
+  var ganados = Object.assign({}, a.ganados || {});
+  Object.keys(b.ganados || {}).forEach(function (k) { ganados[k] = (ganados[k] || 0) + b.ganados[k]; });
   return {
     llegaron: a.llegaron.concat(b.llegaron),
     // Si en una suma creció y en la siguiente creció otra vez, vale la última.
     crecieron: a.crecieron
       .filter(function (x) { return !b.crecieron.some(function (y) { return y.id === x.id; }); })
-      .concat(b.crecieron)
+      .concat(b.crecieron),
+    ganados: ganados
   };
 }
 
@@ -295,7 +444,15 @@ function alSumarAMeta(userId, completada) {
 
 function alAgregarInversion(userId) {
   var yaTenia = db.prepare('SELECT COUNT(*) c FROM portfolio_assets WHERE user_id = ?').get(userId).c;
-  if (yaTenia > 1) return { xp: 0, logros: revisarLogros(userId) };
+  if (yaTenia > 1) {
+    // Invertir de nuevo no da puntos, pero sí un premio para la granja: uno
+    // por día, para que cargar y borrar un activo no sea una canilla.
+    var hoyYa = db.prepare(
+      "SELECT 1 FROM granja_items WHERE user_id = ? AND motivo = 'invertir' AND date(creado) = date('now') LIMIT 1"
+    ).get(userId);
+    var ganados = hoyYa ? {} : darItems(userId, 'invertir');
+    return { xp: 0, logros: revisarLogros(userId), granja: { llegaron: [], crecieron: [], ganados: ganados } };
+  }
   var r = sumarXP(userId, PUNTOS.primera_inversion, 'primera inversión');
   return { xp: PUNTOS.primera_inversion, subioDeEtapa: r.subioDeEtapa, logros: revisarLogros(userId), granja: r.granja };
 }
@@ -379,7 +536,7 @@ function progreso(userId) {
     pendientes: pendientes,
     total: Object.keys(LOGROS).length,
     // Sin tope: lo que el árbol ya no puede mostrar, lo muestra la granja.
-    granja: granjaMod.granja(s.xp, nombresDe(userId))
+    granja: granjaDe(userId)
   };
 }
 
@@ -395,6 +552,10 @@ module.exports = {
   cerrarMes: cerrarMes,
   revisarLogros: revisarLogros,
   granjaDe: granjaDe,
+  cuidar: cuidar,
+  canastaDe: canastaDe,
+  prepararGranja: prepararGranja,
+  prepararTodas: prepararTodas,
   novedadesGranja: novedadesGranja,
   renombrar: renombrar,
   mesDe: mesDe

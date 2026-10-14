@@ -39,7 +39,7 @@ function limpiar() {
   [
     'transactions', 'transaction_items', 'card_payments', 'cards', 'accounts',
     'portfolio_assets', 'budgets', 'goals', 'subscriptions', 'sessions',
-    'learned_categories', 'alerts_sent', 'achievements', 'user_stats', 'animal_names', 'users'
+    'learned_categories', 'alerts_sent', 'achievements', 'user_stats', 'animal_names', 'granja_items', 'granja_cuidados', 'users'
   ].forEach(function (t) {
     try { db.prepare('DELETE FROM ' + t).run(); } catch (err) { /* puede no existir */ }
   });

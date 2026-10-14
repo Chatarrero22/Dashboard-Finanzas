@@ -185,6 +185,32 @@ function initDB() {
       PRIMARY KEY (user_id, animal_id)
     );
 
+    -- Lo que tenés para cuidar a los animales: alimento, jabón, premios.
+    -- Como el saldo de una cuenta, la canasta NO se guarda: es la suma de
+    -- estas filas. Ganar es una fila positiva (con el motivo: «mes en
+    -- verde»), usar es una negativa (con el animal al que se lo diste).
+    CREATE TABLE IF NOT EXISTS granja_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      item TEXT NOT NULL,
+      cantidad INTEGER NOT NULL,
+      motivo TEXT NOT NULL,
+      animal_id INTEGER,
+      creado TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Cuánto cuidaste a cada animal y cuándo comió, se bañó y recibió su
+    -- último premio. La etapa (cría, joven, grande) sale de la columna cuidado.
+    CREATE TABLE IF NOT EXISTS granja_cuidados (
+      user_id INTEGER NOT NULL,
+      animal_id INTEGER NOT NULL,
+      cuidado INTEGER NOT NULL DEFAULT 0,
+      comio TEXT,
+      banio TEXT,
+      premiado TEXT,
+      PRIMARY KEY (user_id, animal_id)
+    );
+
     CREATE TABLE IF NOT EXISTS accounts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -352,6 +378,7 @@ function initDB() {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_granja_items_user ON granja_items(user_id, item)');
 }
 
 /**

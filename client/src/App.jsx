@@ -243,6 +243,8 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
       if (llego) extra = ` · ${llego.emoji} ¡Llegó un ${llego.etapaNombre} a tu granja! Se llama ${llego.nombre}`
       else if (r?.premio?.logros?.length) extra = ` · ${r.premio.logros[0].emoji} Logro: ${r.premio.logros[0].nombre}`
       else if (crecio) extra = ` · ${crecio.emoji} ${crecio.nombre} creció: ya es ${crecio.etapaNombre}`
+      else if (r?.premio?.granja?.ganados?.premio) extra = ` · 🎁 Ganaste ${r.premio.granja.ganados.premio} premio para la granja`
+      else if (r?.premio?.granja?.ganados?.jabon) extra = ` · 🫧 Ganaste jabón para la granja`
       onSaved((kind === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado') + extra)
     } catch (err) {
       onError(err.message)
@@ -728,14 +730,14 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
  * sacarlo y dejar solo la granja. Los puntos, la racha y los logros siguen
  * siendo los mismos.
  */
-function ArbolScreen({ progreso, onCambio, onError }) {
+function ArbolScreen({ progreso, onCambio, onError, onAviso }) {
   if (!progreso) return <div className="spinner" />
 
   const { logros, pendientes, total } = progreso
 
   return (
     <>
-      <Granja progreso={progreso} onCambio={onCambio} onError={onError} />
+      <Granja progreso={progreso} onCambio={onCambio} onError={onError} onAviso={onAviso} />
 
       <section className="card">
         <div className="card-title-row">
@@ -2100,7 +2102,7 @@ export default function App() {
             />
           )}
           {tab === 'arbol' && (
-            <ArbolScreen progreso={progreso} onCambio={setProgreso} onError={(m) => notify(m, 'error')} />
+            <ArbolScreen progreso={progreso} onCambio={setProgreso} onError={(m) => notify(m, 'error')} onAviso={(m) => notify(m)} />
           )}
           {tab === 'ajustes' && (
             <AjustesScreen

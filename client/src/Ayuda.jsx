@@ -230,9 +230,9 @@ export const GUIAS = {
       apunta: '.granja-escena',
     },
     {
-      titulo: 'Cada uno crece, y no termina nunca',
-      texto: 'Los animales nacen crías y crecen mientras seguís sumando. Cuando ya están todos, empiezan a nacer crías nuevas. Tocá uno para saludarlo, y tocá su nombre para cambiárselo.',
-      apunta: '.granja-lista, .granja-proximo',
+      titulo: 'Crecen si los cuidás',
+      texto: 'Tocá un animal para darle de comer, bañarlo, darle un premio o mimarlo. Las cosas para cuidarlos se ganan con tu plata: anotando lo que gastás, respetando tus presupuestos, cerrando el mes en verde e invirtiendo. Nunca se achican: si no los cuidás, solo no crecen.',
+      apunta: '.granja-canasta, .granja-proximo',
     },
   ],
 
