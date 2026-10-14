@@ -590,6 +590,31 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
           {modo === 'total' ? 'Mejor pongo el precio de cada uno' : 'Mejor pongo cuánto puse en total'}
         </button>
 
+        {/*
+          DESPUÉS DE UN SPLIT EL «PRECIO PROMEDIO» DEL BROKER PUEDE MENTIR.
+
+          Pasó con ETHA. La MISMA pantalla del broker decía precio promedio
+          $5.314,68 con «no realizada +235,86%» y, más abajo, «rendimiento
+          total -$23.368,86 (-2,89%)»: se contradecía sola. (Parece que anotó
+          el cambio de relación del CEDEAR como una compra nueva del 8 de
+          octubre y promedió con eso.) Se copió el promedio, que es lo que
+          pide el campo, y Manguito mostró +$551.554 de una ganancia que no
+          existe. El precio de hoy, $17.850, estaba bien en los dos lados.
+
+          El rendimiento total sí está bien, porque el broker lo arrastra desde
+          la compra original. Así que lo que se puede copiar sin miedo es
+          «cuánto vale hoy menos el rendimiento total», y eso es lo que dice
+          acá.
+        */}
+        {modo === 'total' && (
+          <p className="hint">
+            Si hubo un split, no uses el «precio promedio» del broker: después
+            del cambio suele quedar mal. Lo seguro es lo que vale hoy en el
+            broker <b>menos</b> su «rendimiento total». Fijate que la ganancia
+            de acá abajo te dé igual que la de allá.
+          </p>
+        )}
+
         {!esCripto && (
           <div className="field">
             <span className="field-label">Moneda</span>
@@ -648,8 +673,17 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
             <span className={`activo-valor ${gananciaPct == null ? '' : gananciaPct >= 0 ? 'positive' : 'negative'}`}>
               {gananciaPct == null ? '—' : `${gananciaPct >= 0 ? '▲' : '▼'} ${Math.abs(gananciaPct).toFixed(2)}%`}
             </span>
+            {/* En plata además del porcentaje: es el número que el broker
+                muestra como «rendimiento total», y si coinciden se ve sin
+                hacer ninguna cuenta. */}
+            {gananciaPct != null && (
+              <span className="hint" style={{ marginTop: 2, display: 'block' }}>
+                {valorHoy - costo >= 0 ? '+' : '−'}{precio(Math.abs(valorHoy - costo), moneda)}
+              </span>
+            )}
           </div>
         </div>
+
 
         {activo.unidad === 'nominales' && (
           <p className="hint">

@@ -756,6 +756,21 @@ sí puede dejar de obligarte a hacer la división, que si sale mal deja una
 ganancia falsa sin que nada avise. Por eso Editar tiene «Mejor pongo cuánto
 puse en total».
 
+**Y el «precio promedio» del broker puede quedar mal después del split.**
+Pasó con ETHA, la segunda vez: la misma pantalla del broker decía precio
+promedio $5.314,68 con «no realizada +235,86%» y, más abajo, «rendimiento
+total −$23.368,86 (−2,89%)». Se contradecía sola. Se copió el promedio —que
+es lo que pide el campo— y Manguito mostró +$551.554 de una ganancia que no
+existe. Emanuel pensó que el **precio** de Manguito estaba mal; era $17.850
+en los dos lados.
+
+Lo que no falla es el rendimiento total, porque el broker lo arrastra desde
+la compra original: **lo que vale hoy menos el rendimiento total** es lo que
+de verdad pusiste ($785.400 + $23.368,86 = $808.768,86). Por eso el modo
+«cuánto puse en total» lo dice al lado del campo, y la previa muestra la
+ganancia **en plata** además del porcentaje: así se compara con la del broker
+sin hacer ninguna cuenta.
+
 Ojo: cuando pasó, **el cálculo estaba bien**. 106 CEDEARs × $7.589,41 =
 $804.477 de costo y × $18.280 = $1.937.680 de valor, o sea +140,86% exacto.
 Lo que no correspondía era el dato de entrada. Reproducir los números antes
