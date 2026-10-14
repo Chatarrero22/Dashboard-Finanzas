@@ -526,7 +526,7 @@ function useAngosta() {
   return angosta
 }
 
-function Animal({ a, zoom, saltando, onTocar }) {
+function Animal({ a, zoom, saltando, durmiendo, onTocar }) {
   const Dibujo = DIBUJOS[a.especie]
   if (!Dibujo) return null
   const l = lugarDe(a.id)
@@ -535,7 +535,7 @@ function Animal({ a, zoom, saltando, onTocar }) {
   return (
     <g transform={`translate(${l.x} ${l.y}) scale(${escala})`}>
       <g
-        className={`animal ${a.especie} etapa-${a.etapa} ruta-${l.ruta}`}
+        className={`animal ${a.especie} etapa-${a.etapa} ruta-${l.ruta}${durmiendo ? ' durmiendo' : ''}`}
         style={{
           // El recorrido se mide en el corral, pero el grupo está escalado:
           // se divide para que una cría no camine menos que un caballo.
@@ -546,7 +546,7 @@ function Animal({ a, zoom, saltando, onTocar }) {
         }}
         role="button"
         tabIndex={0}
-        aria-label={`${a.nombre}, ${a.etapaNombre}`}
+        aria-label={`${a.nombre}, ${a.etapaNombre}${durmiendo ? ', durmiendo' : ''}`}
         onClick={(e) => onTocar(a, e.currentTarget)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTocar(a, e.currentTarget) }
@@ -565,6 +565,15 @@ function Animal({ a, zoom, saltando, onTocar }) {
             <Dibujo />
           </g>
         </g>
+        {/* Las «z» de los que duermen. Un animal dormido no camina ni se da
+            vuelta, así que el texto nunca queda espejado. */}
+        {durmiendo && (
+          <g className="zzz" aria-hidden="true">
+            <text x="9" y="-33">z</text>
+            <text x="14" y="-38">z</text>
+            <text x="19" y="-44">Z</text>
+          </g>
+        )}
       </g>
     </g>
   )
@@ -586,46 +595,212 @@ function Huevo({ progreso }) {
   )
 }
 
-function Escena({ animales, progresoProximo, saltando, onTocar }) {
+/* ------------------------------------------------------------- el cielo */
+
+/*
+ * EL CIELO ES EL DE AFUERA. La hora del día y el clima vienen del server
+ * (`clima.js`), con el clima real de la ciudad de la persona: si en la granja
+ * llueve, es porque está lloviendo. Emanuel: «la granja va cambiando si es de
+ * día, de noche, si llueve».
+ *
+ * Antes el cielo dependía del modo oscuro de la app: modo noche, granja de
+ * noche. Ahora no tienen nada que ver, y está bien: la granja es una ventana
+ * al campo, no parte de los botones.
+ */
+
+// Los estados en los que el cielo está tapado: no hay sol ni estrellas.
+const TAPADO = ['nublado', 'niebla', 'llovizna', 'lluvia', 'nieve', 'tormenta']
+
+// Cuántas nubes hay según el clima. Sin dato, dos y livianas: un cielo
+// neutro, que no afirma nada.
+const NUBES = {
+  'despejado': 1, 'algo-nublado': 3, 'nublado': 6, 'niebla': 4, 'llovizna': 6,
+  'lluvia': 7, 'nieve': 6, 'tormenta': 7,
+}
+
+const LUGARES_NUBE = [
+  [60, 38, 1], [220, 26, 1.2], [320, 58, 0.9], [140, 62, 0.8],
+  [10, 70, 1.1], [270, 18, 1], [380, 34, 1.15],
+]
+
+// Gotas y copos: posiciones fijas que se reparten por el cielo, para que la
+// lluvia no cambie cada vez que se redibuja.
+function particulas(n, semilla) {
+  return Array.from({ length: n }, (_, i) => {
+    const f = (k) => ((i + 1) * k + semilla) % 1
+    return {
+      x: Math.round(f(0.618034) * 420) - 10,
+      y: Math.round(f(0.381966) * 220),
+      retardo: -(f(0.7548776) * 1.2).toFixed(2),
+      largo: 6 + Math.round(f(0.5698403) * 5),
+    }
+  })
+}
+
+const GOTAS = { llovizna: 26, lluvia: 48, tormenta: 70 }
+
+function Cielo({ clima }) {
+  const estado = clima?.estado
+  const tapado = TAPADO.includes(estado)
+  const arco = clima?.arco
+  // El sol (o la luna) hace un arco de izquierda a derecha: sale bajo, sube
+  // al mediodía y se pone bajo.
+  const f = arco ? arco.fraccion : 0.7
+  const ax = 30 + f * 340
+  const ay = 82 - Math.sin(Math.PI * f) * 56
+  const esLuna = arco ? arco.astro === 'luna' : false
+  const cuantas = estado ? NUBES[estado] : 2
+
+  return (
+    <>
+      <rect x="0" y="0" width="400" height="140" fill="url(#granja-cielo)" />
+
+      <g className="estrellas">
+        {[[40, 22], [92, 14], [150, 30], [205, 12], [262, 26], [300, 10], [372, 30], [128, 52], [232, 48],
+          [20, 50], [180, 8], [342, 66]].map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.3 : 0.9} style={{ animationDelay: `${i * 0.6}s` }} />
+        ))}
+      </g>
+
+      {/* El sol o la luna, en su lugar del arco. Tapado por las nubes, apenas
+          se adivina. */}
+      <g className={`astro ${esLuna ? 'luna' : 'sol'} ${tapado ? 'tapado' : ''}`}>
+        {!esLuna && <circle className="resplandor" cx={ax} cy={ay} r="28" />}
+        <circle className="disco" cx={ax} cy={ay} r={esLuna ? 13 : 16} />
+        {esLuna && (
+          <>
+            <circle className="crater" cx={ax - 4} cy={ay - 3} r="2.6" />
+            <circle className="crater" cx={ax + 4} cy={ay + 4} r="1.8" />
+          </>
+        )}
+      </g>
+
+      <g className="nubes">
+        {LUGARES_NUBE.slice(0, cuantas).map(([x, y, s], i) => (
+          <g key={i} className="nube" style={{
+            animationDuration: `${(clima?.ventoso ? 40 : 80) + i * 13}s`,
+            animationDelay: `-${i * 17}s`,
+          }}>
+            <g transform={`translate(${x} ${y}) scale(${s})`}>
+              <ellipse cx="0" cy="4" rx="22" ry="7" />
+              <ellipse cx="11" cy="-1" rx="12" ry="8.5" />
+              <ellipse cx="-9" cy="1" rx="10" ry="6.5" />
+            </g>
+          </g>
+        ))}
+      </g>
+    </>
+  )
+}
+
+/* Lo que pasa adelante de todo: lluvia, nieve, niebla, rayos. */
+function Tiempo({ clima }) {
+  const estado = clima?.estado
+  if (!estado) return null
+  const gotas = GOTAS[estado] ? GOTAS[estado] + (clima.fuerte ? 20 : 0) : 0
+
+  return (
+    <g className="tiempo" aria-hidden="true">
+      {gotas > 0 && (
+        <g className={`lluvia ${estado === 'llovizna' ? 'fina' : ''} ${clima.ventoso ? 'ventosa' : ''}`}>
+          {particulas(gotas, 0.13).map((g, i) => (
+            <line key={i} x1={g.x} y1={g.y - 220} x2={g.x - 2} y2={g.y - 220 + g.largo}
+                  style={{ animationDelay: `${g.retardo}s` }} />
+          ))}
+        </g>
+      )}
+
+      {estado === 'nieve' && (
+        <g className="nieve">
+          {particulas(clima.fuerte ? 60 : 38, 0.29).map((c, i) => (
+            <circle key={i} cx={c.x} cy={c.y - 220} r={1 + (i % 3) * 0.5}
+                    style={{ animationDelay: `${c.retardo * 4}s` }} />
+          ))}
+        </g>
+      )}
+
+      {estado === 'niebla' && (
+        <g className="niebla" filter="url(#granja-difuso)">
+          <ellipse cx="120" cy="150" rx="190" ry="22" />
+          <ellipse cx="300" cy="172" rx="200" ry="20" style={{ animationDelay: '-9s' }} />
+          <ellipse cx="80" cy="198" rx="170" ry="18" style={{ animationDelay: '-17s' }} />
+        </g>
+      )}
+
+      {/*
+        El rayo es un fogonazo suave y espaciado, no un estroboscopio: un
+        destello blanco fuerte y repetido es justo lo que no hay que mostrarle
+        a alguien sensible a la luz. Con «reducir movimiento» no aparece.
+      */}
+      {estado === 'tormenta' && (
+        <g className="rayo">
+          <rect className="fogonazo" x="0" y="0" width="400" height="220" />
+          <path className="chispa" d="M262 18 L250 52 L260 52 L246 92 L272 46 L261 46 L272 18 Z" />
+        </g>
+      )}
+    </g>
+  )
+}
+
+function Escena({ animales, progresoProximo, saltando, onTocar, clima }) {
   const zoom = useAngosta() ? 1.4 : 1
   // Se dibujan de atrás para adelante: el que está más abajo tapa al de atrás.
   const visibles = animales.slice(-MAXIMO_EN_PANTALLA)
     .slice()
     .sort((x, y) => lugarDe(x.id).y - lugarDe(y.id).y)
 
+  const momento = clima?.momento || 'dia'
+  const estado = clima?.estado || 'sin-dato'
+  const mojado = ['llovizna', 'lluvia', 'tormenta'].includes(estado)
+  // De noche duerme la mitad; la otra mitad sigue dando vueltas. Si
+  // durmieran todos, de noche la granja sería un cuadro quieto, que es
+  // exactamente lo que no tiene que ser.
+  const duerme = (a) => momento === 'noche' && a.id % 2 === 0
+
+  const clases = [
+    'granja-escena',
+    `momento-${momento}`,
+    `clima-${estado}`,
+    TAPADO.includes(estado) ? 'tapado' : '',
+    clima?.fuerte ? 'fuerte' : '',
+  ].filter(Boolean).join(' ')
+
+  const etiqueta = clima?.frase
+    ? `${clima.frase.dice} en ${clima.ciudad}, ${momento === 'noche' ? 'de noche' : momento === 'dia' ? 'de día' : momento}`
+    : `Tu granja, ${momento === 'noche' ? 'de noche' : 'de día'}`
+
   return (
-    <svg className="granja-escena" viewBox="0 0 400 220" role="group"
-         aria-label={`Tu granja: ${animales.length} ${animales.length === 1 ? 'animal' : 'animales'}`}>
+    <svg className={clases} viewBox="0 0 400 220" role="group"
+         aria-label={`${etiqueta}: ${animales.length} ${animales.length === 1 ? 'animal' : 'animales'}`}>
       <style>{MOVIMIENTOS}</style>
       <defs>
         <linearGradient id="granja-cielo" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--cielo-arriba)' }} />
           <stop offset="1" style={{ stopColor: 'var(--cielo-abajo)' }} />
         </linearGradient>
+        <filter id="granja-difuso" x="-30%" y="-100%" width="160%" height="300%">
+          <feGaussianBlur stdDeviation="9" />
+        </filter>
+        <radialGradient id="granja-farol">
+          <stop offset="0" stopColor="#ffd98a" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#ffd98a" stopOpacity="0" />
+        </radialGradient>
       </defs>
 
-      <rect x="0" y="0" width="400" height="140" fill="url(#granja-cielo)" />
-
-      {/* De noche, estrellas; de día, nubes. Las dos están siempre y el tema
-          decide cuál se ve, así no hay que preguntarle al JS qué tema es. */}
-      <g className="estrellas">
-        {[[40, 22], [92, 14], [150, 30], [205, 12], [262, 26], [300, 10], [372, 30], [128, 52], [232, 48]].map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 1.3 : 0.9} style={{ animationDelay: `${i * 0.6}s` }} />
-        ))}
-      </g>
-      <circle className="astro" cx="338" cy="38" r="17" />
-      <g className="nubes">
-        <g className="nube" style={{ animationDuration: '70s', animationDelay: '-20s' }}>
-          <ellipse cx="60" cy="40" rx="20" ry="7" /><ellipse cx="72" cy="35" rx="12" ry="8" /><ellipse cx="50" cy="37" rx="10" ry="6" />
-        </g>
-        <g className="nube" style={{ animationDuration: '95s', animationDelay: '-60s' }}>
-          <ellipse cx="220" cy="28" rx="24" ry="7" /><ellipse cx="234" cy="23" rx="13" ry="8" /><ellipse cx="208" cy="25" rx="11" ry="6" />
-        </g>
-      </g>
+      <Cielo clima={clima} />
 
       <path className="loma" d="M0 128 Q60 96 130 118 T260 112 T400 116 V150 H0 Z" />
       <rect className="pasto" x="0" y="134" width="400" height="86" />
       <path className="pasto-frente" d="M0 186 Q100 176 200 184 T400 180 V220 H0 Z" />
+
+      {/* Charcos cuando llueve: abajo de los animales, que los pisan. */}
+      {mojado && (
+        <g className="charcos">
+          <ellipse cx="150" cy="200" rx="22" ry="3.4" />
+          <ellipse cx="300" cy="174" rx="16" ry="2.6" />
+          <ellipse cx="240" cy="208" rx="13" ry="2.2" />
+        </g>
+      )}
 
       {/* El granero, a la izquierda, siempre. */}
       <g className="granero">
@@ -650,11 +825,42 @@ function Escena({ animales, progresoProximo, saltando, onTocar }) {
       </g>
 
       {visibles.map((a) => (
-        <Animal key={a.id} a={a} zoom={zoom} saltando={saltando === a.id} onTocar={onTocar} />
+        <Animal key={a.id} a={a} zoom={zoom} saltando={saltando === a.id}
+                durmiendo={duerme(a)} onTocar={onTocar} />
       ))}
 
       <Huevo progreso={progresoProximo} />
+
+      {/* La luz del momento, encima de todo lo que está en el campo: de noche
+          oscurece también a los animales, como pasa de verdad. No se puede
+          tocar: los clics tienen que llegar a los animales de abajo. */}
+      <rect className="velo" x="0" y="0" width="400" height="220" />
+
+      {/* La ventana del granero se prende de noche, y va encima del velo:
+          es lo único que alumbra. */}
+      <g className="farol">
+        <circle cx="55" cy="99" r="20" fill="url(#granja-farol)" />
+        <circle cx="55" cy="99" r="5" fill="#ffe3a3" />
+      </g>
+
+      <Tiempo clima={clima} />
     </svg>
+  )
+}
+
+/** Lo que dice abajo del corral: el clima de afuera, y dónde. */
+function Pronostico({ clima, onCambiarCiudad }) {
+  if (!clima) return null
+  return (
+    <p className="granja-pista">
+      {clima.frase
+        ? <>{clima.frase.emoji} {clima.frase.dice}{clima.temperatura != null ? ` · ${clima.temperatura}°` : ''} en {clima.ciudad}</>
+        : <>En {clima.ciudad}</>}
+      {' · '}
+      <button type="button" className="link" onClick={onCambiarCiudad}>
+        {clima.porDefecto ? '¿Estás en otra ciudad?' : 'cambiar'}
+      </button>
+    </p>
   )
 }
 
@@ -679,10 +885,25 @@ async function renombrar(a, pedirTexto) {
 }
 
 export default function Granja({ progreso, onCambio, onError }) {
-  const { pedirTexto } = useDialogos()
+  const { pedirTexto, pedirOpcion } = useDialogos()
   const corral = useRef(null)
   const [saltando, setSaltando] = useState(null)
   const [globo, setGlobo] = useState(null)
+  const [clima, setClima] = useState(null)
+
+  /*
+   * El cielo se vuelve a pedir cada 10 minutos mientras la pantalla está
+   * abierta: así el atardecer llega solo, sin recargar. El server guarda el
+   * clima 15 minutos por ciudad, así que esto no le pega a Open-Meteo cada
+   * vez. Si falla, la granja se dibuja igual con un cielo de día neutro.
+   */
+  useEffect(() => {
+    let vivo = true
+    const pedir = () => api('/clima').then((c) => { if (vivo) setClima(c) }).catch(() => {})
+    pedir()
+    const t = setInterval(pedir, 10 * 60 * 1000)
+    return () => { vivo = false; clearInterval(t) }
+  }, [])
 
   // El globito se va solo a los cinco segundos.
   useEffect(() => {
@@ -728,6 +949,39 @@ export default function Granja({ progreso, onCambio, onError }) {
     }
   }
 
+  /*
+   * Elegir la ciudad para el clima. Hay un San Martín en cada provincia, así
+   * que si aparece más de una se pregunta cuál, con la provincia al lado.
+   */
+  async function cambiarCiudad() {
+    const texto = await pedirTexto({
+      titulo: '¿En qué ciudad estás?',
+      detalle: 'Para que en la granja haga el mismo tiempo que afuera.',
+      placeholder: 'Rosario, Córdoba, Mar del Plata…',
+      aceptar: 'Buscar',
+    })
+    if (!texto || !texto.trim()) return
+    try {
+      const encontradas = await api(`/clima/buscar?q=${encodeURIComponent(texto.trim())}`)
+      if (!encontradas.length) return onError(`No encontré «${texto.trim()}». Probá con otro nombre.`)
+      let elegida = encontradas[0]
+      if (encontradas.length > 1) {
+        const cual = await pedirOpcion({
+          titulo: '¿Cuál de estas?',
+          opciones: encontradas.map((c, i) => ({ valor: String(i), nombre: c.nombre, sub: c.donde })),
+        })
+        if (cual == null) return
+        elegida = encontradas[Number(cual)]
+      }
+      setClima(await api('/clima/ciudad', {
+        method: 'PUT',
+        body: JSON.stringify({ nombre: elegida.nombre, lat: elegida.lat, lon: elegida.lon }),
+      }))
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
   const delGlobo = globo && animales.find((a) => a.id === globo.id)
 
   return (
@@ -746,6 +1000,7 @@ export default function Granja({ progreso, onCambio, onError }) {
             progresoProximo={proximo.progreso}
             saltando={saltando}
             onTocar={tocar}
+            clima={clima}
           />
           {delGlobo && (
             <div className="granja-globo" key={globo.clave} style={{ left: globo.x, top: globo.y }}>
@@ -757,6 +1012,7 @@ export default function Granja({ progreso, onCambio, onError }) {
               </button>
             </div>
           )}
+          <Pronostico clima={clima} onCambiarCiudad={cambiarCiudad} />
           {total > 0 && <p className="granja-pista">Tocá un animal para saludarlo.</p>}
         </div>
 

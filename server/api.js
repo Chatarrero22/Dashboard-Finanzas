@@ -17,6 +17,7 @@ var texto = require('./texto.js');
 var aprendido = require('./aprendido.js');
 var tarjetas = require('./tarjetas.js');
 var salidas = require('./salidas.js');
+var clima = require('./clima.js');
 var cuotas = require('./cuotas.js');
 var medioDePago = require('./medio-de-pago.js');
 var dolares = require('./dolares.js');
@@ -2067,6 +2068,50 @@ router.get('/pnl', function (req, res) {
 });
 
 /* --------------------------------------------------------------- el arbol */
+
+/* --------------------------------------------- el clima de la granja */
+
+function lugarDelUsuario(userId) {
+  return db.prepare('SELECT ciudad, ciudad_lat, ciudad_lon FROM users WHERE id = ?').get(userId);
+}
+
+/*
+ * El cielo de la granja: qué hora del día es y qué clima hace en la ciudad
+ * de esta persona. Nunca falla: sin dato del clima devuelve igual la hora
+ * del día, con `hayDato: false`.
+ */
+router.get('/clima', async function (req, res) {
+  res.json(await clima.climaPara(lugarDelUsuario(req.user.id)));
+});
+
+router.get('/clima/buscar', async function (req, res) {
+  try {
+    res.json(await clima.buscar(req.query.q));
+  } catch (err) {
+    res.status(503).json({ error: 'No pude buscar ciudades ahora. Probá en un rato.' });
+  }
+});
+
+/*
+ * Elegir la ciudad. Sin datos vuelve a Buenos Aires. Las coordenadas vienen
+ * de la búsqueda; igual se validan, porque se van a mandar a otra API.
+ */
+router.put('/clima/ciudad', async function (req, res) {
+  var b = req.body || {};
+  if (!b.nombre) {
+    db.prepare('UPDATE users SET ciudad = NULL, ciudad_lat = NULL, ciudad_lon = NULL WHERE id = ?')
+      .run(req.user.id);
+  } else {
+    var lat = Number(b.lat);
+    var lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return res.status(400).json({ error: 'Esa ciudad no tiene una ubicación válida' });
+    }
+    db.prepare('UPDATE users SET ciudad = ?, ciudad_lat = ?, ciudad_lon = ? WHERE id = ?')
+      .run(String(b.nombre).trim().slice(0, 60), lat, lon, req.user.id);
+  }
+  res.json(await clima.climaPara(lugarDelUsuario(req.user.id)));
+});
 
 /*
  * Cambiarle el nombre a un animal de la granja. Vacío vuelve al que le tocó.

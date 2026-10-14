@@ -2,10 +2,18 @@
    LA GRANJA
    El dibujo está en Granja.jsx; acá van los colores del paisaje y todo lo
    que se mueve. Los animales tienen sus colores fijos (una gallina es blanca
-   de día y de noche); lo que cambia con el tema es el cielo y el pasto.
+   de día y de noche).
+
+   EL CIELO ES EL DE AFUERA, no el del modo oscuro de la app. Antes eran lo
+   mismo: modo noche, granja de noche. Ahora la hora del día y el clima son
+   los reales de la ciudad de cada persona (`clima.js`), y la escena lleva
+   clases `momento-*` y `clima-*` que eligen la paleta. La granja es una
+   ventana al campo, no parte de los botones: a las tres de la tarde es de
+   día aunque la app esté en modo noche.
    ========================================================================= */
 
-:root {
+/* De día y sin dato del clima: un cielo neutro, que no afirma nada. */
+.granja-escena {
   --cielo-arriba: #bfe3f6;
   --cielo-abajo: #fdf1dc;
   --astro: #ffd166;
@@ -18,44 +26,101 @@
   --fardo: #e9c46a;
   --alambrado: #a98a68;
   --sombra-animal: rgba(42, 28, 12, 0.16);
-  --nubes: 1;
+  --nube: #ffffff;
+  --nube-op: 0.85;
   --estrellas: 0;
+  /* El velo tiñe todo lo que está en el campo: de noche lo oscurece, al
+     atardecer lo dora. */
+  --velo: #0b1430;
+  --velo-op: 0;
+  /* La ventana del granero prendida. */
+  --farol: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --cielo-arriba: #0d1220;
-    --cielo-abajo: #1f2536;
-    --astro: #f3ead2;
-    --loma: #22382a;
-    --pasto: #2b4a2c;
-    --pasto-frente: #25402a;
-    --granero: #8f3129;
-    --granero-techo: #5e1f1a;
-    --granero-puerta: #742720;
-    --fardo: #a8894a;
-    --alambrado: #6b5844;
-    --sombra-animal: rgba(0, 0, 0, 0.32);
-    --nubes: 0;
-    --estrellas: 1;
-  }
+.granja-escena.momento-amanecer {
+  --cielo-arriba: #a9c1e8;
+  --cielo-abajo: #fbcaa3;
+  --astro: #ffb36b;
+  --nube: #ffe3d1;
+  --velo: #ff9a5c;
+  --velo-op: 0.08;
 }
 
-:root[data-theme='dark'] {
+.granja-escena.momento-atardecer {
+  --cielo-arriba: #6a6fb5;
+  --cielo-abajo: #f6a56a;
+  --astro: #ff8c4a;
+  --nube: #f3c3b0;
+  --velo: #ff7a3c;
+  --velo-op: 0.13;
+  --farol: 0.55;
+}
+
+.granja-escena.momento-noche {
   --cielo-arriba: #0d1220;
   --cielo-abajo: #1f2536;
   --astro: #f3ead2;
-  --loma: #22382a;
-  --pasto: #2b4a2c;
-  --pasto-frente: #25402a;
-  --granero: #8f3129;
-  --granero-techo: #5e1f1a;
-  --granero-puerta: #742720;
-  --fardo: #a8894a;
-  --alambrado: #6b5844;
-  --sombra-animal: rgba(0, 0, 0, 0.32);
-  --nubes: 0;
+  --nube: #3a4256;
+  --nube-op: 0.8;
   --estrellas: 1;
+  --velo: #0b1430;
+  --velo-op: 0.42;
+  --farol: 1;
+  --sombra-animal: rgba(0, 0, 0, 0.3);
+}
+
+/* Tapado (nublado, niebla, lluvia, nieve, tormenta): ni sol ni estrellas,
+   y el cielo se pone gris. */
+.granja-escena.tapado {
+  --cielo-arriba: #aeb8c3;
+  --cielo-abajo: #dde2e6;
+  --nube: #e9edf1;
+  --nube-op: 0.95;
+  --estrellas: 0;
+  --velo: #4a5563;
+  --velo-op: 0.1;
+}
+
+.granja-escena.clima-llovizna,
+.granja-escena.clima-lluvia {
+  --cielo-arriba: #8a95a3;
+  --cielo-abajo: #c2c9d0;
+  --nube: #9aa4b0;
+  --velo: #2c3a4c;
+  --velo-op: 0.16;
+  --pasto: #93c46f;
+  --pasto-frente: #80b65e;
+}
+
+.granja-escena.clima-tormenta {
+  --cielo-arriba: #5d6672;
+  --cielo-abajo: #959da7;
+  --nube: #6b7480;
+  --velo: #1f2a38;
+  --velo-op: 0.26;
+  --pasto: #8cbd69;
+  --pasto-frente: #79ae58;
+}
+
+/* Cuando nieva, el campo se pone blanco. */
+.granja-escena.clima-nieve {
+  --loma: #e7eef0;
+  --pasto: #dfe8ea;
+  --pasto-frente: #d2dee2;
+}
+
+.granja-escena.momento-atardecer.tapado {
+  --cielo-arriba: #6f7389;
+  --cielo-abajo: #c9a58f;
+}
+
+/* De noche y tapado: oscuro, sin luna ni estrellas, y la ventana prendida. */
+.granja-escena.momento-noche.tapado {
+  --cielo-arriba: #121722;
+  --cielo-abajo: #232a36;
+  --nube: #2c3342;
+  --velo: #0b1430;
+  --velo-op: 0.46;
 }
 
 /* ------------------------------------------------------------- el paisaje */
@@ -71,7 +136,6 @@
   background: var(--cielo-abajo);
 }
 
-.granja-escena .astro { fill: var(--astro); }
 .granja-escena .loma { fill: var(--loma); }
 .granja-escena .pasto { fill: var(--pasto); }
 .granja-escena .pasto-frente { fill: var(--pasto-frente); }
@@ -85,20 +149,119 @@
 .granja-escena .alambrado rect { fill: var(--alambrado); }
 .granja-escena .sombra { fill: var(--sombra-animal); }
 
-.granja-escena .nubes { opacity: var(--nubes); }
-.granja-escena .nube { fill: #ffffff; opacity: 0.85; animation: granja-nube 80s linear infinite; }
+/* El sol y la luna */
+.granja-escena .astro .disco { fill: var(--astro); }
+.granja-escena .astro .resplandor { fill: var(--astro); opacity: 0.18; }
+.granja-escena .astro .crater { fill: #d9cfb4; }
+.granja-escena .astro.luna .disco { filter: drop-shadow(0 0 6px rgba(243, 234, 210, 0.45)); }
+/* Con el cielo tapado apenas se adivina detrás de las nubes. */
+.granja-escena .astro.tapado { opacity: 0.22; }
+.granja-escena .astro.tapado .resplandor { display: none; }
+
+.granja-escena .nube {
+  fill: var(--nube);
+  opacity: var(--nube-op);
+  animation: granja-nube 80s linear infinite;
+}
 
 .granja-escena .estrellas { opacity: var(--estrellas); }
 .granja-escena .estrellas circle { fill: #fff6dc; animation: granja-titila 3.2s ease-in-out infinite; }
 
 @keyframes granja-nube {
-  from { transform: translateX(-120px); }
-  to { transform: translateX(440px); }
+  from { transform: translateX(-140px); }
+  to { transform: translateX(460px); }
 }
 
 @keyframes granja-titila {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+/* La luz del momento, encima del campo. No se puede tocar: los clics tienen
+   que llegar a los animales de abajo. */
+.granja-escena .velo {
+  fill: var(--velo);
+  opacity: var(--velo-op);
+  pointer-events: none;
+  transition: opacity 2s ease, fill 2s ease;
+}
+
+.granja-escena .farol {
+  opacity: var(--farol);
+  pointer-events: none;
+  transition: opacity 2s ease;
+}
+
+.granja-escena .charcos ellipse { fill: rgba(176, 196, 216, 0.6); }
+
+/* ------------------------------------------------------------ el tiempo */
+
+.granja-escena .tiempo { pointer-events: none; }
+
+.granja-escena .lluvia line {
+  stroke: rgba(214, 226, 240, 0.75);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  animation: granja-cae 0.8s linear infinite;
+}
+
+.granja-escena .lluvia.fina line { stroke-width: 0.6; animation-duration: 1.15s; }
+.granja-escena.fuerte .lluvia line { animation-duration: 0.55s; }
+.granja-escena .lluvia.ventosa line { animation-name: granja-cae-torcida; }
+
+@keyframes granja-cae {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-18px, 440px); }
+}
+
+@keyframes granja-cae-torcida {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-70px, 440px); }
+}
+
+.granja-escena .nieve circle {
+  fill: #ffffff;
+  opacity: 0.9;
+  animation: granja-nieva 7s linear infinite;
+}
+
+@keyframes granja-nieva {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(6px, 110px); }
+  50% { transform: translate(-4px, 220px); }
+  75% { transform: translate(5px, 330px); }
+  100% { transform: translate(-2px, 440px); }
+}
+
+.granja-escena .niebla ellipse {
+  fill: #f4f6f8;
+  opacity: 0.6;
+  animation: granja-niebla 26s ease-in-out infinite alternate;
+}
+
+@keyframes granja-niebla {
+  from { transform: translateX(-30px); }
+  to { transform: translateX(30px); }
+}
+
+/*
+ * El rayo: un fogonazo suave cada tanto, no un estroboscopio. Un destello
+ * blanco fuerte y repetido es justo lo que no hay que mostrarle a alguien
+ * sensible a la luz, así que es tenue (nunca más de 0,3) y espaciado.
+ */
+.granja-escena .rayo .fogonazo { fill: #ffffff; opacity: 0; animation: granja-fogonazo 11s infinite; }
+.granja-escena .rayo .chispa { fill: #fff6c4; opacity: 0; animation: granja-chispa 11s infinite; }
+
+@keyframes granja-fogonazo {
+  0%, 90%, 93%, 100% { opacity: 0; }
+  91% { opacity: 0.28; }
+  92% { opacity: 0.08; }
+  92.5% { opacity: 0.2; }
+}
+
+@keyframes granja-chispa {
+  0%, 90%, 93%, 100% { opacity: 0; }
+  91%, 92.5% { opacity: 0.95; }
 }
 
 /* -------------------------------------------------------- los animales */
@@ -514,4 +677,71 @@
 @media (prefers-reduced-motion: reduce) {
   .granja-globo,
   .granja-corazon { animation: none !important; }
+}
+
+/* ------------------------------------------------------ los que duermen */
+
+/*
+ * De noche duerme la mitad. Quietos en su lugar, ojos cerrados, la cabeza
+ * un poco gacha, respirando despacio y con sus «z». La otra mitad sigue
+ * dando vueltas: si durmieran todos, de noche la granja sería un cuadro
+ * quieto, que es justo lo que Emanuel dijo que no tenía que ser.
+ *
+ * Los selectores son largos a propósito: los recorridos los pone un <style>
+ * que arma Granja.jsx, que viene después en la página y con la misma
+ * especificidad le ganaría a esto.
+ */
+.granja-escena .animal.durmiendo { animation: none !important; }
+
+.granja-escena .animal.durmiendo .cuerpo .pata,
+.granja-escena .animal.durmiendo .cuerpo .cabeza {
+  animation: none !important;
+}
+
+.granja-escena .animal.durmiendo .cuerpo .cabeza { rotate: 14deg; }
+
+.granja-escena .animal.durmiendo .ojo {
+  animation: none !important;
+  transform: scaleY(0.12);
+}
+
+.granja-escena .animal.durmiendo .toque .cuerpo {
+  animation: granja-duerme 3.4s ease-in-out infinite !important;
+}
+
+@keyframes granja-duerme {
+  0%, 100% { scale: 1 1; }
+  50% { scale: 1.03 1.05; }
+}
+
+.granja-escena .zzz text {
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 6.5px;
+  fill: #f3ead2;
+  opacity: 0;
+  animation: granja-zzz 3.6s ease-out infinite;
+}
+
+.granja-escena .zzz text:nth-child(2) { font-size: 7.5px; animation-delay: 1.2s; }
+.granja-escena .zzz text:nth-child(3) { font-size: 9px; animation-delay: 2.4s; }
+
+@keyframes granja-zzz {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 0.95; }
+  100% { opacity: 0; transform: translate(4px, -7px); }
+}
+
+/*
+ * «Reducir movimiento» con el cielo: la lluvia y la nieve siguen cayendo
+ * (más despacio), porque sin ellas no se entiende que llueve; el rayo y las
+ * «z» no aparecen. Hay que volver a declarar todo con !important por la
+ * misma regla de shell.css que borraba las caminatas (ver más arriba).
+ */
+@media (prefers-reduced-motion: reduce) {
+  .granja-escena .lluvia line { animation: granja-cae 1.8s linear infinite !important; }
+  .granja-escena .nieve circle { animation: granja-nieva 12s linear infinite !important; }
+  .granja-escena .rayo { display: none; }
+  .granja-escena .zzz { display: none; }
+  .granja-escena .animal.durmiendo .toque .cuerpo { animation: none !important; }
 }

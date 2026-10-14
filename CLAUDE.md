@@ -103,6 +103,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `mercado-arg.js` | Acciones, CEDEARs, bonos, letras y ONs en vivo (data912, sin clave) |
 | `arbol.js` | Gamificación: XP, racha, 11 logros y los nombres de los animales |
 | `granja.js` | La granja: qué animales hay y cómo crecen, sacado de la XP. Sin tope |
+| `clima.js` | El cielo de la granja: hora del día y clima real de la ciudad (Open-Meteo, sin clave) |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
 | `version.js` | Qué build está corriendo (para saber si el deploy entró) |
@@ -957,9 +958,66 @@ Lo que me mordió:
   `!important`; los nombres de los recorridos los vuelve a poner el
   `<style>` que arma `Granja.jsx`.
 
-De día hay sol y nubes; de noche, luna y estrellas. Las dos cosas están
-siempre en el dibujo y el tema decide cuál se ve con `--nubes` y
-`--estrellas`, así no hay que preguntarle al JS qué tema es.
+### El cielo es el de afuera
+
+Emanuel: «la granja va cambiando si es de día, de noche, si llueve». **Es el
+clima real de la ciudad de cada persona**, no uno inventado al azar: si en la
+granja llueve, es porque está lloviendo afuera. Sale de Open-Meteo (gratis,
+sin clave, como dolarapi), y se pide **una vez cada 15 minutos por ciudad**,
+no por persona ni por pantalla. La granja vuelve a preguntar cada 10 minutos
+mientras está abierta, así el atardecer llega solo.
+
+- **La hora del día** sale de la salida y la puesta del sol reales:
+  amanecer, día, atardecer y noche, con el sol (o la luna) cruzando el cielo
+  en arco. Se calcula con el reloj de AHORA de esa ciudad, no con la hora del
+  pronóstico guardado, así el sol se mueve aunque el clima venga de la caché.
+  Y con el de la ciudad, no el del servidor: Render corre en UTC, y a las 22
+  de Buenos Aires allá es la una de la mañana.
+- **El clima**: despejado, algo nublado, nublado, niebla, llovizna, lluvia,
+  nieve y tormenta, cada uno con su dibujo (nubes, gotas, charcos, copos y
+  pasto blanco, niebla difuminada, rayo).
+- **De noche duerme la mitad** (ojos cerrados, cabeza gacha, «z»), la ventana
+  del granero se prende, y la otra mitad sigue dando vueltas. Si durmieran
+  todos, de noche la granja sería un cuadro quieto.
+- **La ciudad** arranca en Buenos Aires y cada uno elige la suya abajo del
+  corral (`users.ciudad`, `ciudad_lat`, `ciudad_lon`). Se busca con el
+  geocodificador de Open-Meteo, y si hay más de una se pregunta cuál, con la
+  provincia: hay un San Martín en cada provincia. No se usa la ubicación del
+  celular: pedirla en una app de plata asusta.
+
+**SIN DATO NO SE INVENTA.** Si Open-Meteo no contesta, la granja no muestra
+sol radiante ni lluvia: cielo neutro y abajo dice solo «En Buenos Aires». La
+hora del día sí sale siempre, porque eso se sabe. Un dato de hasta tres horas
+sirve si la API se cae un rato; más viejo, ya puede estar lloviendo donde
+decíamos sol.
+
+**De noche no hay sol.** La primera versión decía «☀️ Despejado» a las once
+de la noche: el tipo de error que hace dudar de todo lo demás. De noche es 🌙.
+
+**El cielo dejó de depender del modo oscuro.** Antes, modo noche era granja
+de noche. Ahora la escena lleva clases `momento-*` y `clima-*` que eligen la
+paleta, y a las tres de la tarde es de día aunque la app esté en modo noche:
+la granja es una ventana al campo, no parte de los botones.
+
+Un **velo** encima del campo pone la luz del momento —de noche oscurece
+también a los animales, como pasa de verdad— y la ventana del granero va
+encima del velo, porque es lo único que alumbra. El velo, la lluvia y la
+niebla llevan `pointer-events: none`: los animales se tienen que poder tocar
+con la tormenta encima.
+
+**El rayo es tenue y espaciado**, nunca más de 0,3 de blanco: un destello
+fuerte y repetido es justo lo que no hay que mostrarle a alguien sensible a
+la luz. Con «reducir movimiento» no aparece; la lluvia sigue cayendo, más
+despacio, porque sin ella no se entiende que llueve.
+
+**Los que duermen tienen selectores largos a propósito.** Los recorridos los
+pone el `<style>` que arma `Granja.jsx`, que viene después en la página: con
+la misma especificidad le gana al CSS y el animal dormido seguiría
+caminando.
+
+Para ver cada clima sin esperar a que haya tormenta, la prueba de
+Playwright intercepta `/api/clima` con `page.route()` y le hace contestar
+cada caso.
 
 ---
 
@@ -1060,7 +1118,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 53, tardan 3 segundos
+npm test                     # las 64, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
@@ -1077,6 +1135,7 @@ comillas. Y `node --test` en una carpeta llamada `test` corre **todos** los
 | `dinero.test.js` | Cuentas, potes, deuda de tarjeta y salidas del mes |
 | `dashboard.test.js` | Las reglas que viven en las consultas de `api.js` |
 | `granja.test.js` | Que la granja no tenga tope, y que los avisos lleguen |
+| `clima.test.js` | Que el cielo sea el de afuera, y que sin dato no se invente |
 
 **Cada prueba está porque la regla se rompió en la vida real**, y el
 comentario dice cuál era el número que Emanuel vio mal. Si una falla, lo que

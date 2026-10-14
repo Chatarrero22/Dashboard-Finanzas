@@ -341,6 +341,15 @@ function initDB() {
     db.exec("ALTER TABLE users ADD COLUMN moneda TEXT DEFAULT 'ars'");
   }
 
+  // Dónde está cada persona, para que la granja muestre SU clima. Vacío es
+  // Buenos Aires (ver clima.js): no sabemos dónde vive cada uno, y preguntar
+  // la ubicación del celular en una app de plata asusta.
+  if (!tieneColumna('users', 'ciudad')) {
+    db.exec('ALTER TABLE users ADD COLUMN ciudad TEXT');
+    db.exec('ALTER TABLE users ADD COLUMN ciudad_lat REAL');
+    db.exec('ALTER TABLE users ADD COLUMN ciudad_lon REAL');
+  }
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_user_date ON transactions(user_id, date DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_tx_card ON transactions(card_id)');
 }
