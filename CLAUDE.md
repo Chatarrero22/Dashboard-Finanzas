@@ -255,6 +255,18 @@ fila de la misma cuenta decía -$17.019, la pantalla se contradecía sola en
 la misma vista. Si dos lugares muestran el saldo de una cuenta, tienen que
 pedirlo a la misma función.
 
+**Cambiar el día de cierre re-ancla los pagos ya marcados.**
+`card_payments.period_close` guarda la fecha de cierre calculada con el día
+**viejo**. Si lo cambiás, los períodos se recalculan y esas fechas dejan de
+coincidir con ningún cierre: los resúmenes que ya pagaste reaparecen como
+impagos y el Disponible se infla, porque esa deuda vuelve a contar. Emanuel
+cambió el cierre y le apareció «VENCIÓ Y NO LO PAGASTE $1.099.060» de dos
+resúmenes que sí había pagado.
+
+Cada pago se mueve al cierre nuevo más cercano al que tenía
+(`tarjetas.reanclarPagos()`). **No se inventa nada:** el pago existió, lo
+único que cambia es con qué etiqueta lo guardamos.
+
 **El pago del resumen de la tarjeta NO es un movimiento.** Las compras ya están
 cargadas una por una; si además anotáramos el pago, el mes contaría el doble.
 Por eso existe `card_payments`, que solo marca "el resumen que cerró tal día
@@ -364,6 +376,15 @@ es de tipo Ahorro, así que su sueldo, sus gastos y el ajuste de la tarjeta
 contaban como si los hubiera apartado: el Resumen le decía «apartaste
 $1.187.059» un mes en el que no había invertido nada. Un sueldo que cae en una
 cuenta no es apartar, y un `Ajuste` mucho menos.
+
+**La tendencia son los 6 meses que TERMINAN en el que estás mirando.** Antes
+era «los últimos 6 que existan», y las cuotas se los comían: una compra en 6
+cuotas deja movimientos hasta marzo del año que viene, así que los seis más
+nuevos pasaban a ser octubre y **cinco meses de futuro**. Emanuel vio «oct,
+nov, dic, ene, feb, mar» con cinco barras casi vacías.
+
+Tampoco sirve mirar el futuro en un gráfico que se llama tendencia: eso ya
+pasó o todavía no, y las cuotas que vienen tienen su propia tarjeta.
 
 **«¿A dónde va la plata?» se abre.** Tocar una categoría de la torta muestra
 abajo los gastos de esa categoría, de mayor a menor. La pregunta que sigue a
@@ -610,6 +631,18 @@ Antes cada carga creaba una fila nueva: Emanuel tenía RON dos veces, cada una
 con su precio de compra y su ganancia, y no había forma de saber cuánto tenía
 en total. Lo que ya quedó partido se une con **«Juntar en uno»**, el aviso
 que aparece arriba de la lista (`POST /portfolio/juntar`).
+
+**Después de un split lo único que sabés es cuánto pusiste EN TOTAL.** A Cami
+le splitearon ETHA: la cantidad de CEDEARs cambió y el precio por unidad de
+antes dejó de significar nada. La app no sabe de splits —nadie le avisa— pero
+sí puede dejar de obligarte a hacer la división, que si sale mal deja una
+ganancia falsa sin que nada avise. Por eso Editar tiene «Mejor pongo cuánto
+puse en total».
+
+Ojo: cuando pasó, **el cálculo estaba bien**. 106 CEDEARs × $7.589,41 =
+$804.477 de costo y × $18.280 = $1.937.680 de valor, o sea +140,86% exacto.
+Lo que no correspondía era el dato de entrada. Reproducir los números antes
+de tocar nada es lo que evita «arreglar» algo que no está roto.
 
 **Si a una de las dos tandas le falta el precio de compra, el promedio queda
 sin cargar.** No se hereda el precio de la otra: eso haría aparecer una

@@ -507,13 +507,26 @@ router.get('/dashboard', function (req, res) {
     ' AND substr(date,1,7) = ? GROUP BY category ORDER BY total DESC'
   ).all(uid, month);
 
+  /*
+   * La tendencia son los 6 meses que TERMINAN en el que estás mirando.
+   *
+   * Antes era «los ultimos 6 que existan», y las cuotas se los comian: una
+   * compra en 6 cuotas deja movimientos hasta marzo del año que viene, asi
+   * que los seis mas nuevos pasaban a ser octubre y cinco meses de FUTURO.
+   * Emanuel vio «oct, nov, dic, ene, feb, mar» con cinco barras casi vacias y
+   * dijo, con razon, que no se veian los meses anteriores.
+   *
+   * Tampoco sirve mirar el futuro en un grafico que se llama tendencia: eso
+   * ya pasó o todavia no, y las cuotas que vienen tienen su propia tarjeta.
+   */
   var byMonth = db.prepare(
     'SELECT substr(date,1,7) month,' +
     ' COALESCE(SUM(CASE WHEN amount > 0 THEN amount END),0) income,' +
     ' COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) END),0) expense' +
     ' FROM transactions WHERE user_id = ?' + SIN_CORRECCIONES +
+    ' AND substr(date,1,7) <= ?' +
     ' GROUP BY month ORDER BY month DESC LIMIT 6'
-  ).all(uid);
+  ).all(uid, month);
 
   // Las suscripciones en dolares se convierten para poder sumarlas con las
   // de pesos. Se usa el ultimo cambio que tenemos cacheado, sin ir a la red:
@@ -1368,6 +1381,20 @@ router.patch('/cards/:id', function (req, res) {
     req.params.id, req.user.id
   );
 
+  /*
+   * Si cambió el día de cierre, los pagos ya marcados se mueven con él.
+   *
+   * Si no, apuntan a fechas de cierre que dejan de existir y los resúmenes
+   * que ya pagaste reaparecen como impagos — y el Disponible se infla,
+   * porque esa deuda vuelve a contar.
+   */
+  var cierreNuevo = req.body.close_day != null
+    ? Math.min(Math.max(Number(req.body.close_day), 1), 31)
+    : actual.close_day;
+  var reanclados = tarjetas.reanclarPagos(
+    req.user.id, Number(req.params.id), actual.close_day, cierreNuevo
+  );
+
   // Ojo: hay que poder DESmarcarla, no solo marcarla. Antes esto era
   // `if (req.body.es_default)` y destildar la casilla no hacía nada, así que
   // quien pagaba casi todo con débito no tenía forma de zafar: cada gasto le
@@ -1375,7 +1402,8 @@ router.patch('/cards/:id', function (req, res) {
   if (req.body.es_default === true) tarjetas.marcarPorDefecto(req.user.id, Number(req.params.id));
   else if (req.body.es_default === false && actual.es_default) tarjetas.marcarPorDefecto(req.user.id, null);
 
-  res.json(tarjetas.listar(req.user.id).find(function (t) { return t.id === Number(req.params.id); }));
+  var fila = tarjetas.listar(req.user.id).find(function (t) { return t.id === Number(req.params.id); });
+  res.json({ ...fila, pagosReanclados: reanclados });
 });
 
 /**

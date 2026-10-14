@@ -298,6 +298,63 @@ function listar(userId, hoy) {
 }
 
 /**
+ * Cambiar el dia de cierre re-ancla los pagos que ya estaban marcados.
+ *
+ * `card_payments.period_close` guarda la fecha de cierre calculada con el
+ * dia VIEJO. Si lo cambias, los periodos se recalculan y esas fechas dejan
+ * de coincidir con ningun cierre: los resumenes que ya habias pagado
+ * reaparecen como impagos, y de paso el Disponible se infla porque esa
+ * deuda vuelve a contar.
+ *
+ * Emanuel cambio el cierre y le aparecio «VENCIO Y NO LO PAGASTE $1.099.060»
+ * de dos resumenes que si habia pagado.
+ *
+ * Cada pago se mueve al cierre nuevo mas cercano al que tenia. No se inventa
+ * nada: el pago existio, lo unico que cambia es con que etiqueta lo
+ * guardamos. Si dos caen en el mismo cierre queda el mas grande.
+ */
+function reanclarPagos(userId, cardId, diaViejo, diaNuevo) {
+  if (Number(diaViejo) === Number(diaNuevo)) return 0;
+
+  var pagos = db.prepare(
+    'SELECT * FROM card_payments WHERE user_id = ? AND card_id = ? ORDER BY period_close'
+  ).all(userId, cardId);
+  if (!pagos.length) return 0;
+
+  var movidos = 0;
+
+  db.transaction(function () {
+    db.prepare('DELETE FROM card_payments WHERE user_id = ? AND card_id = ?').run(userId, cardId);
+
+    var porCierre = {};
+    pagos.forEach(function (pago) {
+      var vieja = new Date(pago.period_close);
+      // El cierre nuevo del mismo mes; si la fecha vieja cae mas cerca del
+      // del mes siguiente, ese.
+      var cierre = diaDelMes(vieja.getFullYear(), vieja.getMonth(), diaNuevo);
+      var otro = diaDelMes(vieja.getFullYear(), vieja.getMonth() + 1, diaNuevo);
+      if (Math.abs(otro - vieja) < Math.abs(cierre - vieja)) cierre = otro;
+
+      var k = aISO(cierre);
+      if (!porCierre[k] || porCierre[k].amount < pago.amount) {
+        porCierre[k] = { amount: pago.amount, paid_on: pago.paid_on };
+      }
+      if (k !== pago.period_close) movidos++;
+    });
+
+    var insertar = db.prepare(
+      'INSERT INTO card_payments (user_id, card_id, period_close, amount, paid_on)' +
+      ' VALUES (?, ?, ?, ?, ?)'
+    );
+    Object.keys(porCierre).forEach(function (k) {
+      insertar.run(userId, cardId, k, porCierre[k].amount, porCierre[k].paid_on);
+    });
+  })();
+
+  return movidos;
+}
+
+/**
  * Marca como pagado un resumen. Ojo: NO crea un movimiento.
  * Las compras de ese resumen ya están cargadas una por una; si además
  * anotáramos el pago, el gasto contaría dos veces.
@@ -357,6 +414,7 @@ function todas(userId) {
 
 module.exports = {
   deuda: deuda,
+  reanclarPagos: reanclarPagos,
   deudaTotal: deudaTotal,
   listar: listar,
   porDefecto: porDefecto,

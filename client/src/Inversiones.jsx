@@ -492,9 +492,25 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
   // aunque cotice en dólares: es la salida de una tanda que quedó mezclada.
   const [monedaCosto, setMonedaCosto] = useState(activo.cost_currency || activo.currency || 'ARS')
 
+  /*
+   * DESPUES DE UN SPLIT lo unico que sabes es cuanto pusiste EN TOTAL.
+   *
+   * A Cami le splitearon ETHA: la cantidad de CEDEARs cambio y el precio por
+   * unidad de antes dejo de significar nada. La app no sabe de splits -nadie
+   * le avisa- pero si puede dejar de obligarte a hacer la division.
+   *
+   * «Puse $400.000 y ahora tengo 106» es un dato que la persona tiene; «cada
+   * uno me salio $3.773,58» es una cuenta que tiene que hacer a mano, y si la
+   * hace mal la ganancia sale mal sin que nada avise.
+   */
+  const [modo, setModo] = useState('unidad')
+  const [total, setTotal] = useState('')
+
   const esCripto = activo.asset_type === 'crypto'
   const cant = montoDesde(cantidad)
-  const precioCompra = montoDesde(compra)
+  const precioCompra = modo === 'total'
+    ? (cant ? (montoDesde(total) * (activo.lamina || 1)) / cant : 0)
+    : montoDesde(compra)
 
   // Lo que va a mostrar la pantalla cuando guardes, calculado acá para que lo
   // veas antes de guardar y no despues.
@@ -539,15 +555,40 @@ function EditarActivo({ activo, onCerrar, onHecho, onError }) {
             />
           </label>
           <label className="field">
-            <span className="field-label">¿A cuánto {activo.unidad === 'nominales' ? 'cada 100' : 'cada uno'}?</span>
+            <span className="field-label">
+              {modo === 'total'
+                ? '¿Cuánto pusiste en total?'
+                : `¿A cuánto ${activo.unidad === 'nominales' ? 'cada 100' : 'cada uno'}?`}
+            </span>
             <input
               inputMode="decimal"
               placeholder="0"
-              value={compra}
-              onChange={(e) => setCompra(soloPlata(e.target.value))}
+              value={modo === 'total' ? total : compra}
+              onChange={(e) => (modo === 'total'
+                ? setTotal(soloPlata(e.target.value))
+                : setCompra(soloPlata(e.target.value)))}
             />
           </label>
         </div>
+
+        {/* Después de un split lo único que sabés es cuánto pusiste en total:
+            el precio por unidad de antes ya no significa nada. */}
+        <button
+          type="button"
+          className="chip"
+          style={{ marginBottom: 14 }}
+          onClick={() => {
+            if (modo === 'unidad') {
+              setTotal(precioCompra && cant ? String(Math.round((precioCompra * cant) / (activo.lamina || 1))) : '')
+              setModo('total')
+            } else {
+              setCompra(precioCompra ? String(Math.round(precioCompra * 100) / 100) : '')
+              setModo('unidad')
+            }
+          }}
+        >
+          {modo === 'total' ? 'Mejor pongo el precio de cada uno' : 'Mejor pongo cuánto puse en total'}
+        </button>
 
         {!esCripto && (
           <div className="field">
