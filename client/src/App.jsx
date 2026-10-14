@@ -1992,6 +1992,15 @@ export default function App() {
   // liquidez y qué es ahorro viva en un solo lado.
   const potes = dashboard ? dashboard.potes : null
 
+  /*
+   * En el Resumen la tarjetita de la barra no va.
+   *
+   * Desde que el titular es «Disponible», las dos dicen exactamente lo
+   * mismo, una al lado de la otra. En las demas secciones si sirve tenerlo
+   * a mano, porque ahi no hay ningun otro lugar donde mirarlo.
+   */
+  const potesLateral = tab === 'home' ? null : potes
+
   return (
     <div className={`layout ${oculto ? 'oculto' : ''}`}>
       <Lateral
@@ -2000,7 +2009,7 @@ export default function App() {
         tab={tab}
         onGo={irA}
         onNuevo={() => setNuevoAbierto(true)}
-        potes={potes}
+        potes={potesLateral}
         usuario={{ nombre: config.displayName, sub: `@${config.username}` }}
       />
 

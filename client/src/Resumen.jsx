@@ -259,22 +259,29 @@ function Tendencia({ meses, mesActual }) {
 
 /* --------------------------------------------------------- gasto por día */
 
-function GastoPorDia({ byDay, promedio }) {
+function GastoPorDia({ byDay, promedio, elegido, onElegir }) {
   if (!byDay || !byDay.length) return null
   const max = Math.max(...byDay.map((d) => d.total), 1)
-  const hoy = new Date().getDate()
 
   return (
     <>
+      {/* Cada día es un <button>: tocarlo abre lo que gastaste ese día en el
+          ranking de al lado, igual que la torta. La pregunta que sigue a «ese
+          día gasté un montón» es siempre «¿en qué?». Los días sin gastos no
+          se pueden tocar: no hay nada que abrir. */}
       <div className="dias-graf">
         {byDay.map((d) => (
-          <div
+          <button
+            type="button"
             key={d.dia}
-            className={`dia-barra ${d.total === 0 ? 'vacio' : d.total > max * 0.5 ? 'fuerte' : 'flojo'}`}
+            disabled={d.total === 0}
+            aria-pressed={elegido === d.dia}
+            className={`dia-barra ${d.total === 0 ? 'vacio' : d.total > max * 0.5 ? 'fuerte' : 'flojo'}`
+              + (elegido === d.dia ? ' elegido' : '')}
             style={{ height: `${Math.max((d.total / max) * 100, 2)}%` }}
             title={`${d.dia}: ${money(d.total)}`}
-            role="img"
             aria-label={`Día ${d.dia}: ${money(d.total)}`}
+            onClick={() => onElegir(elegido === d.dia ? null : d.dia)}
           />
         ))}
       </div>
@@ -299,18 +306,33 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
    * va la plata?» es siempre «¿en qué?», y antes había que ir a otra pantalla
    * y filtrar a mano.
    */
-  const [abierta, setAbierta] = useState(null)
+  /*
+   * UN solo filtro abierto a la vez: una categoria o un dia.
+   *
+   * Los dos contestan la misma pregunta -«¿en que se me fue?»- y los dos
+   * usan el mismo ranking de abajo. Con dos estados sueltos se podian pisar
+   * y mostrar algo que no era ni una cosa ni la otra.
+   */
+  const [filtro, setFiltro] = useState(null)
+  const abierta = filtro && filtro.tipo === 'categoria' ? filtro.valor : null
+  const diaAbierto = filtro && filtro.tipo === 'dia' ? filtro.valor : null
 
-  // Si cambiás de mes, la categoría abierta puede ya no existir.
+  // Si cambiás de mes, lo que tenías abierto puede ya no existir.
   const catsNombres = cats.map((c) => c.category).join('|')
-  useEffect(() => {
-    setAbierta((a) => (a && catsNombres.split('|').includes(a) ? a : null))
-  }, [catsNombres])
+  useEffect(() => { setFiltro(null) }, [catsNombres, mes])
 
   const delMes = dashboard.gastosDelMes || []
   const top = abierta
     ? delMes.filter((g) => g.category === abierta)
-    : (dashboard.topExpenses || [])
+    : diaAbierto
+      ? delMes.filter((g) => Number(String(g.date).slice(8, 10)) === diaAbierto)
+      : (dashboard.topExpenses || [])
+
+  const tituloRanking = abierta
+    ? `GASTOS EN ${abierta.toUpperCase()}`
+    : diaAbierto
+      ? `GASTOS DEL ${diaAbierto} DE ${mesNombre(mes).toUpperCase()}`
+      : 'LOS 5 GASTOS MÁS GRANDES'
   const ultimos = (transactions || []).slice(0, 5)
   const diaDeHoy = new Date().getDate()
   const promedio = dashboard.expense / Math.max(Math.min(diaDeHoy, dashboard.diasDelMes || 31), 1)
@@ -330,7 +352,11 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
       <div className="fila-dos">
         <section className="card">
           <div className="card-rotulo">A DÓNDE VA LA PLATA</div>
-          <ADondeVa cats={cats} elegida={abierta} onElegir={setAbierta} />
+          <ADondeVa
+            cats={cats}
+            elegida={abierta}
+            onElegir={(c) => setFiltro(c ? { tipo: 'categoria', valor: c } : null)}
+          />
           {cats.length > 0 && (
             <p className="hint adonde-pista">
               {abierta
@@ -340,7 +366,7 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
           )}
         </section>
 
-        <section className="card">
+        <section className="card card-tendencia">
           <div className="card-rotulo-fila">
             <span className="card-rotulo">TENDENCIA · 6 MESES</span>
             <span className="leyenda">
@@ -357,14 +383,14 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
         <section className="card">
           <div className="card-rotulo-fila">
             <span className="card-rotulo">
-              {abierta ? `GASTOS EN ${abierta.toUpperCase()}` : 'LOS 5 GASTOS MÁS GRANDES'}
+              {tituloRanking}
             </span>
-            {abierta && (
-              <button className="chip" onClick={() => setAbierta(null)}>Ver todos</button>
+            {filtro && (
+              <button className="chip" onClick={() => setFiltro(null)}>Ver todos</button>
             )}
           </div>
           {top.length === 0 ? (
-            <Empty icon="◔" text={abierta ? `Sin gastos en ${abierta} este mes.` : 'Sin gastos este mes.'} />
+            <Empty icon="◔" text={filtro ? 'Sin gastos acá.' : 'Sin gastos este mes.'} />
           ) : (
             <div className="ranking">
               {top.map((g, i) => (
@@ -387,7 +413,12 @@ export default function ResumenScreen({ dashboard, transactions, mes, onGo, conf
             <span className="card-rotulo">GASTO POR DÍA</span>
             <span className="card-nota monto-sensible">Promedio {money(promedio)} / día</span>
           </div>
-          <GastoPorDia byDay={dashboard.byDay} promedio={promedio} />
+          <GastoPorDia
+            byDay={dashboard.byDay}
+            promedio={promedio}
+            elegido={diaAbierto}
+            onElegir={(d) => setFiltro(d ? { tipo: 'dia', valor: d } : null)}
+          />
 
           {dashboard.subscriptionsMonthly > 0 && (
             <div className="nota-fija">

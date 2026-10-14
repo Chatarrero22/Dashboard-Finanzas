@@ -311,6 +311,23 @@
   border-color: var(--border-strong);
 }
 
+/* Cada dia es un boton: se le saca el chrome y se le deja la barra. */
+.dias-graf .dia-barra {
+  padding: 0;
+  border: 0;
+  min-height: 0;
+  font: inherit;
+  cursor: pointer;
+  transition: filter 0.12s ease, opacity 0.12s ease;
+}
+
+.dias-graf .dia-barra:disabled { cursor: default; }
+.dias-graf .dia-barra:not(:disabled):hover { filter: brightness(1.15); }
+
+/* El dia abierto se marca, y los demas se apagan un poco. */
+.dias-graf:has(.dia-barra.elegido) .dia-barra:not(.elegido) { opacity: 0.4; }
+.dias-graf .dia-barra.elegido { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+
 .adonde-pista {
   margin: 14px 0 0;
   font-size: 12px;
@@ -366,6 +383,21 @@
   align-items: flex-end;
   gap: 12px;
   height: 160px;
+}
+
+/* El grafico crece hasta llenar la tarjeta.
+   La fila estira las dos tarjetas a la misma altura, y la de al lado -«a
+   donde va la plata»- es bastante mas alta: con el grafico fijo en 160px
+   quedaba arriba y el resto en blanco. */
+.card-tendencia {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-tendencia .tendencia {
+  flex: 1;
+  height: auto;
+  min-height: 160px;
 }
 
 .tendencia-mes {

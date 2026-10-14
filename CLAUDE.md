@@ -395,6 +395,26 @@ Los datos salen de `dashboard.gastosDelMes` y **no** de filtrar la lista de
 movimientos en el navegador: esa lista trae los últimos 500 de siempre, así
 que en un mes viejo faltarían gastos y nadie se enteraría.
 
+**«Gasto por día» también se abre**, por lo mismo: la pregunta que sigue a
+«ese día gasté un montón» es siempre «¿en qué?». Cada barra es un `<button>`
+y los días sin gastos van `disabled`: no hay nada que abrir.
+
+**Un solo filtro a la vez.** La categoría y el día contestan lo mismo y usan
+el mismo ranking de abajo, así que viven en un único estado (`filtro`, con
+`tipo` y `valor`). Con dos estados sueltos se pisaban y mostraban algo que no
+era ni una cosa ni la otra.
+
+**La tarjetita de la barra lateral no va en el Resumen.** Desde que el
+titular es «Disponible», las dos dicen exactamente lo mismo una al lado de la
+otra. En las demás secciones sí sirve, porque ahí no hay otro lugar donde
+mirarlo.
+
+**Un gráfico de alto fijo adentro de una fila deja un hueco.** `.fila-dos`
+estira las dos tarjetas a la misma altura y «a dónde va la plata» es bastante
+más alta, así que la tendencia quedaba arriba con todo el resto en blanco. La
+tarjeta va `flex-direction: column` y el gráfico `flex: 1` con `min-height`,
+así crece hasta llenarla.
+
 **En el mes de hoy, arriba va lo que TENÉS. En un mes pasado, cómo te fue.**
 El número grande decía «Resultado de octubre» y era ingresos menos gastos: un
 flujo. Emanuel preguntó **cuatro veces** por qué no coincidía con su plata, y

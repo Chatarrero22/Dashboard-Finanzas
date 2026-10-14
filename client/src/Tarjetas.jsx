@@ -188,7 +188,8 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
     const ok = await confirmar({
       titulo: `¿Pagaste ${money(t.aPagar.monto)} de ${t.name}?`,
       detalle: 'No lo cuento como gasto nuevo: esas compras ya están anotadas una por una. ' +
-        'Solo dejo de mostrártelo como pendiente.',
+        `Tu Disponible va a bajar ${money(t.aPagar.monto)}, porque esa plata ya ` +
+        'salió de tu cuenta.',
       aceptar: 'Sí, lo pagué',
     })
     if (!ok) return
@@ -207,8 +208,11 @@ export default function TarjetasScreen({ cards, proximas, accion, onReload, onEr
       titulo: `¿Ya pagaste los ${t.pendientes.length} resúmenes?`,
       detalle: `Son ${money(total)} en total, desde el que cerró el ` +
         `${t.pendientes[0].cierreTexto}. No los cuento como gasto nuevo: esas ` +
-        'compras ya están anotadas una por una. Solo dejo de mostrártelas como ' +
-        'pendientes.',
+        'compras ya están anotadas una por una. ' +
+        // El efecto que importa: esa plata sale del Disponible. Es correcto
+        // -ya salió del banco- pero hay que decirlo antes, no después.
+        `Tu Disponible va a bajar ${money(total)}, porque esa plata ya salió ` +
+        'de tu cuenta.',
       aceptar: 'Sí, los pagué todos',
     })
     if (!ok) return
