@@ -2068,6 +2068,17 @@ router.get('/pnl', function (req, res) {
 
 /* --------------------------------------------------------------- el arbol */
 
+/*
+ * Cambiarle el nombre a un animal de la granja. Vacío vuelve al que le tocó.
+ * Devuelve el progreso entero, así la pantalla se redibuja con una sola
+ * llamada.
+ */
+router.patch('/granja/:id', function (req, res) {
+  var animal = arbol.renombrar(req.user.id, req.params.id, req.body.nombre);
+  if (!animal) return res.status(404).json({ error: 'Ese animal todavía no llegó a tu granja' });
+  res.json(arbol.progreso(req.user.id));
+});
+
 router.get('/progreso', function (req, res) {
   res.json(arbol.progreso(req.user.id));
 });

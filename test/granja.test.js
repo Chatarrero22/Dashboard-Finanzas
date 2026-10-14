@@ -139,3 +139,72 @@ test('anotar un movimiento que cruza el umbral trae el animal', function () {
 
   assert.strictEqual(arbol.progreso(u.id).granja.total, 1, 'y la pantalla lo ve');
 });
+
+/* ================================================== los nombres ========== */
+
+/** Un usuario con esos puntos. */
+function conPuntos(xp) {
+  var u = ayuda.usuario();
+  ayuda.db.prepare('INSERT INTO user_stats (user_id, xp, streak, best_streak, last_active) VALUES (?, ?, 0, 0, ?)')
+    .run(u.id, xp, '');
+  return u;
+}
+
+/*
+ * EL NOMBRE QUE ELEGISTE LE GANA AL QUE LE TOCÓ, y aparece en todos lados:
+ * en la pantalla y en lo que se avisa cuando crece.
+ */
+test('se le puede cambiar el nombre a un animal', function () {
+  var u = conPuntos(granja.llegadaDe(0) + 10);
+
+  var a = arbol.renombrar(u.id, 0, '  Doña   Pocha  ');
+  assert.strictEqual(a.nombre, 'Doña Pocha', 'sin espacios de más');
+  assert.strictEqual(arbol.progreso(u.id).granja.animales[0].nombre, 'Doña Pocha');
+  assert.strictEqual(arbol.progreso(u.id).granja.animales[0].nombreOriginal, 'Pocha');
+});
+
+test('el aviso de que creció usa el nombre que elegiste', function () {
+  var llega = granja.llegadaDe(0);
+  var u = conPuntos(llega + granja.CRECE[1] - 1);
+  arbol.renombrar(u.id, 0, 'Turuleca');
+
+  var premio = arbol.alAnotarMovimiento(u.id, {});
+  var frases = granja.frases(premio.granja).join(' ');
+  assert.match(frases, /Turuleca creció/);
+});
+
+test('borrar el nombre vuelve al que le había tocado', function () {
+  var u = conPuntos(granja.llegadaDe(0) + 10);
+  arbol.renombrar(u.id, 0, 'Turuleca');
+  var a = arbol.renombrar(u.id, 0, '   ');
+  assert.strictEqual(a.nombre, 'Pocha');
+});
+
+/*
+ * Un nombre va en un globito arriba del animal y en una fila del celular:
+ * tiene tope.
+ */
+test('un nombre larguísimo se corta', function () {
+  var u = conPuntos(granja.llegadaDe(0) + 10);
+  var a = arbol.renombrar(u.id, 0, 'Pocha la gallina más linda de toda la provincia');
+  assert.ok(a.nombre.length <= granja.LARGO_NOMBRE);
+});
+
+/* El que todavía no llegó no es de nadie, y uno que no existe tampoco. */
+test('no se puede nombrar un animal que no llegó', function () {
+  var u = conPuntos(granja.llegadaDe(0) + 10);
+  assert.strictEqual(arbol.renombrar(u.id, 1, 'Bugs'), null);
+  assert.strictEqual(arbol.renombrar(u.id, -1, 'Bugs'), null);
+  assert.strictEqual(arbol.renombrar(u.id, 'x', 'Bugs'), null);
+});
+
+/* Cada uno nombra los suyos: Pocha de Cami no es Pocha de Emanuel. */
+test('los nombres son de cada persona', function () {
+  var a = conPuntos(granja.llegadaDe(0) + 10);
+  var b = ayuda.usuario('otra');
+  ayuda.db.prepare('INSERT INTO user_stats (user_id, xp, streak, best_streak, last_active) VALUES (?, ?, 0, 0, ?)')
+    .run(b.id, granja.llegadaDe(0) + 10, '');
+
+  arbol.renombrar(a.id, 0, 'Turuleca');
+  assert.strictEqual(arbol.progreso(b.id).granja.animales[0].nombre, 'Pocha');
+});

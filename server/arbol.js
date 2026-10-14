@@ -81,6 +81,47 @@ function stats(userId) {
   return s;
 }
 
+/* ------------------------------------------------------------- la granja */
+
+/** Los nombres que la persona les puso a sus animales: { id: 'Nombre' }. */
+function nombresDe(userId) {
+  var out = {};
+  db.prepare('SELECT animal_id, nombre FROM animal_names WHERE user_id = ?').all(userId)
+    .forEach(function (r) { out[r.animal_id] = r.nombre; });
+  return out;
+}
+
+/** La granja de una persona, con los nombres que eligió. */
+function granjaDe(userId) {
+  return granjaMod.granja(stats(userId).xp, nombresDe(userId));
+}
+
+/** Qué llegó y qué creció entre dos puntajes, con los nombres que eligió. */
+function novedadesGranja(userId, antes, despues) {
+  return granjaMod.novedades(antes, despues, nombresDe(userId));
+}
+
+/**
+ * Cambiarle el nombre a un animal. Vacío vuelve al que le había tocado.
+ * Solo a los que ya llegaron: el que viene todavía no es de nadie.
+ */
+function renombrar(userId, animalId, nombre) {
+  var id = Number(animalId);
+  var g = granjaDe(userId);
+  if (!Number.isInteger(id) || id < 0 || id >= g.total) return null;
+
+  var limpio = granjaMod.limpiarNombre(nombre);
+  if (!limpio) {
+    db.prepare('DELETE FROM animal_names WHERE user_id = ? AND animal_id = ?').run(userId, id);
+  } else {
+    db.prepare(
+      'INSERT INTO animal_names (user_id, animal_id, nombre) VALUES (?, ?, ?)' +
+      ' ON CONFLICT(user_id, animal_id) DO UPDATE SET nombre = excluded.nombre'
+    ).run(userId, id, limpio);
+  }
+  return granjaDe(userId).animales[id];
+}
+
 /** Suma XP y devuelve si subió de etapa. */
 function sumarXP(userId, cantidad, motivo) {
   var antes = stats(userId);
@@ -99,7 +140,7 @@ function sumarXP(userId, cantidad, motivo) {
     etapa: etapaPara(despues.xp),
     // La granja sale de los mismos puntos: si cruzaste un umbral, llegó o
     // creció un animal.
-    granja: granjaMod.novedades(antes.xp, despues.xp)
+    granja: novedadesGranja(userId, antes.xp, despues.xp)
   };
 }
 
@@ -338,7 +379,7 @@ function progreso(userId) {
     pendientes: pendientes,
     total: Object.keys(LOGROS).length,
     // Sin tope: lo que el árbol ya no puede mostrar, lo muestra la granja.
-    granja: granjaMod.granja(s.xp)
+    granja: granjaMod.granja(s.xp, nombresDe(userId))
   };
 }
 
@@ -353,5 +394,8 @@ module.exports = {
   alAgregarInversion: alAgregarInversion,
   cerrarMes: cerrarMes,
   revisarLogros: revisarLogros,
+  granjaDe: granjaDe,
+  novedadesGranja: novedadesGranja,
+  renombrar: renombrar,
   mesDe: mesDe
 };

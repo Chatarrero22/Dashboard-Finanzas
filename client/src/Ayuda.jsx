@@ -225,14 +225,14 @@ export const GUIAS = {
 
   arbol: [
     {
-      titulo: 'Tu árbol crece si anotás',
-      texto: 'Cada movimiento que cargás le suma. No es un adorno: la app sirve si está al día, y esto es para acordarse.',
-      apunta: '.arbol-caja, .card',
+      titulo: 'Tu granja crece si anotás',
+      texto: 'Cada cosa que cargás, cada mes que cerrás en verde y cada meta que cumplís suman puntos, y con los puntos van llegando animales. No es un adorno: la app sirve si está al día, y esto es para acordarse.',
+      apunta: '.granja-escena',
     },
     {
-      titulo: 'Y la granja no termina nunca',
-      texto: 'El árbol llega a un tope; la granja no. Con los mismos puntos van llegando animales, cada uno crece mientras seguís sumando, y cuando están todos empiezan a nacer crías.',
-      apunta: '.granja-escena',
+      titulo: 'Cada uno crece, y no termina nunca',
+      texto: 'Los animales nacen crías y crecen mientras seguís sumando. Cuando ya están todos, empiezan a nacer crías nuevas. Tocá uno para saludarlo, y tocá su nombre para cambiárselo.',
+      apunta: '.granja-lista, .granja-proximo',
     },
   ],
 

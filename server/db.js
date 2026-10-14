@@ -175,6 +175,16 @@ function initDB() {
     -- tipo: 'gasto'      de acá sale el día a día
     --       'ahorro'     apartada, no la tocás
     --       'inversion'  puesta a rendir (plazo fijo, fondo)
+    -- El nombre que le pusiste a un animal de la granja. La granja en sí NO
+    -- se guarda —sale de la experiencia—, así que acá va solo lo que la
+    -- persona eligió. Sin fila, el animal usa el nombre que le tocó.
+    CREATE TABLE IF NOT EXISTS animal_names (
+      user_id INTEGER NOT NULL,
+      animal_id INTEGER NOT NULL,
+      nombre TEXT NOT NULL,
+      PRIMARY KEY (user_id, animal_id)
+    );
+
     CREATE TABLE IF NOT EXISTS accounts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,

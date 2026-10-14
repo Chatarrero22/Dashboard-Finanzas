@@ -303,3 +303,31 @@ test('los potes salen de un solo lado y son plata, no flujo', async function () 
   assert.strictEqual(d.potes.liquidez, cuentas.potes(usuario.id).liquidez,
     'la pantalla y el módulo tienen que decir lo mismo');
 });
+
+/* ============================================ el nombre de un animal ===== */
+
+/*
+ * Cambiar el nombre desde la pantalla. Devuelve el progreso entero, así la
+ * granja se redibuja con una sola llamada; y un animal que todavía no llegó
+ * no se puede nombrar.
+ */
+test('se le cambia el nombre a un animal, y al que no llegó no', async function () {
+  ayuda.db.prepare('INSERT INTO user_stats (user_id, xp, streak, best_streak, last_active) VALUES (?, ?, 0, 0, ?)')
+    .run(usuario.id, 250, '');
+
+  var ok = await fetch(base + '/granja/0', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: 'Turuleca' }),
+  });
+  assert.strictEqual(ok.status, 200);
+  var progreso = await ok.json();
+  assert.strictEqual(progreso.granja.animales[0].nombre, 'Turuleca');
+
+  var no = await fetch(base + '/granja/5', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: 'Nadie' }),
+  });
+  assert.strictEqual(no.status, 404);
+});

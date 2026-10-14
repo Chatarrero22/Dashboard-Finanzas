@@ -104,6 +104,19 @@
 /* -------------------------------------------------------- los animales */
 
 /*
+ * Los recorridos (por dónde camina, cuándo mueve las patas, cuándo come) NO
+ * están acá: los arma Granja.jsx a partir de sus rutinas, para que patas,
+ * cuerpo y cabeza salgan de la misma lista y nunca se desfasen. Acá va lo
+ * que es igual para todos: duración, retardo y los centros de giro.
+ */
+
+.granja-escena {
+  /* Cuánto saltan y cuánto se bambolean. Con «reducir movimiento» bajan. */
+  --salto: 1;
+  --bamboleo: 1;
+}
+
+/*
  * Toda pieza que se ANIMA gira sobre su propia caja: sin `transform-box:
  * fill-box`, el centro de giro de una pieza de SVG es el (0,0) del dibujo
  * entero y la pata gira alrededor de otra cosa.
@@ -114,7 +127,8 @@
  * arriba del cuello. Las orejas del conejo y de la vaca tienen lo mismo.
  */
 .granja-escena .animal,
-.granja-escena .rebote,
+.granja-escena .toque,
+.granja-escena .cuerpo,
 .granja-escena .pata,
 .granja-escena .cabeza,
 .granja-escena .ojo,
@@ -124,136 +138,36 @@
   transform-box: fill-box;
 }
 
-/*
- * Camina, se para, se da vuelta, vuelve, se para. Las dos paradas son
- * cuando come (ver .cabeza). Ojo: el retardo es negativo, así cada animal
- * arranca en otro punto de su paseo y no salen todos desde el mismo lado.
- */
-.granja-escena .animal {
-  transform-origin: center bottom;
-  animation: granja-pasea var(--t, 18s) linear infinite;
-  animation-delay: var(--retardo, 0s);
-}
+.granja-escena .animal { cursor: pointer; outline: none; }
+.granja-escena .animal:focus-visible .cuerpo { filter: drop-shadow(0 0 2px var(--accent)); }
 
-@keyframes granja-pasea {
-  0% { transform: translateX(0) scaleX(1); }
-  38% { transform: translateX(var(--d)) scaleX(1); }
-  49.9% { transform: translateX(var(--d)) scaleX(1); }
-  50% { transform: translateX(var(--d)) scaleX(-1); }
-  88% { transform: translateX(0) scaleX(-1); }
-  99.9% { transform: translateX(0) scaleX(-1); }
-  100% { transform: translateX(0) scaleX(1); }
-}
-
-.granja-escena .rebote {
-  transform-origin: center bottom;
-  animation: granja-respira 2.4s ease-in-out infinite;
-}
-
-@keyframes granja-respira {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(1.025); }
-}
-
-/* Las patas solo se mueven mientras camina: misma duración que el paseo. */
-.granja-escena .pata {
-  transform-origin: center top;
-  animation: granja-pata-a var(--t, 18s) linear infinite;
-  animation-delay: var(--retardo, 0s);
-}
-
-.granja-escena .pata.b { animation-name: granja-pata-b; }
-
-@keyframes granja-pata-a {
-  0%, 38%, 50%, 88%, 100% { transform: rotate(0deg); }
-  3% { transform: rotate(14deg); }
-  6% { transform: rotate(-14deg); }
-  9% { transform: rotate(14deg); }
-  12% { transform: rotate(-14deg); }
-  15% { transform: rotate(14deg); }
-  18% { transform: rotate(-14deg); }
-  21% { transform: rotate(14deg); }
-  24% { transform: rotate(-14deg); }
-  27% { transform: rotate(14deg); }
-  30% { transform: rotate(-14deg); }
-  33% { transform: rotate(14deg); }
-  36% { transform: rotate(-14deg); }
-  53% { transform: rotate(14deg); }
-  56% { transform: rotate(-14deg); }
-  59% { transform: rotate(14deg); }
-  62% { transform: rotate(-14deg); }
-  65% { transform: rotate(14deg); }
-  68% { transform: rotate(-14deg); }
-  71% { transform: rotate(14deg); }
-  74% { transform: rotate(-14deg); }
-  77% { transform: rotate(14deg); }
-  80% { transform: rotate(-14deg); }
-  83% { transform: rotate(14deg); }
-  86% { transform: rotate(-14deg); }
-}
-
-@keyframes granja-pata-b {
-  0%, 38%, 50%, 88%, 100% { transform: rotate(0deg); }
-  3% { transform: rotate(-14deg); }
-  6% { transform: rotate(14deg); }
-  9% { transform: rotate(-14deg); }
-  12% { transform: rotate(14deg); }
-  15% { transform: rotate(-14deg); }
-  18% { transform: rotate(14deg); }
-  21% { transform: rotate(-14deg); }
-  24% { transform: rotate(14deg); }
-  27% { transform: rotate(-14deg); }
-  30% { transform: rotate(14deg); }
-  33% { transform: rotate(-14deg); }
-  36% { transform: rotate(14deg); }
-  53% { transform: rotate(-14deg); }
-  56% { transform: rotate(14deg); }
-  59% { transform: rotate(-14deg); }
-  62% { transform: rotate(14deg); }
-  65% { transform: rotate(-14deg); }
-  68% { transform: rotate(14deg); }
-  71% { transform: rotate(-14deg); }
-  74% { transform: rotate(14deg); }
-  77% { transform: rotate(-14deg); }
-  80% { transform: rotate(14deg); }
-  83% { transform: rotate(-14deg); }
-  86% { transform: rotate(14deg); }
-}
-
-/*
- * Cuando se para, baja la cabeza a comer. Cuánto la baja depende del
- * animal: la gallina picotea, el caballo pasta con el cuello entero.
- */
+/* Lo que sigue la rutina: misma duración y mismo retardo para todo. */
+.granja-escena .animal,
+.granja-escena .cuerpo,
+.granja-escena .pata,
 .granja-escena .cabeza {
-  transform-origin: left bottom;
-  animation: granja-come var(--t, 18s) ease-in-out infinite;
+  animation-duration: var(--t, 16s);
   animation-delay: var(--retardo, 0s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
+.granja-escena .animal { transform-origin: center bottom; }
+.granja-escena .cuerpo { transform-origin: center bottom; }
+.granja-escena .pata { transform-origin: center top; }
+.granja-escena .cabeza { transform-origin: left bottom; }
+
+/*
+ * Cuánto baja la cabeza para comer depende del animal: la gallina picotea,
+ * el caballo pasta con el cuello entero.
+ */
 .granja-escena .gallina { --agacha: 38deg; }
-.granja-escena .conejo { --agacha: 12deg; }
-.granja-escena .chancho { --agacha: 16deg; }
+.granja-escena .conejo { --agacha: 14deg; }
+.granja-escena .chancho { --agacha: 18deg; }
 .granja-escena .oveja { --agacha: 30deg; }
-.granja-escena .pato { --agacha: 28deg; }
-.granja-escena .vaca { --agacha: 20deg; }
-.granja-escena .caballo { --agacha: 42deg; }
-
-@keyframes granja-come {
-  0%, 39%, 48.5%, 89%, 98.5%, 100% { transform: rotate(0deg); }
-  41%, 43.5% { transform: rotate(var(--agacha, 20deg)); }
-  44.5% { transform: rotate(calc(var(--agacha, 20deg) * 0.6)); }
-  45.5%, 47.5% { transform: rotate(var(--agacha, 20deg)); }
-  91%, 97% { transform: rotate(var(--agacha, 20deg)); }
-}
-
-/* La gallina no pasta: picotea, rápido y varias veces. */
-.granja-escena .gallina .cabeza { animation-name: granja-picotea; }
-
-@keyframes granja-picotea {
-  0%, 39%, 49%, 89%, 99%, 100% { transform: rotate(0deg); }
-  40.5%, 43.5%, 46.5%, 90.5%, 93.5%, 96.5% { transform: rotate(var(--agacha)); }
-  42%, 45%, 48%, 92%, 95%, 98% { transform: rotate(4deg); }
-}
+.granja-escena .pato { --agacha: 30deg; }
+.granja-escena .vaca { --agacha: 22deg; }
+.granja-escena .caballo { --agacha: 44deg; }
 
 /* Parpadean cada tanto, cada uno a su ritmo. */
 .granja-escena .ojo {
@@ -269,37 +183,40 @@
 
 .granja-escena .cola {
   transform-origin: right center;
-  animation: granja-cola 1.6s ease-in-out infinite;
+  animation: granja-cola 0.9s ease-in-out infinite;
   animation-delay: var(--retardo, 0s);
 }
 
 @keyframes granja-cola {
-  0%, 100% { transform: rotate(-6deg); }
-  50% { transform: rotate(8deg); }
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(12deg); }
 }
 
 .granja-escena .orejas {
   transform-origin: center bottom;
-  animation: granja-orejas 5.2s ease-in-out infinite;
+  animation: granja-orejas 3.6s ease-in-out infinite;
   animation-delay: var(--retardo, 0s);
 }
 
 @keyframes granja-orejas {
-  0%, 80%, 100% { transform: rotate(0deg); }
-  85% { transform: rotate(-9deg); }
-  90% { transform: rotate(4deg); }
+  0%, 70%, 100% { transform: rotate(0deg); }
+  76% { transform: rotate(-12deg); }
+  82% { transform: rotate(6deg); }
+  88% { transform: rotate(-4deg); }
 }
 
-/* El conejo no camina: salta. */
-.granja-escena .conejo .rebote {
-  animation: granja-salta var(--t, 18s) linear infinite;
-  animation-delay: var(--retardo, 0s);
-}
+/* Tocarlo: pega un salto de alegría, aplastándose al caer. */
+.granja-escena .toque { transform-origin: center bottom; }
 
-@keyframes granja-salta {
-  0%, 38%, 50%, 88%, 100% { transform: translateY(0); }
-  4%, 12%, 20%, 28%, 36%, 54%, 62%, 70%, 78%, 86% { transform: translateY(0); }
-  8%, 16%, 24%, 32%, 58%, 66%, 74%, 82% { transform: translateY(-6px); }
+.granja-escena .toque.saltando { animation: granja-toque 0.7s ease-out; }
+
+@keyframes granja-toque {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.14, 0.82); }
+  45% { transform: translateY(-18px) scale(0.9, 1.12) rotate(-6deg); }
+  70% { transform: translateY(0) scale(1.14, 0.84); }
+  85% { transform: translateY(-4px) scale(0.98, 1.03); }
+  100% { transform: translateY(0) scale(1, 1); }
 }
 
 /* -------------------------------------------------------------- las crías */
@@ -347,16 +264,48 @@
 }
 
 /*
- * Con «reducir movimiento» se queda todo quieto. La regla general de
- * index.css achica la duración a 0.01ms pero deja las repeticiones
- * infinitas: en una caminata eso es un parpadeo frenético, que es justo lo
- * contrario de lo que pidió la persona.
+ * «REDUCIR MOVIMIENTO»: más tranquila, pero viva.
+ *
+ * La primera versión la dejaba quieta del todo, y la granja quieta no tiene
+ * sentido: Emanuel la vio «estática, los bichos no se mueven, están duros».
+ * Esa opción la prende Windows cuando apagás los «efectos de animación», y
+ * mucha gente la tiene así sin saberlo. Para alguien que es sensible al
+ * movimiento lo que molesta es lo brusco: los saltos y el bamboleo. Eso se
+ * apaga; caminar despacio por el corral queda.
+ *
+ * Ojo: la regla general de index.css pone TODAS las duraciones en 0,01 ms
+ * con !important. Sin pisarla acá, una caminata infinita se vuelve un
+ * parpadeo frenético, que es justo lo contrario de lo que pidió la persona.
  */
 @media (prefers-reduced-motion: reduce) {
-  .granja-escena *,
-  .granja-escena .animal {
-    animation: none !important;
+  .granja-escena {
+    --salto: 0;
+    --bamboleo: 0;
   }
+
+  /*
+   * shell.css hace `* { animation: none !important }`, y el atajo
+   * `animation` resetea TODO: nombre, repeticiones, retardo. Por eso no
+   * alcanza con cambiar la duración: hay que volver a poner cada cosa. Los
+   * nombres de los recorridos los vuelve a poner Granja.jsx.
+   */
+  .granja-escena .animal,
+  .granja-escena .cuerpo,
+  .granja-escena .pata,
+  .granja-escena .cabeza {
+    animation-duration: calc(var(--t, 16s) * 1.6) !important;
+    animation-delay: calc(var(--retardo, 0s) * 1.6) !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .granja-escena .ojo { animation: granja-parpadea 4.6s infinite !important; }
+  .granja-escena .cola { animation: granja-cola 1.8s ease-in-out infinite !important; }
+  .granja-escena .orejas { animation: granja-orejas 3.6s ease-in-out infinite !important; }
+  .granja-escena .toque.saltando,
+  .granja-escena .huevo,
+  .granja-escena .nube,
+  .granja-escena .estrellas circle { animation: none !important; }
 }
 
 /* ------------------------------------------------- abajo del corral */
@@ -383,7 +332,26 @@
 
 .granja-vacia { margin-top: 0; }
 
-.granja-lista { display: grid; gap: 2px; }
+.granja-lista {
+  display: grid;
+  /* En la compu en columnas; en el celular entra una sola. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  column-gap: 28px;
+  margin-top: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.granja-lista > .hint { grid-column: 1 / -1; }
+
+.granja-como {
+  margin: 14px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.granja-como strong { color: var(--text-primary); }
 
 .granja-bicho {
   display: grid;
@@ -394,7 +362,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.granja-bicho:last-of-type { border-bottom: none; }
 
 .granja-bicho-ico { font-size: 1.4rem; line-height: 1; }
 
@@ -403,12 +370,6 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-}
-
-.granja-bicho-nombre {
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--text-primary);
 }
 
 .granja-bicho-meta {
@@ -429,4 +390,128 @@
   height: 100%;
   border-radius: 99px;
   background: linear-gradient(90deg, var(--follaje), var(--fruta));
+}
+
+/* ------------------------------------------- la grilla, el globito */
+
+/*
+ * En la compu el corral va a la izquierda y lo demás al costado. Antes el
+ * dibujo ocupaba todo el ancho de la tarjeta: con 1.500 píxeles de ancho
+ * medía 850 de alto, era casi todo cielo, y los animales quedaban abajo,
+ * fuera de la pantalla.
+ */
+.granja-grilla {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1100px) {
+  .granja-grilla {
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.granja-corral {
+  position: relative;
+  min-width: 0;
+}
+
+.granja-corral .granja-escena { margin: 4px 0 6px; }
+
+.granja-pista {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.granja-lado { min-width: 0; }
+.granja-lado .racha { margin-bottom: 4px; }
+
+/*
+ * El globito con el nombre. Es HTML encima del dibujo, no parte del SVG: el
+ * animal se espeja al darse vuelta y un texto adentro se leería al revés.
+ */
+.granja-globo {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 12px 9px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
+  font-size: 0.86rem;
+  white-space: nowrap;
+  z-index: 2;
+  animation: granja-globo 0.35s cubic-bezier(0.34, 1.5, 0.64, 1) both;
+}
+
+/* La colita del globito, apuntando al animal. */
+.granja-globo::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background: var(--surface-1);
+  box-shadow: 1px 1px 0 var(--border);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.granja-globo-meta { font-size: 0.76rem; color: var(--text-muted); }
+.granja-globo .link { font-size: 0.78rem; padding: 2px 0 0; min-height: 0; }
+
+.granja-corazon {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  font-size: 0.95rem;
+  color: #e5484d;
+  animation: granja-corazon 1.4s ease-out both;
+}
+
+@keyframes granja-globo {
+  from { opacity: 0; transform: translate(-50%, -80%) scale(0.7); }
+  to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+}
+
+@keyframes granja-corazon {
+  0% { opacity: 0; transform: translateY(6px) scale(0.4); }
+  30% { opacity: 1; transform: translateY(-4px) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-26px) scale(1); }
+}
+
+/* El nombre en la lista es un botón: tocarlo deja cambiarlo. */
+.granja-bicho-nombre {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 0;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.granja-lapiz {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.granja-bicho-nombre:hover .granja-lapiz { color: var(--accent-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .granja-globo,
+  .granja-corazon { animation: none !important; }
 }

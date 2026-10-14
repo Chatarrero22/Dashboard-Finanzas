@@ -86,7 +86,17 @@ function cuantosCon(xp) {
   return n;
 }
 
-function armarAnimal(i, xp) {
+/*
+ * El nombre que eligió la persona le gana al que le tocó. `nombres` es un
+ * objeto { idDelAnimal: 'Nombre' } con lo que está guardado; lo que no está
+ * ahí usa el de la lista.
+ */
+function nombreDe(i, nombres) {
+  var elegido = nombres && nombres[i];
+  return elegido || nombrePara(i);
+}
+
+function armarAnimal(i, xp, nombres) {
   var e = especieDe(i);
   var llego = llegadaDe(i);
   var crecio = xp - llego;
@@ -99,7 +109,9 @@ function armarAnimal(i, xp) {
   return {
     id: i,
     especie: e.especie,
-    nombre: nombrePara(i),
+    nombre: nombreDe(i, nombres),
+    // Para poder volver al de antes: si lo borrás, queda este.
+    nombreOriginal: nombrePara(i),
     emoji: etapa === 0 ? e.emojiCria : e.emoji,
     // 0 = cría, 1 = joven, 2 = grande. El dibujo usa esto para el tamaño.
     etapa: etapa,
@@ -120,12 +132,12 @@ function armarAnimal(i, xp) {
  * `animales` va en el orden en que llegaron. `proximo` es el que viene, que
  * siempre existe: no hay tope.
  */
-function granja(xp) {
+function granja(xp, nombres) {
   var puntos = Math.max(0, Number(xp) || 0);
   var n = cuantosCon(puntos);
 
   var animales = [];
-  for (var i = 0; i < n; i++) animales.push(armarAnimal(i, puntos));
+  for (var i = 0; i < n; i++) animales.push(armarAnimal(i, puntos, nombres));
 
   var desde = n === 0 ? 0 : llegadaDe(n - 1);
   var hasta = llegadaDe(n);
@@ -141,7 +153,7 @@ function granja(xp) {
       id: n,
       especie: e.especie,
       emoji: e.emojiCria,
-      nombre: nombrePara(n),
+      nombre: nombreDe(n, nombres),
       etapaNombre: e.etapas[0],
       llega: hasta,
       faltan: hasta - puntos,
@@ -159,9 +171,9 @@ function granja(xp) {
  * Telegram. Puede llegar un animal y crecer otro en la misma suma: se cuentan
  * los dos, primero la llegada, que es lo más lindo.
  */
-function novedades(antes, despues) {
-  var a = granja(antes);
-  var d = granja(despues);
+function novedades(antes, despues, nombres) {
+  var a = granja(antes, nombres);
+  var d = granja(despues, nombres);
 
   var llegaron = d.animales.slice(a.total);
 
@@ -185,7 +197,19 @@ function frases(nov) {
   return out;
 }
 
+/*
+ * Un nombre es corto: va en un globito arriba del animal y en una fila de la
+ * lista. Veinte letras alcanzan para «Doña Pocha» y no rompen el celular.
+ */
+var LARGO_NOMBRE = 20;
+
+function limpiarNombre(texto) {
+  return String(texto == null ? '' : texto).replace(/\s+/g, ' ').trim().slice(0, LARGO_NOMBRE);
+}
+
 module.exports = {
+  LARGO_NOMBRE: LARGO_NOMBRE,
+  limpiarNombre: limpiarNombre,
   ESPECIES: ESPECIES,
   CADA_CUANTO_NACE: CADA_CUANTO_NACE,
   CRECE: CRECE,

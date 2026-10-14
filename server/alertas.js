@@ -173,7 +173,7 @@ function revisarYAvisar(enviar) {
       // El cierre del mes es la experiencia más grande que se reparte, así
       // que es cuando más seguido llega un animal. Sin esto llegaba callado
       // y la persona se enteraba recién si abría la granja.
-      var deLaGranja = granja.frases(granja.novedades(antes, despues));
+      var deLaGranja = granja.frases(arbol.novedadesGranja(u.id, antes, despues));
 
       var texto = mensajeDelDia(u.id);
       if (deLaGranja.length) texto = (texto ? texto + '\n\n' : '') + deLaGranja.join('\n');

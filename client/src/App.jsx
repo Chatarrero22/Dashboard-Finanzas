@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Login from './Login.jsx'
 import Setup from './Setup.jsx'
-import Arbol from './Arbol.jsx'
 import Granja from './Granja.jsx'
 import PnlScreen from './Pnl.jsx'
 import PresupuestosScreen from './Presupuestos.jsx'
@@ -242,7 +241,6 @@ function AddForm({ categories, monedaPorDefecto, dolar, onSaved, onError, onCerr
       const llego = r?.premio?.granja?.llegaron?.[0]
       const crecio = r?.premio?.granja?.crecieron?.[0]
       if (llego) extra = ` · ${llego.emoji} ¡Llegó un ${llego.etapaNombre} a tu granja! Se llama ${llego.nombre}`
-      else if (r?.premio?.subioDeEtapa) extra = ` · 🌱 ¡Tu árbol creció! Ahora es ${r.premio.etapa.nombre}`
       else if (r?.premio?.logros?.length) extra = ` · ${r.premio.logros[0].emoji} Logro: ${r.premio.logros[0].nombre}`
       else if (crecio) extra = ` · ${crecio.emoji} ${crecio.nombre} creció: ya es ${crecio.etapaNombre}`
       onSaved((kind === 'ingreso' ? 'Ingreso guardado' : 'Gasto guardado') + extra)
@@ -724,44 +722,20 @@ function SubsScreen({ subs, accion, dolar, onReload, onError, onSaved }) {
   )
 }
 
-function ArbolScreen({ progreso, onReload }) {
+/*
+ * La pantalla de la granja. El id sigue siendo «arbol» (las guías y la
+ * navegación lo usan), pero el árbol ya no está: tenía tope, y Emanuel pidió
+ * sacarlo y dejar solo la granja. Los puntos, la racha y los logros siguen
+ * siendo los mismos.
+ */
+function ArbolScreen({ progreso, onCambio, onError }) {
   if (!progreso) return <div className="spinner" />
 
-  const { etapa, xp, racha, mejorRacha, rachaHoy, logros, pendientes, total } = progreso
+  const { logros, pendientes, total } = progreso
 
   return (
     <>
-      <section className="card arbol-card">
-        <Arbol stage={etapa.stage} />
-        <div className="arbol-etapa">{etapa.emoji} {etapa.nombre}</div>
-        <p className="arbol-dice">{etapa.dice}</p>
-
-        <div className="arbol-barra" role="img"
-             aria-label={`Vas ${Math.round(etapa.progreso)}% hacia la próxima etapa`}>
-          <div style={{ width: `${etapa.progreso}%` }} />
-        </div>
-        <div className="arbol-falta">
-          {xp} puntos
-          {etapa.siguiente
-            ? ` · faltan ${etapa.siguiente.desde - xp} para ${etapa.siguiente.nombre}`
-            : ' · llegaste al máximo'}
-        </div>
-
-        <div className={`racha ${racha === 0 ? 'apagada' : ''}`}>
-          🔥 {racha === 0
-            ? 'Sin racha — anotá algo hoy'
-            : `${racha} ${racha === 1 ? 'día' : 'días'} seguidos`}
-        </div>
-        {mejorRacha > racha && (
-          <p className="hint">Tu mejor racha fue de {mejorRacha} días</p>
-        )}
-        {racha > 0 && !rachaHoy && (
-          <p className="hint">Todavía no anotaste nada hoy. No la cortes.</p>
-        )}
-      </section>
-
-      {/* El árbol tiene tope; la granja no. Sale de los mismos puntos. */}
-      <Granja granja={progreso.granja} />
+      <Granja progreso={progreso} onCambio={onCambio} onError={onError} />
 
       <section className="card">
         <div className="card-title-row">
@@ -784,15 +758,6 @@ function ArbolScreen({ progreso, onReload }) {
         </div>
       </section>
 
-      <section className="card">
-        <h2>Cómo crece</h2>
-        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.6 }}>
-          Anotar gastos suma poco y tiene tope diario: la idea no es premiar
-          que cargues por cargar. Lo que de verdad hace crecer el árbol es
-          <strong> gastar mejor</strong> — cerrar el mes sin pasarte de los
-          presupuestos, terminar en verde, juntar para una meta e invertir.
-        </p>
-      </section>
     </>
   )
 }
@@ -1929,7 +1894,7 @@ export default function App() {
     { titulo: 'Crecer', items: [
       { id: 'metas', label: 'Metas', icon: '◎' },
       { id: 'invest', label: 'Inversiones', icon: '↗' },
-      { id: 'arbol', label: 'Árbol', icon: '🌳' },
+      { id: 'arbol', label: 'Granja', icon: '🐔' },
     ] },
     { titulo: null, items: [{ id: 'ajustes', label: 'Ajustes', icon: '⚙' }] },
   ]
@@ -1940,7 +1905,7 @@ export default function App() {
     { id: 'home', label: 'Resumen', icon: '◉' },
     { id: 'nuevo', label: 'Agregar', icon: '＋' },
     { id: 'movs', label: 'Movimientos', icon: '⇄' },
-    { id: 'arbol', label: 'Árbol', icon: '🌳' },
+    { id: 'arbol', label: 'Granja', icon: '🐔' },
     { id: 'mas', label: 'Más', icon: '☰' },
   ]
 
@@ -1989,7 +1954,7 @@ export default function App() {
     invest: ['Inversiones', 'Acciones, CEDEARs, bonos y cripto a precio de mercado', [
       { txt: '+ Agregar activo', tono: 'acento', go: pedir('invest', 'nuevo') },
     ]],
-    arbol: ['Tu árbol', 'Crece cuando anotás y cumplís tus metas', []],
+    arbol: ['Tu granja', 'Llegan animales cuando anotás y cumplís tus metas', []],
     ajustes: ['Ajustes', 'Tu cuenta, Telegram y respaldo', []],
     mas: ['Más', 'Todas las secciones', []],
   }
@@ -2135,7 +2100,7 @@ export default function App() {
             />
           )}
           {tab === 'arbol' && (
-            <ArbolScreen progreso={progreso} onReload={() => api('/progreso').then(setProgreso).catch(() => {})} />
+            <ArbolScreen progreso={progreso} onCambio={setProgreso} onError={(m) => notify(m, 'error')} />
           )}
           {tab === 'ajustes' && (
             <AjustesScreen

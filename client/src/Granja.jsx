@@ -1,26 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { api } from './comunes.jsx'
+import { useDialogos } from './Dialogos.jsx'
 
 /**
  * La granja, dibujada en SVG y animada con CSS.
  *
- * Existe porque el árbol tiene tope (en 9.000 puntos es «Mangal» y no pasa
- * nada más). La granja no: van llegando animales, cada uno crece, y después
- * de que llegan todas las especies nacen crías para siempre. Qué animal hay
- * y en qué etapa lo decide el server (`granja.js`); acá solo se dibuja.
+ * Es lo único que queda en la pantalla de «Árbol»: el árbol tenía tope (en
+ * 9.000 puntos era «Mangal» y no pasaba nada más) y Emanuel pidió sacarlo.
+ * La granja no termina: van llegando animales, cada uno crece, y después de
+ * que llegan todas las especies nacen crías para siempre. Qué animal hay y en
+ * qué etapa lo decide el server (`granja.js`); acá solo se dibuja.
  *
- * CÓMO SE MUEVEN. Cada animal son tres grupos anidados, y no es capricho:
+ * CÓMO SE MUEVEN. Cada animal son cuatro grupos anidados, y no es capricho:
  *
- *   <g transform="translate scale">   dónde está y qué tan grande es.
- *     <g class="animal">               camina de un lado al otro (CSS).
- *       <g class="rebote">             sube y baja al caminar (CSS).
+ *   <g transform="translate scale">   dónde vive y qué tan grande es.
+ *     <g class="animal">               el recorrido por el corral (CSS).
+ *       <g class="toque">              el salto cuando lo tocás (CSS).
+ *         <g class="cuerpo">           rebote, bamboleo y saltitos (CSS).
  *
  * Una animación CSS que usa `transform` le gana al atributo `transform` del
  * mismo elemento, y el dibujo sale volando (ya nos pasó con el árbol). Por
  * eso la posición va en un grupo y cada movimiento en un hijo distinto.
  *
- * Patas, cabeza y caminata usan la MISMA duración y el mismo retardo (las
- * variables --t y --retardo, que heredan los hijos): así el animal mueve las
- * patas solo mientras avanza, y baja la cabeza a comer cuando se para.
+ * LA PRIMERA VERSIÓN ERA «DURA», y tenía números: cada animal caminaba entre
+ * 22 y 52 unidades en unos siete segundos, o sea unos 5 píxeles por segundo
+ * en el celular. Se movía, pero no se notaba. Y el cuerpo no acompañaba: solo
+ * giraban las patas. Ahora recorren tres o cuatro veces más, rebotan y se
+ * bambolean con cada paso, paran a comer, miran alrededor y pegan saltitos.
  */
 
 /* --------------------------------------------------------------- partes */
@@ -255,6 +261,202 @@ const DIBUJOS = {
   caballo: Caballo,
 }
 
+/* ========================================================= los recorridos */
+
+/*
+ * Cada animal sigue una rutina: una lista de cosas que hace, con cuánto de
+ * su vuelta dura cada una (en %). Al caminar va a un punto del corral dado
+ * como fracción de su campo (--dx a lo ancho, --dy a lo profundo).
+ *
+ *   ['camina', 18, 1, 0]   camina el 18% de la vuelta hasta (dx, 0)
+ *   ['come', 12]           se para y baja la cabeza a comer
+ *   ['mira', 8]            se para y mira alrededor
+ *   ['salta', 6]           pega un saltito en el lugar
+ *
+ * Tres rutinas distintas, repartidas entre los animales, para que no
+ * parezca un desfile. Todas suman 100 y terminan donde empezaron.
+ */
+const RUTAS = [
+  [['camina', 18, 1, 0], ['come', 12], ['camina', 14, 0.55, 1], ['mira', 8], ['camina', 12, 0.1, 0.4],
+    ['salta', 6], ['camina', 14, 0.8, -0.2], ['come', 6], ['camina', 10, 0, 0]],
+  [['mira', 6], ['camina', 16, 0.7, 0.6], ['come', 14], ['camina', 10, 1, 0.1], ['salta', 5],
+    ['camina', 20, 0.15, -0.3], ['come', 10], ['mira', 6], ['camina', 13, 0, 0]],
+  [['camina', 12, 0.4, -0.2], ['come', 16], ['camina', 18, 1, 0.5], ['mira', 7], ['salta', 5],
+    ['camina', 14, 0.5, 0.9], ['come', 10], ['camina', 18, 0, 0]],
+]
+
+// Una vuelta dura entre 14 y 18 segundos; para calcular cuántos pasos entran
+// en cada tramo se toma una de 16. Un medio paso cada 0,18 s se ve como un
+// trote tranquilo.
+const VUELTA_NOMINAL = 16
+const MEDIO_PASO = 0.18
+
+const pct = (n) => `${Math.round(n * 100) / 100}%`
+
+/**
+ * Arma las animaciones de una rutina: el recorrido, las patas, el cuerpo y
+ * la cabeza. Salen de la MISMA lista, así que siempre están sincronizadas:
+ * las patas se mueven solo mientras avanza, y la cabeza baja solo cuando
+ * está parado. Hacerlo a mano en el CSS era garantizar que se desfasen.
+ */
+function animacionesDe(ruta, r) {
+  const pasea = []
+  const pataA = []
+  const pataB = []
+  const cuerpo = []
+  const conejo = []
+  const cabeza = []
+  const pica = []
+
+  let x = 0
+  let y = 0
+  let mira = 1
+  let t = 0
+  const lugar = () => `translate: calc(var(--dx) * ${x}) calc(var(--dy) * ${y}); scale: ${mira} 1;`
+
+  pasea.push([0, lugar()])
+  ;[pataA, pataB, cabeza, pica].forEach((k) => k.push([0, 'rotate: 0deg;']))
+  ;[cuerpo, conejo].forEach((k) => k.push([0, 'translate: 0 0; rotate: 0deg; scale: 1 1;']))
+
+  ruta.forEach(([que, dura, ax, ay]) => {
+    const desde = t
+    const hasta = t + dura
+
+    if (que === 'camina') {
+      // Darse vuelta es instantáneo y pasa antes de arrancar, no a mitad de
+      // camino: si no, camina un rato de espaldas.
+      const hacia = ax > x ? 1 : ax < x ? -1 : mira
+      if (hacia !== mira) {
+        pasea.push([desde, lugar()])
+        mira = hacia
+        pasea.push([desde + 0.01, lugar()])
+      }
+      x = ax
+      y = ay
+      pasea.push([hasta, lugar()])
+
+      const medios = Math.max(2, Math.round((dura / 100) * VUELTA_NOMINAL / MEDIO_PASO))
+      for (let k = 1; k <= medios; k++) {
+        const p = desde + (dura * k) / medios
+        const mitad = desde + (dura * (k - 0.5)) / medios
+        const ultimo = k === medios
+        const lado = k % 2 ? 1 : -1
+        pataA.push([p, `rotate: ${ultimo ? 0 : 18 * lado}deg;`])
+        pataB.push([p, `rotate: ${ultimo ? 0 : -18 * lado}deg;`])
+        // Con cada medio paso sube un poco y se bambolea hacia un lado.
+        cuerpo.push([mitad, `translate: 0 calc(var(--bamboleo) * -1.8px); rotate: calc(var(--bamboleo) * ${3 * lado}deg); scale: 1 1;`])
+        cuerpo.push([p, 'translate: 0 0; rotate: 0deg; scale: 1 1;'])
+        cabeza.push([mitad, `rotate: ${4 * lado}deg;`])
+        cabeza.push([p, 'rotate: 0deg;'])
+        pica.push([mitad, `rotate: ${6 * lado}deg;`])
+        pica.push([p, 'rotate: 0deg;'])
+        // El conejo no camina: salta, uno cada dos medios pasos.
+        if (k % 2) {
+          conejo.push([mitad, 'translate: 0 calc(var(--salto) * -7px); rotate: -6deg; scale: 0.96 1.06;'])
+        } else {
+          conejo.push([mitad, 'translate: 0 0; rotate: 0deg; scale: 1.06 0.92;'])
+        }
+        conejo.push([p, 'translate: 0 0; rotate: 0deg; scale: 1 1;'])
+      }
+    } else {
+      pasea.push([hasta, lugar()])
+      pataA.push([hasta, 'rotate: 0deg;'])
+      pataB.push([hasta, 'rotate: 0deg;'])
+    }
+
+    if (que === 'come') {
+      // Baja, mordisquea dos veces y sube.
+      const a = 'var(--agacha)'
+      cabeza.push([desde + dura * 0.12, `rotate: ${a};`])
+      cabeza.push([desde + dura * 0.35, `rotate: calc(${a} * 0.75);`])
+      cabeza.push([desde + dura * 0.5, `rotate: ${a};`])
+      cabeza.push([desde + dura * 0.7, `rotate: calc(${a} * 0.75);`])
+      cabeza.push([desde + dura * 0.86, `rotate: ${a};`])
+      cabeza.push([hasta, 'rotate: 0deg;'])
+      // La gallina picotea: rápido y muchas veces.
+      const picotazos = 6
+      for (let k = 0; k < picotazos; k++) {
+        pica.push([desde + (dura * (k + 0.4)) / picotazos, `rotate: ${a};`])
+        pica.push([desde + (dura * (k + 0.9)) / picotazos, 'rotate: 4deg;'])
+      }
+      pica.push([hasta, 'rotate: 0deg;'])
+    }
+
+    if (que === 'mira') {
+      // Levanta la cabeza, mira para un lado y vuelve.
+      ;[cabeza, pica].forEach((k) => {
+        k.push([desde + dura * 0.25, 'rotate: -16deg;'])
+        k.push([desde + dura * 0.55, 'rotate: -16deg;'])
+        k.push([desde + dura * 0.75, 'rotate: 7deg;'])
+        k.push([hasta, 'rotate: 0deg;'])
+      })
+    }
+
+    if (que === 'salta') {
+      // Se agacha, salta estirado y cae aplastándose: sin eso el salto es
+      // un dibujo que sube y baja.
+      ;[cuerpo, conejo].forEach((k) => {
+        k.push([desde + dura * 0.18, 'translate: 0 0; rotate: 0deg; scale: 1.1 0.84;'])
+        k.push([desde + dura * 0.48, 'translate: 0 calc(var(--salto) * -13px); rotate: 0deg; scale: 0.93 1.1;'])
+        k.push([desde + dura * 0.78, 'translate: 0 0; rotate: 0deg; scale: 1.12 0.86;'])
+        k.push([hasta, 'translate: 0 0; rotate: 0deg; scale: 1 1;'])
+      })
+    }
+
+    if (que !== 'camina' && que !== 'salta') {
+      cuerpo.push([hasta, 'translate: 0 0; rotate: 0deg; scale: 1 1;'])
+      conejo.push([hasta, 'translate: 0 0; rotate: 0deg; scale: 1 1;'])
+    }
+    if (que === 'camina' || que === 'salta') {
+      cabeza.push([hasta, 'rotate: 0deg;'])
+      pica.push([hasta, 'rotate: 0deg;'])
+    }
+
+    t = hasta
+  })
+
+  const bloque = (nombre, cuadros) => {
+    // Dos cuadros en el mismo porcentaje: gana el último, que es el que vale.
+    const porPct = new Map()
+    cuadros.forEach(([p, css]) => porPct.set(pct(Math.min(p, 100)), css))
+    const filas = [...porPct.entries()].map(([p, css]) => `  ${p} { ${css} }`).join('\n')
+    return `@keyframes ${nombre} {\n${filas}\n}`
+  }
+
+  const quien = [
+    [`.ruta-${r}`, `gr-pasea-${r}`],
+    [`.ruta-${r} .pata.a`, `gr-pata-a-${r}`],
+    [`.ruta-${r} .pata.b`, `gr-pata-b-${r}`],
+    [`.ruta-${r} .cuerpo`, `gr-cuerpo-${r}`],
+    [`.ruta-${r}.conejo .cuerpo`, `gr-conejo-${r}`],
+    [`.ruta-${r} .cabeza`, `gr-cabeza-${r}`],
+    [`.ruta-${r}.gallina .cabeza`, `gr-pica-${r}`],
+  ]
+
+  /*
+   * Con «reducir movimiento», shell.css hace `* { animation: none
+   * !important }`: le borra el NOMBRE a todas las animaciones, no solo la
+   * duración. Así que acá se vuelven a declarar, también con !important. Sin
+   * esto la granja quedaba quieta del todo (ver granja.css).
+   */
+  return [
+    bloque(`gr-pasea-${r}`, pasea),
+    bloque(`gr-pata-a-${r}`, pataA),
+    bloque(`gr-pata-b-${r}`, pataB),
+    bloque(`gr-cuerpo-${r}`, cuerpo),
+    bloque(`gr-conejo-${r}`, conejo),
+    bloque(`gr-cabeza-${r}`, cabeza),
+    bloque(`gr-pica-${r}`, pica),
+    ...quien.map(([sel, nombre]) => `.granja-escena ${sel} { animation-name: ${nombre}; }`),
+    '@media (prefers-reduced-motion: reduce) {',
+    ...quien.map(([sel, nombre]) => `  .granja-escena ${sel} { animation-name: ${nombre} !important; }`),
+    '}',
+  ].join('\n')
+}
+
+// Se arma una sola vez, cuando se carga el archivo: es siempre el mismo.
+const MOVIMIENTOS = RUTAS.map((ruta, r) => animacionesDe(ruta, r)).join('\n\n')
+
 /* ----------------------------------------------------------- el corral */
 
 // Cría, joven, grande. La cría además tiene la cabeza más grande (en el CSS),
@@ -266,28 +468,41 @@ const TAMANO = [0.58, 0.8, 1]
 const MAXIMO_EN_PANTALLA = 14
 
 /*
- * Dónde para cada uno. Sale del número de animal, no del azar: si fuera al
- * azar, cada vez que entrás la granja se reordenaría y Pocha nunca estaría
- * en el mismo lugar.
+ * Dónde vive cada uno y cuánto campo tiene. Sale del número de animal, no del
+ * azar: si fuera al azar, cada vez que entrás la granja se reordenaría y
+ * Pocha nunca estaría en el mismo lugar.
+ *
+ * Saltos de «número de oro»: cada uno cae lo más lejos posible de los que ya
+ * están. Con saltos fijos dos conejos quedaban en la misma fila y se chocaban.
  */
 function lugarDe(id) {
-  // Saltos de «número de oro»: cada uno cae lo más lejos posible de los que
-  // ya están. Con saltos fijos (id * 97 % 210) dos conejos quedaban en la
-  // misma fila a 50 de distancia y se chocaban al caminar.
   const fraccion = (n) => n - Math.floor(n)
-  const x = 112 + Math.round(fraccion(id * 0.618034) * 230)
-  const y = 152 + Math.round(fraccion(id * 0.381966 + 0.2) * 52)
-  const recorre = 22 + ((id * 13) % 30)
+  /*
+   * El CENTRO de su zona se reparte por todo el campo, y el paseo va de un
+   * lado al otro de ese centro. Antes el lugar era el borde izquierdo y el
+   * paseo iba siempre hacia la derecha: se amontonaban todos a la izquierda
+   * y el lado derecho del campo quedaba vacío.
+   */
+  const centro = 128 + Math.round(fraccion(id * 0.618034) * 232)
+  // Que no se salga del corral para ningún lado.
+  // El 372 deja lugar para el cuerpo: el lugar es el centro de las patas y
+  // un conejo en 384 quedaba cortado por el borde del dibujo.
+  const ancho = Math.min(70 + ((id * 23) % 60), 2 * (centro - 106), 2 * (372 - centro))
+  const x = Math.round(centro - ancho / 2)
+  const y = 150 + Math.round(fraccion(id * 0.381966 + 0.2) * 34)
   return {
     x,
     y,
-    // Que no se salga del corral al caminar.
-    recorre: Math.min(recorre, 388 - x),
+    // Cuánto camina a lo ancho.
+    ancho,
+    // Y a lo profundo, para que no anden todos en fila.
+    hondo: 10 + ((id * 7) % 9),
     // Lo de atrás se ve más chico: así parece un campo y no una fila.
-    profundidad: 0.78 + ((y - 152) / 52) * 0.34,
+    profundidad: 0.8 + ((y - 150) / 34) * 0.3,
+    ruta: id % RUTAS.length,
     // Cada uno a su ritmo: si todos caminaran juntos parecería un desfile.
-    duracion: 15 + ((id * 7) % 9),
-    retardo: -((id * 5.3) % 15),
+    duracion: 14 + ((id * 7) % 5),
+    retardo: -((id * 5.3) % 14),
   }
 }
 
@@ -311,7 +526,7 @@ function useAngosta() {
   return angosta
 }
 
-function Animal({ a, zoom }) {
+function Animal({ a, zoom, saltando, onTocar }) {
   const Dibujo = DIBUJOS[a.especie]
   if (!Dibujo) return null
   const l = lugarDe(a.id)
@@ -320,20 +535,35 @@ function Animal({ a, zoom }) {
   return (
     <g transform={`translate(${l.x} ${l.y}) scale(${escala})`}>
       <g
-        className={`animal ${a.especie} etapa-${a.etapa}`}
+        className={`animal ${a.especie} etapa-${a.etapa} ruta-${l.ruta}`}
         style={{
-          '--d': `${l.recorre / escala}px`,
+          // El recorrido se mide en el corral, pero el grupo está escalado:
+          // se divide para que una cría no camine menos que un caballo.
+          '--dx': `${l.ancho / escala}px`,
+          '--dy': `${l.hondo / escala}px`,
           '--t': `${l.duracion}s`,
           '--retardo': `${l.retardo}s`,
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`${a.nombre}, ${a.etapaNombre}`}
+        onClick={(e) => onTocar(a, e.currentTarget)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTocar(a, e.currentTarget) }
         }}
       >
         <title>{`${a.nombre}, ${a.etapaNombre}`}</title>
         {/* La sombra camina con el animal (adentro de .animal) pero no salta
-            con él (afuera de .rebote). Afuera de los dos quedaba en el pasto
+            con él (afuera de .cuerpo). Afuera de los dos quedaba en el pasto
             sin nadie encima. */}
         <ellipse className="sombra" cx="0" cy="0.5" rx="15" ry="2.6" />
-        <g className="rebote">
-          <Dibujo />
+        {/* Un rectángulo invisible para que sea fácil de tocar con el dedo:
+            sin él, hay que acertarle justo al dibujo. */}
+        <rect x="-24" y="-48" width="52" height="50" fill="transparent" />
+        <g className={`toque ${saltando ? 'saltando' : ''}`}>
+          <g className="cuerpo">
+            <Dibujo />
+          </g>
         </g>
       </g>
     </g>
@@ -356,7 +586,7 @@ function Huevo({ progreso }) {
   )
 }
 
-function Escena({ animales, progresoProximo }) {
+function Escena({ animales, progresoProximo, saltando, onTocar }) {
   const zoom = useAngosta() ? 1.4 : 1
   // Se dibujan de atrás para adelante: el que está más abajo tapa al de atrás.
   const visibles = animales.slice(-MAXIMO_EN_PANTALLA)
@@ -364,8 +594,9 @@ function Escena({ animales, progresoProximo }) {
     .sort((x, y) => lugarDe(x.id).y - lugarDe(y.id).y)
 
   return (
-    <svg className="granja-escena" viewBox="0 0 400 220" role="img"
+    <svg className="granja-escena" viewBox="0 0 400 220" role="group"
          aria-label={`Tu granja: ${animales.length} ${animales.length === 1 ? 'animal' : 'animales'}`}>
+      <style>{MOVIMIENTOS}</style>
       <defs>
         <linearGradient id="granja-cielo" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--cielo-arriba)' }} />
@@ -418,7 +649,9 @@ function Escena({ animales, progresoProximo }) {
         ))}
       </g>
 
-      {visibles.map((a) => <Animal key={a.id} a={a} zoom={zoom} />)}
+      {visibles.map((a) => (
+        <Animal key={a.id} a={a} zoom={zoom} saltando={saltando === a.id} onTocar={onTocar} />
+      ))}
 
       <Huevo progreso={progresoProximo} />
     </svg>
@@ -427,10 +660,75 @@ function Escena({ animales, progresoProximo }) {
 
 /* ============================================================ la pantalla */
 
-export default function Granja({ granja }) {
-  if (!granja) return null
-  const { animales, proximo, total } = granja
-  const escondidos = Math.max(total - MAXIMO_EN_PANTALLA, 0)
+/**
+ * Pide un nombre nuevo y lo guarda. Vacío vuelve al que le había tocado.
+ * Devuelve el progreso nuevo, o null si se arrepintió.
+ */
+async function renombrar(a, pedirTexto) {
+  const texto = await pedirTexto({
+    titulo: `¿Cómo se llama ${a.nombre === a.nombreOriginal ? 'tu ' + a.etapaNombre : a.nombre}?`,
+    detalle: a.nombre === a.nombreOriginal
+      ? `Ahora se llama ${a.nombre}. Ponele el que quieras.`
+      : `Si lo dejás vacío vuelve a llamarse ${a.nombreOriginal}.`,
+    valor: a.nombre,
+    placeholder: a.nombreOriginal,
+    aceptar: 'Guardar',
+  })
+  if (texto == null) return null
+  return api(`/granja/${a.id}`, { method: 'PATCH', body: JSON.stringify({ nombre: texto }) })
+}
+
+export default function Granja({ progreso, onCambio, onError }) {
+  const { pedirTexto } = useDialogos()
+  const corral = useRef(null)
+  const [saltando, setSaltando] = useState(null)
+  const [globo, setGlobo] = useState(null)
+
+  // El globito se va solo a los cinco segundos.
+  useEffect(() => {
+    if (!globo) return
+    const t = setTimeout(() => setGlobo(null), 5000)
+    return () => clearTimeout(t)
+  }, [globo])
+
+  useEffect(() => {
+    if (saltando == null) return
+    const t = setTimeout(() => setSaltando(null), 700)
+    return () => clearTimeout(t)
+  }, [saltando])
+
+  if (!progreso || !progreso.granja) return null
+  const { animales, proximo, total } = progreso.granja
+  const { racha, mejorRacha, rachaHoy } = progreso
+
+  /*
+   * Tocar un animal: salta, y arriba aparece un globito con su nombre y un
+   * corazón. El globito es HTML encima del dibujo y no parte del SVG: el
+   * animal se espeja al darse vuelta, y un texto adentro se leería al revés.
+   */
+  function tocar(a, elemento) {
+    setSaltando(a.id)
+    const caja = corral.current.getBoundingClientRect()
+    const r = elemento.getBoundingClientRect()
+    setGlobo({
+      id: a.id,
+      x: Math.min(Math.max(r.left + r.width / 2 - caja.left, 70), caja.width - 70),
+      y: Math.max(r.top - caja.top + r.height * 0.25, 30),
+      clave: Date.now(),
+    })
+  }
+
+  async function cambiarNombre(a) {
+    setGlobo(null)
+    try {
+      const nuevo = await renombrar(a, pedirTexto)
+      if (nuevo) onCambio(nuevo)
+    } catch (err) {
+      onError(err.message)
+    }
+  }
+
+  const delGlobo = globo && animales.find((a) => a.id === globo.id)
 
   return (
     <section className="card granja-card">
@@ -441,30 +739,73 @@ export default function Granja({ granja }) {
         </span>
       </div>
 
-      <Escena animales={animales} progresoProximo={proximo.progreso} />
+      <div className="granja-grilla">
+        <div className="granja-corral" ref={corral}>
+          <Escena
+            animales={animales}
+            progresoProximo={proximo.progreso}
+            saltando={saltando}
+            onTocar={tocar}
+          />
+          {delGlobo && (
+            <div className="granja-globo" key={globo.clave} style={{ left: globo.x, top: globo.y }}>
+              <span className="granja-corazon" aria-hidden="true">❤</span>
+              <strong>{delGlobo.nombre}</strong>
+              <span className="granja-globo-meta">{delGlobo.etapaNombre}</span>
+              <button type="button" className="link" onClick={() => cambiarNombre(delGlobo)}>
+                Cambiar nombre
+              </button>
+            </div>
+          )}
+          {total > 0 && <p className="granja-pista">Tocá un animal para saludarlo.</p>}
+        </div>
 
-      <div className="granja-proximo">
-        <span className="granja-proximo-ico" aria-hidden="true">🥚</span>
-        <div className="granja-proximo-txt">
-          <div className="granja-proximo-titulo">
-            {proximo.nace
-              ? `Está por nacer un ${proximo.etapaNombre}`
-              : `Viene un ${proximo.etapaNombre}`}
+        <div className="granja-lado">
+          <div className="granja-proximo">
+            <span className="granja-proximo-ico" aria-hidden="true">🥚</span>
+            <div className="granja-proximo-txt">
+              <div className="granja-proximo-titulo">
+                {proximo.nace
+                  ? `Está por nacer un ${proximo.etapaNombre}`
+                  : `Viene un ${proximo.etapaNombre}`}
+              </div>
+              <div className="arbol-barra" role="img"
+                   aria-label={`Vas ${Math.round(proximo.progreso)}% hacia el próximo animal`}>
+                <div style={{ width: `${proximo.progreso}%` }} />
+              </div>
+              <div className="arbol-falta">faltan {proximo.faltan} puntos</div>
+            </div>
           </div>
-          <div className="arbol-barra" role="img"
-               aria-label={`Vas ${Math.round(proximo.progreso)}% hacia el próximo animal`}>
-            <div style={{ width: `${proximo.progreso}%` }} />
+
+          <div className={`racha ${racha === 0 ? 'apagada' : ''}`}>
+            🔥 {racha === 0
+              ? 'Sin racha — anotá algo hoy'
+              : `${racha} ${racha === 1 ? 'día' : 'días'} seguidos`}
           </div>
-          <div className="arbol-falta">
-            faltan {proximo.faltan} puntos
-          </div>
+          {mejorRacha > racha && (
+            <p className="hint">Tu mejor racha fue de {mejorRacha} días</p>
+          )}
+          {racha > 0 && !rachaHoy && (
+            <p className="hint">Todavía no anotaste nada hoy. No la cortes.</p>
+          )}
+
+          {/* Lo que antes era una tarjeta aparte al final de la pantalla:
+              acá llena el costado, que si no queda corto al lado del corral. */}
+          <p className="granja-como">
+            Anotar suma poco y tiene tope por día. Lo que de verdad trae
+            animales es <strong>gastar mejor</strong>: cerrar el mes en verde,
+            no pasarte de los presupuestos, juntar para una meta e invertir.
+          </p>
         </div>
       </div>
 
+      {/* La lista va abajo y a lo ancho, en columnas. Al costado del corral
+          era mucho más alta que el dibujo y dejaba un hueco blanco enorme. */}
       {total === 0 ? (
         <p className="hint granja-vacia">
-          Todavía no llegó nadie. Con los mismos puntos que hacen crecer el
-          árbol van llegando animales, y cada uno crece mientras seguís sumando.
+          Todavía no llegó nadie. Con cada cosa que anotás, cada mes que
+          cerrás en verde y cada meta que cumplís van llegando animales, y
+          cada uno crece mientras seguís sumando.
         </p>
       ) : (
         <div className="granja-lista">
@@ -472,7 +813,14 @@ export default function Granja({ granja }) {
             <div className="granja-bicho" key={a.id}>
               <span className="granja-bicho-ico" aria-hidden="true">{a.emoji}</span>
               <span className="granja-bicho-txt">
-                <span className="granja-bicho-nombre">{a.nombre}</span>
+                <button
+                  type="button"
+                  className="granja-bicho-nombre"
+                  onClick={() => cambiarNombre(a)}
+                  aria-label={`Cambiarle el nombre a ${a.nombre}`}
+                >
+                  {a.nombre} <span className="granja-lapiz" aria-hidden="true">✎</span>
+                </button>
                 <span className="granja-bicho-meta">
                   {a.etapa === 2
                     ? a.etapaNombre
@@ -488,7 +836,7 @@ export default function Granja({ granja }) {
           ))}
           {total > 12 && (
             <p className="hint">
-              Y {total - 12} más{escondidos > 0 ? ' (en el corral se ven los últimos 14)' : ''}.
+              Y {total - 12} más{total > MAXIMO_EN_PANTALLA ? ' (en el corral se ven los últimos 14)' : ''}.
             </p>
           )}
         </div>

@@ -357,9 +357,8 @@ function comoVaElMes(userId) {
 function novedades(premio) {
   if (!premio) return '';
   var partes = [];
-  if (premio.subioDeEtapa && premio.etapa) {
-    partes.push('🌱 ¡Tu árbol creció! Ahora es ' + premio.etapa.nombre + ' ' + premio.etapa.emoji);
-  }
+  // El árbol ya no se muestra (quedó solo la granja), así que tampoco se
+  // avisa que creció: sería hablar de algo que la persona no puede ver.
   if (premio.racha && premio.racha > 1 && premio.racha % 5 === 0) {
     partes.push('🔥 Racha de ' + premio.racha + ' días seguidos');
   }
@@ -570,21 +569,28 @@ function start(config) {
     bot.sendMessage(msg.chat.id, '📅 Se viene\n\n' + lines.join('\n') + '\n\nTotal: ' + money(total));
   });
 
-  bot.onText(/^\/(arbol|árbol|progreso|nivel)/, function (msg) {
+  // /arbol sigue andando aunque el árbol ya no se muestre: es el comando que
+  // la gente tiene en la memoria, y ahora contesta con la granja.
+  bot.onText(/^\/(granja|arbol|árbol|progreso|nivel)/, function (msg) {
     var user = quienEs(msg);
     if (!user) return;
 
     var p = arbol.progreso(user.id);
-    var llenos = Math.round(p.etapa.progreso / 10);
+    var g = p.granja;
+    var px = g.proximo;
+    var llenos = Math.round(px.progreso / 10);
     var barra = '█'.repeat(llenos) + '░'.repeat(10 - llenos);
 
-    var texto = p.etapa.emoji + '  Tu árbol: ' + p.etapa.nombre + '\n' +
-      p.etapa.dice + '\n\n' +
-      barra + '  ' + Math.round(p.etapa.progreso) + '%\n' +
-      p.xp + ' puntos' +
-      (p.etapa.siguiente
-        ? '  ·  faltan ' + (p.etapa.siguiente.desde - p.xp) + ' para ' + p.etapa.siguiente.nombre
-        : '  ·  ¡nivel máximo!');
+    var texto = '🏡 Tu granja: ' + (g.total === 0
+      ? 'todavía no llegó nadie'
+      : g.total + (g.total === 1 ? ' animal' : ' animales')) + '\n';
+    if (g.total) {
+      texto += '\n' + g.animales.slice(-8).reverse().map(function (a) {
+        return '   ' + a.emoji + ' ' + a.nombre + ' (' + a.etapaNombre + ')';
+      }).join('\n') + (g.total > 8 ? '\n   …y ' + (g.total - 8) + ' más' : '') + '\n';
+    }
+    texto += '\n🥚 ' + (px.nace ? 'Está por nacer' : 'Viene') + ' un ' + px.etapaNombre + '\n' +
+      barra + '  faltan ' + px.faltan + ' puntos';
 
     if (p.racha > 0) {
       texto += '\n\n🔥 Racha de ' + p.racha + (p.racha === 1 ? ' día' : ' días');

@@ -101,7 +101,7 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `parsers.js` | Importar resúmenes CSV / Excel / PDF |
 | `prices.js` | Cripto (CoinMarketCap) y dólar (dolarapi, sin clave) |
 | `mercado-arg.js` | Acciones, CEDEARs, bonos, letras y ONs en vivo (data912, sin clave) |
-| `arbol.js` | Gamificación: XP, 8 etapas, racha, 11 logros |
+| `arbol.js` | Gamificación: XP, racha, 11 logros y los nombres de los animales |
 | `granja.js` | La granja: qué animales hay y cómo crecen, sacado de la XP. Sin tope |
 | `alertas.js` | Avisos diarios por Telegram (10 hs, configurable con `HORA_AVISO`) |
 | `alertas-pantalla.js` | Los mismos avisos pero de solo lectura, para `/api/alertas` |
@@ -124,7 +124,6 @@ SQLite (`better-sqlite3`), un archivo, todo separado por `user_id`.
 | `Inversiones.jsx` | Pantalla: la cartera a precio de mercado |
 | `Ayuda.jsx` | El tutorial paso a paso de cada sección |
 | `Telegram.jsx` | El asistente para conectar el bot, paso a paso |
-| `Arbol.jsx` | Dibuja el árbol en SVG |
 | `Granja.jsx` | Dibuja la granja en SVG; las animaciones están en `granja.css` |
 | `Login.jsx` `Setup.jsx` | Entrada y primer arranque |
 
@@ -135,7 +134,8 @@ Estilos: `index.css` (tokens + base), `shell.css` (armazón, modales),
 
 `users`, `sessions`, `transactions`, `transaction_items`, `subscriptions`,
 `budgets`, `goals`, `portfolio_assets`, `user_stats`, `achievements`,
-`alerts_sent`, `learned_categories`, `cards`, `card_payments`, `accounts`.
+`alerts_sent`, `learned_categories`, `cards`, `card_payments`, `accounts`,
+`animal_names`.
 
 ---
 
@@ -836,10 +836,19 @@ pantalla. Emanuel lo pidió explícitamente más de una vez.
 
 ## La granja
 
-**El árbol tiene tope y la granja no.** En 9.000 puntos el árbol llega a
-«Mangal» y ahí se queda: la experiencia sigue sumando pero ya no hay nada
-nuevo que ver. Emanuel: «habría que poner algo más que el arbolito porque
-llega a un tope». La granja va abajo del árbol, en la misma pantalla.
+**El árbol tenía tope y la granja no.** En 9.000 puntos el árbol llegaba a
+«Mangal» y ahí se quedaba: la experiencia seguía sumando pero ya no había
+nada nuevo que ver. Emanuel: «habría que poner algo más que el arbolito
+porque llega a un tope». Primero la granja fue abajo del árbol; después
+pidió **sacar el árbol y dejar solo la granja**, y así quedó.
+
+**El árbol ya no se ve en ningún lado**, pero el id de la sección sigue
+siendo `arbol` (las guías, la navegación y `refrescar()` lo usan) y en el
+menú dice «Granja». `/arbol` en Telegram también sigue andando, porque es el
+comando que la gente tiene en la memoria, y contesta con la granja (igual
+que el nuevo `/granja`). Las etapas del árbol (`ETAPAS`) siguen en
+`arbol.js` porque las pruebas las usan para ubicar al caballo, pero ya no se
+le avisa a nadie que «el árbol creció»: sería hablar de algo que no ve.
 
 - Van **llegando animales** con los mismos puntos: gallina (200), conejo,
   chancho, oveja, pato, vaca y caballo, que llega justo en 9.000, junto con
@@ -851,10 +860,13 @@ llega a un tope». La granja va abajo del árbol, en la misma pantalla.
   puntos**, rotando, **para siempre**. La prueba `la granja no tiene tope`
   existe para que nadie se la ponga sin querer.
 - Cada animal tiene **nombre** (Pocha, Chiche, Toto…), y es siempre el mismo:
-  sale del orden en que llegó.
+  sale del orden en que llegó. **Se puede cambiar** tocando el nombre en la
+  lista o el animal en el corral (`PATCH /granja/:id`). Vacío vuelve al que
+  le tocó.
 
-**No se guarda nada: la granja es una función de la XP**, como la etapa del
-árbol. Mismos puntos, misma granja. Es la regla del saldo que no se guarda,
+**No se guarda nada más que los nombres elegidos: la granja es una función
+de la XP.** Mismos puntos, misma granja. Los nombres van en `animal_names`,
+y solo lo que la persona eligió: sin fila, el animal usa el que le tocó. Es la regla del saldo que no se guarda,
 y además hace que quien ya venía juntando puntos encuentre su granja con lo
 que se ganó en vez de arrancar de cero.
 
@@ -867,39 +879,83 @@ tanto cuando más seguido llega un animal. Sin ese último, llegaba callado.
 
 ### Cómo se mueven
 
-Cada animal son tres grupos anidados y no es capricho: `translate scale`
-(atributo) para dónde está y qué tan grande es, `.animal` (CSS) para
-caminar y darse vuelta, `.rebote` (CSS) para respirar o saltar. Una animación
-CSS con `transform` le gana al atributo `transform` del mismo elemento.
+**La primera versión era «dura», y tenía números.** Emanuel: «los veo
+estáticos, no se mueven, están duros». Cada animal caminaba entre 22 y 52
+unidades en unos siete segundos, o sea **unos 5 píxeles por segundo en el
+celular**: se movía, pero no se notaba. Y el cuerpo no acompañaba, solo
+giraban las patas. Ahora caminan 22 px/s de promedio en la compu y 8–12 en
+el celular, contando las paradas.
 
-Patas, cabeza y caminata usan **la misma duración y el mismo retardo**
-(`--t` y `--retardo`, que heredan los hijos). Así mueve las patas solo
-mientras avanza y baja la cabeza a comer cuando se para. La gallina picotea,
-el caballo pasta con el cuello entero, el conejo salta en vez de caminar.
+La lección: **«se mueve» no se verifica con una captura**, se mide. La prueba
+de Playwright compara dónde está cada animal cada medio segundo y saca
+píxeles por segundo; con dos capturas quietas todo «se mueve».
+
+Cada animal son cuatro grupos anidados, y no es capricho: `translate scale`
+(atributo) para dónde vive y qué tan grande es, `.animal` para el recorrido,
+`.toque` para el salto cuando lo tocás, `.cuerpo` para el rebote, el
+bamboleo y los saltitos. Una animación CSS con `transform` le gana al
+atributo `transform` del mismo elemento.
+
+**Los recorridos los arma `Granja.jsx`, no el CSS.** Cada animal sigue una
+de tres rutinas (`RUTAS`): camina hasta un punto, se para a comer, camina en
+diagonal, mira alrededor, pega un saltito, vuelve. `animacionesDe()` saca de
+esa MISMA lista el recorrido, las patas, el cuerpo y la cabeza, y los mete
+en un `<style>`. Escritos a mano en el CSS eran cuatro listas de porcentajes
+que había que mantener alineadas: garantía de que patas y recorrido se
+desfasen. Así mueve las patas solo mientras avanza, rebota con cada paso y
+baja la cabeza solo cuando está parado. La gallina picotea, el caballo pasta
+con el cuello entero, el conejo salta en vez de caminar.
+
+Todo eso usa **la misma duración y el mismo retardo** (`--t` y `--retardo`,
+que heredan los hijos). El recorrido se mide en el corral pero el grupo está
+escalado, así que `--dx` y `--dy` se dividen por la escala: si no, una cría
+caminaría la mitad que un caballo.
 
 Las crías tienen **la cabeza más grande** en proporción: un animal grande
 visto de lejos no parece una cría. Va con la propiedad `scale` y no con
-`transform`, porque `transform` ya lo usa la animación de comer.
+`transform`, porque la cabeza ya la anima `rotate`.
 
-Lo que me mordió dibujándola:
+**Tocar un animal** lo hace saltar y abre un globito con su nombre, un
+corazón y «Cambiar nombre». El globito es HTML encima del dibujo y no parte
+del SVG: el animal se espeja al darse vuelta y un texto adentro se leería al
+revés. Cada animal tiene un rectángulo invisible para que sea fácil de
+tocar con el dedo.
+
+**En la compu el corral va a la izquierda y el resto al costado; la lista,
+abajo y en columnas.** A todo el ancho, el dibujo medía 850 píxeles de alto,
+era casi todo cielo y los animales quedaban fuera de la pantalla. Y con la
+lista al costado, la lista era mucho más alta que el corral y dejaba un
+hueco blanco enorme debajo del dibujo.
+
+Lo que me mordió:
 
 - **`transform-box: fill-box` va SOLO en las piezas que se animan, nunca en
   `.animal *`.** Con el comodín, el `rotate(28 26 -43.5)` fijo de la cabeza
   del caballo pasó a girar sobre su propia caja y la cabeza quedó flotando
   arriba del cuello.
-- **La sombra va adentro de `.animal` y afuera de `.rebote`**: camina con el
+- **La sombra va adentro de `.animal` y afuera de `.cuerpo`**: camina con el
   animal pero no salta con él. Afuera de los dos quedaba en el pasto sin
   nadie encima.
 - **En el celular los animales van 1,4 veces más grandes** (`useAngosta()`).
-  El corral entero mide menos de 300 píxeles y una gallina quedaba de 25: se
-  movía, pero no se veía que se moviera. El paisaje no se agranda.
-- **Dónde para cada uno sale del número de animal**, con saltos de «número de
-  oro» para que caigan lo más lejos posible entre sí. Al azar, la granja se
-  reordenaría cada vez que entrás; con saltos fijos dos conejos quedaban en
-  la misma fila y se chocaban.
-- **«Reducir movimiento» la deja quieta del todo.** La regla general de
-  `index.css` achica la duración a 0,01 ms pero deja las repeticiones
-  infinitas: en una caminata eso es un parpadeo frenético.
+  El corral entero mide menos de 300 píxeles y una gallina quedaba de 25. El
+  paisaje no se agranda.
+- **Dónde vive cada uno sale del número de animal**, con saltos de «número de
+  oro» para el CENTRO de su zona, y el paseo va a los dos lados de ese
+  centro. Al azar, la granja se reordenaría cada vez que entrás. Cuando el
+  lugar era el borde izquierdo y el paseo iba solo a la derecha, se
+  amontonaban todos a la izquierda.
+- **«Reducir movimiento» no la deja quieta: la deja tranquila.** La primera
+  versión la apagaba del todo, y esa opción la prende Windows cuando apagás
+  los «efectos de animación» — mucha gente la tiene sin saberlo. Ahora se
+  apagan los saltos y el bamboleo (`--salto` y `--bamboleo` en 0) y camina
+  más despacio.
+- **`shell.css` tiene `* { animation: none !important }` para reducir
+  movimiento**, e `index.css` otra que pone las duraciones en 0,01 ms. El
+  atajo `animation: none` resetea TODO, nombre incluido, así que cambiar
+  solo la duración no alcanzaba: los animales seguían quietos y la medición
+  decía 0 px/s. Hay que volver a declarar nombre, repeticiones y retardo con
+  `!important`; los nombres de los recorridos los vuelve a poner el
+  `<style>` que arma `Granja.jsx`.
 
 De día hay sol y nubes; de noche, luna y estrellas. Las dos cosas están
 siempre en el dibujo y el tema decide cuál se ve con `--nubes` y
@@ -1004,7 +1060,7 @@ Queda:
 ## Las pruebas
 
 ```bash
-npm test                     # las 46, tardan 3 segundos
+npm test                     # las 53, tardan 3 segundos
 node --test "test/dinero.test.js"
 ```
 
